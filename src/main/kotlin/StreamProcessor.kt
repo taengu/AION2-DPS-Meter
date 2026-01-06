@@ -12,7 +12,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // 매직패킷 단일로 올때 무시
         if (packet.size <= 3) return
         val packetLengthInfo = readVarInt(packet)
-        if (packet.size == packetLengthInfo.value ) {
+        if (packet.size == packetLengthInfo.value) {
             parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))
             //더이상 자를필요가 없는 최종 패킷뭉치
             return
@@ -38,10 +38,68 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsePerfectPacket(packet: ByteArray) {
         parsingDamage(packet)
         parsingNickname(packet)
+        parseSummonPacket(packet)
 
     }
 
-    private fun parsingNickname(packet: ByteArray){
+    private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
+        if (pattern.isEmpty()) return 0
+
+        val p = ByteArray(pattern.size) { pattern[it].toByte() }
+
+        val lps = IntArray(p.size)
+        var len = 0
+        for (i in 1 until p.size) {
+            while (len > 0 && p[i] != p[len]) len = lps[len - 1]
+            if (p[i] == p[len]) len++
+            lps[i] = len
+        }
+
+        var i = 0
+        var j = 0
+        while (i < data.size) {
+            if (data[i] == p[j]) {
+                i++; j++
+                if (j == p.size) return i - j
+            } else if (j > 0) {
+                j = lps[j - 1]
+            } else {
+                i++
+            }
+        }
+        return -1
+    }
+
+    private fun parseSummonPacket(packet: ByteArray) {
+        var offset = 0
+        val packetLengthInfo = readVarInt(packet)
+        offset += packetLengthInfo.length
+
+
+        if (packet[offset] != 0x40.toByte()) return
+        if (packet[offset + 1] != 0x36.toByte()) return
+        offset += 2
+
+        val summonInfo = readVarInt(packet, offset)
+        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+        if (keyIdx == -1) return
+        val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+
+        val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+        if (opcodeIdx == -1) return
+        offset = keyIdx + opcodeIdx + 11
+
+        if (offset + 2 > packet.size) return
+        val realActorId = parseUInt16le(packet, offset)
+        println("소환수: ${summonInfo.value} 주인: $realActorId")
+
+    }
+
+    private fun parseUInt16le(packet: ByteArray, offset: Int = 0): Int {
+        return (packet[offset].toInt() and 0xff) or ((packet[offset + 1].toInt() and 0xff) shl 8)
+    }
+
+    private fun parsingNickname(packet: ByteArray) {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
         offset += packetLengthInfo.length
@@ -49,12 +107,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         //좀더 검증필요 대부분이 0x20,0x23 정도였음
 
         if (packet[offset] != 0x04.toByte()) return
-        if (packet[offset+1] != 0x8d.toByte()) return
+        if (packet[offset + 1] != 0x8d.toByte()) return
         offset = 10
 
         if (offset >= packet.size) return
 
-        val playerInfo = readVarInt(packet,offset)
+        val playerInfo = readVarInt(packet, offset)
         if (playerInfo.length <= 0) return
         offset += playerInfo.length
 
@@ -64,9 +122,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (nicknameLength < 0 || nicknameLength > 72) return
         if (nicknameLength + offset > packet.size) return
 
-        val np = packet.copyOfRange(offset+1,offset+nicknameLength+1)
-        
-        dataStorage.appendNickname(playerInfo.value,String(np,Charsets.UTF_8))
+        val np = packet.copyOfRange(offset + 1, offset + nicknameLength + 1)
+
+        dataStorage.appendNickname(playerInfo.value, String(np, Charsets.UTF_8))
 
 
     }
@@ -82,27 +140,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet[offset] != 0x04.toByte()) return
         if (packet[offset + 1] != 0x38.toByte()) return
         offset += 2
-        if (offset>=packet.size) return
-
+        if (offset >= packet.size) return
         val targetInfo = readVarInt(packet, offset)
         pdp.setTargetId(targetInfo)
         offset += targetInfo.length //타겟
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val switchInfo = readVarInt(packet, offset)
         pdp.setSwitchVariable(switchInfo)
         offset += switchInfo.length //점프용
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val flagInfo = readVarInt(packet, offset)
         pdp.setFlag(flagInfo)
         offset += flagInfo.length //플래그
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val actorInfo = readVarInt(packet, offset)
         pdp.setActorId(actorInfo)
         offset += actorInfo.length
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         if (offset + 5 >= packet.size) return
 
@@ -119,7 +176,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val typeInfo = readVarInt(packet, offset)
         pdp.setType(typeInfo)
         offset += typeInfo.length
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val andResult = switchInfo.value and mask
         offset += when (andResult) {
@@ -135,28 +192,32 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val unknownInfo = readVarInt(packet, offset)
         pdp.setUnknown(unknownInfo)
         offset += unknownInfo.length
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val damageInfo = readVarInt(packet, offset)
         pdp.setDamage(damageInfo)
         offset += damageInfo.length
-        if (offset>=packet.size) return
+        if (offset >= packet.size) return
 
         val loopInfo = readVarInt(packet, offset)
         pdp.setLoop(loopInfo)
         offset += loopInfo.length
-        if (offset>=packet.size) return
 
-        for (i in 0 until loopInfo.length) {
-            var skipValueInfo = readVarInt(packet, offset)
-            pdp.addSkipData(skipValueInfo)
-            offset += skipValueInfo.length
-            if (offset>=packet.size) return
+        if (loopInfo.value != 0 && offset >= packet.size) return
+
+        if (loopInfo.value != 0) {
+            for (i in 0 until loopInfo.length) {
+                var skipValueInfo = readVarInt(packet, offset)
+                pdp.addSkipData(skipValueInfo)
+                offset += skipValueInfo.length
+            }
         }
 
-//        println("피격자: ${pdp.getTargetId()} 공격자: ${pdp.getActorId()} 스위치용변수: ${pdp.getSwitchVariable()} 스킬: ${pdp.getSkillCode1()} 스킬2: ${pdp.getSkillCode2()}" +
-//                " 플래그: ${pdp.getFlag()} 타입: ${pdp.getType()}" +
-//                " unknown : ${pdp.getUnknown()} 데미지: ${pdp.getDamage()} loop: ${pdp.getLoop()}")
+//        println(
+//            "피격자: ${pdp.getTargetId()} 공격자: ${pdp.getActorId()} 스위치용변수: ${pdp.getSwitchVariable()} 스킬: ${pdp.getSkillCode1()} 스킬2: ${pdp.getSkillCode2()}" +
+//                    " 플래그: ${pdp.getFlag()} 타입: ${pdp.getType()}" +
+//                    " unknown : ${pdp.getUnknown()} 데미지: ${pdp.getDamage()} loop: ${pdp.getLoop()}"
+//        )
 
         dataStorage.appendDamage(pdp)
 

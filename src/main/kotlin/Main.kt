@@ -33,9 +33,9 @@ fun main() = runBlocking {
     val assembler = StreamAssembler(processor)
     val capturer = PcapCapturer(config, channel)
 
-    Runtime.getRuntime().addShutdownHook(Thread {
-        dataStorage.printDamageByActor()
-    })
+//    Runtime.getRuntime().addShutdownHook(Thread {
+//        dataStorage.printDamageByTarget()
+//    })
 
     launch(Dispatchers.Default) {
         for (chunk in channel) {

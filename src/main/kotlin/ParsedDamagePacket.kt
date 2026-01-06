@@ -1,7 +1,6 @@
 package com.tbread
 
 import java.util.UUID
-import kotlin.uuid.Uuid
 
 class ParsedDamagePacket {
         private var actorId = 0
