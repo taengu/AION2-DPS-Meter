@@ -1,6 +1,6 @@
 package com.tbread
 
-import java.util.UUID
+import com.tbread.entity.ParsedDamagePacket
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
 
@@ -44,7 +44,7 @@ class DataStorage {
             val nickname = nicknameStorage[actorId] ?: actorId
             println("공격자: $nickname")
             actorSet.forEach { p ->
-                val targetMap = HashMap<Int,ParsedDamagePacket>()
+                val targetMap = HashMap<Int, ParsedDamagePacket>()
                 println("피격자: ${p.getTargetId()}, 스킬: ${p.getSkillCode1()},${p.getSkillCode2()}, 데미지: ${p.getDamage()}")
             }
             val time =

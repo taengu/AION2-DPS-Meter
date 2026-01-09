@@ -1,4 +1,4 @@
-package com.tbread
+package com.tbread.packet
 
 import com.tbread.config.PcapCapturerConfig
 import kotlinx.coroutines.channels.Channel
@@ -8,7 +8,6 @@ import org.pcap4j.core.PcapNativeException;
 import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.Pcaps
 import org.pcap4j.packet.TcpPacket
-import org.pcap4j.util.ByteArrays
 import java.net.DatagramSocket
 import java.net.InetAddress
 import kotlin.system.exitProcess

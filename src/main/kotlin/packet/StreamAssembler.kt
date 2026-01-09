@@ -1,6 +1,4 @@
-package com.tbread
-
-import java.io.IOException
+package com.tbread.packet
 
 class StreamAssembler(private val processor: StreamProcessor) {
 

@@ -1,8 +1,6 @@
 package com.tbread.config
 
-import com.tbread.PropertyHandler
-import java.util.*
-import kotlin.system.exitProcess
+import com.tbread.packet.PropertyHandler
 
 data class PcapCapturerConfig(
     val serverIp: String,

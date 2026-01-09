@@ -1,6 +1,7 @@
-package com.tbread
+package com.tbread.packet
 
-import java.util.*
+import com.tbread.DataStorage
+import com.tbread.entity.ParsedDamagePacket
 
 class StreamProcessor(private val dataStorage: DataStorage) {
 

@@ -1,5 +1,6 @@
-package com.tbread
+package com.tbread.entity
 
+import com.tbread.packet.StreamProcessor
 import java.util.UUID
 
 class ParsedDamagePacket {
@@ -17,37 +18,37 @@ class ParsedDamagePacket {
         private val timestamp = System.currentTimeMillis()
         private val id = UUID.randomUUID()
 
-        fun setActorId(actorInfo:StreamProcessor.VarIntOutput){
+        fun setActorId(actorInfo: StreamProcessor.VarIntOutput){
                 this.actorId = actorInfo.value
         }
-        fun setTargetId(targetInfo:StreamProcessor.VarIntOutput){
+        fun setTargetId(targetInfo: StreamProcessor.VarIntOutput){
                 this.targetId = targetInfo.value
         }
-        fun setFlag(flagInfo:StreamProcessor.VarIntOutput){
+        fun setFlag(flagInfo: StreamProcessor.VarIntOutput){
                 this.flag = flagInfo.value
         }
-        fun setDamage(damageInfo:StreamProcessor.VarIntOutput){
+        fun setDamage(damageInfo: StreamProcessor.VarIntOutput){
                 this.damage = damageInfo.value
         }
-        fun setSkillCode(skillCodeInfo:StreamProcessor.VarIntOutput){
+        fun setSkillCode(skillCodeInfo: StreamProcessor.VarIntOutput){
                 this.skillCode = skillCodeInfo.value
         }
-        fun setSkillCode2(skillCode2Info:StreamProcessor.VarIntOutput){
+        fun setSkillCode2(skillCode2Info: StreamProcessor.VarIntOutput){
                 this.skillCode2 = skillCode2Info.value
         }
-        fun setUnknown(unknownInfo:StreamProcessor.VarIntOutput){
+        fun setUnknown(unknownInfo: StreamProcessor.VarIntOutput){
                 this.unknown = unknownInfo.value
         }
-        fun setSwitchVariable(switchVariableInfo:StreamProcessor.VarIntOutput){
+        fun setSwitchVariable(switchVariableInfo: StreamProcessor.VarIntOutput){
                 this.switchVariable = switchVariableInfo.value
         }
-        fun setLoop(loopInfo:StreamProcessor.VarIntOutput){
+        fun setLoop(loopInfo: StreamProcessor.VarIntOutput){
                 this.loop = loopInfo.value
         }
-        fun addSkipData(skipValueInfo:StreamProcessor.VarIntOutput){
+        fun addSkipData(skipValueInfo: StreamProcessor.VarIntOutput){
                 this.skipValues.add(skipValueInfo.value)
         }
-        fun setType(typeInfo:StreamProcessor.VarIntOutput){
+        fun setType(typeInfo: StreamProcessor.VarIntOutput){
                 this.type = typeInfo.value
         }
 

@@ -1,17 +1,13 @@
-package com.tbread
+package com.tbread.webview
 
 import javafx.application.Application
 import javafx.concurrent.Worker
 import javafx.scene.Scene
-import javafx.scene.input.MouseEvent
-import javafx.scene.layout.Pane
-import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.web.WebView
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import netscape.javascript.JSObject
-import java.io.File
 
 class BrowserApp : Application() {
 
