@@ -28,7 +28,7 @@ class BrowserApp : Application() {
     override fun start(stage: Stage) {
             val webView = WebView()
             val engine = webView.engine
-            engine.load(File("index.html").toURI().toString())
+            engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 //
 //            webView.addEventFilter(MouseEvent.MOUSE_PRESSED) { e ->
 //                xOffset = e.sceneX
