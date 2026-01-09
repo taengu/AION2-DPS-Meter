@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    kotlin("plugin.serialization") version "2.0.0"
 
 }
 
@@ -48,6 +49,9 @@ dependencies {
     implementation("org.openjfx:javafx-swing:21.0.5:win")
     implementation("org.openjfx:javafx-web:21.0.5:win")
     implementation("org.openjfx:javafx-media:21.0.5:win")
+
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
 }
 
