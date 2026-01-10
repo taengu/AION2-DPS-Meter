@@ -48,7 +48,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return dpsData
         }
         pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
-            dpsData.map.merge(nicknameData[pdp.getActorId()]?:pdp.getActorId().toString(), pdp.getDamage(), Int::plus)
+            val nickname = nicknameData[pdp.getActorId()] ?: return@lastPdpLoop
+            dpsData.map.merge(nickname, pdp.getDamage(), Int::plus)
         }
         return dpsData
     }
