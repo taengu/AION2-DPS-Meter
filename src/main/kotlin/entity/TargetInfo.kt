@@ -17,7 +17,12 @@ data class TargetInfo(
         return damagedAmount
     }
 
+    fun targetId(): Int {
+        return targetId
+    }
+
     fun processPdp(pdp:ParsedDamagePacket){
+        if (processedUuid.contains(pdp.getUuid())) return
         damagedAmount += pdp.getDamage()
         targetDamageEnded = pdp.getTimeStamp()
         processedUuid.add(pdp.getUuid())
