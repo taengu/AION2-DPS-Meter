@@ -9,6 +9,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         ALL, BOSS_ONLY
     }
 
+    private val POSSIBLE_OFFSETS: IntArray =
+        intArrayOf(
+            10, 20, 30, 40, 50,
+            120, 130, 140, 150,
+            230, 240, 250,
+            340, 350,
+            450,
+            1230, 1240, 1250,
+            1340, 1350,
+            1450,
+            2340, 2350,
+            2450,
+            3450
+        )
+
+    private val SKILL_CODES: IntArray = intArrayOf()
+
     private val targetInfoMap = hashMapOf<Int, TargetInfo>()
 
     private var mode: Mode = Mode.BOSS_ONLY
@@ -46,11 +63,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return dpsData
         }
         pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
-            val nickname = nicknameData[pdp.getActorId()] ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]?:return@lastPdpLoop] ?: return@lastPdpLoop
+            val nickname = nicknameData[pdp.getActorId()] ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]
+                ?: return@lastPdpLoop] ?: return@lastPdpLoop
             dpsData.map.merge(nickname, pdp.getDamage().toDouble(), Double::plus)
         }
-        dpsData.map.forEach { (name,damage) ->
-            dpsData.map[name] = damage/battleTime * 1000
+        dpsData.map.forEach { (name, damage) ->
+            dpsData.map[name] = damage / battleTime * 1000
         }
         return dpsData
     }
@@ -61,5 +79,16 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         //데미지 누계말고도 건수누적방식도 추가하는게 좋을지도? 지금방식은 정복같은데선 타겟변경에 너무 오랜시간이듬
         return target
     }
+
+    private fun inferOriginalSkillCode(skillCode: Int): Int? {
+        for (offset in POSSIBLE_OFFSETS) {
+            val possibleOrigin = skillCode - offset
+            if (SKILL_CODES.binarySearch(possibleOrigin) >= 0) {
+                return possibleOrigin
+            }
+        }
+        return null
+    }
+
 
 }
