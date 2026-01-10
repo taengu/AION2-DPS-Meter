@@ -41,6 +41,11 @@
       <div
         class="list"
         id="list"></div>
+      <div id="console" style="position: fixed; bottom: 0; left: 0; right: 0;
+                         background: rgba(0,0,0,0.8); color: lime;
+                         font-family: monospace; font-size: 12px;
+                         padding: 10px; max-height: 200px; overflow-y: auto; display: none">
+      </div>
     </div>
 
     <div
@@ -451,6 +456,35 @@
         isDragging = false;
       });
 
+      /*
+      타임라인 테스트
+      * */
+
+function callDebugWindow() {
+  if (!window.dpsData){
+    setTimeout(callDebugWindow, 100);
+    return;
+  }
+
+    const consoleDiv = document.getElementById('console');
+  if (window.dpsData.isDebuggingMode()) {
+    consoleDiv.style.display = 'block'
+    const originalLog = console.log;
+
+    console.log = function (...args) {
+      originalLog.apply(console, args);
+      consoleDiv.innerHTML += args.join(' ') + '<br>';
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+    console.log('콘솔 활성화됨');
+    setInterval(() => {
+      const data = window.dpsData.getDpsData();
+      console.log(data)
+    }, 500)
+  }
+}
+
+      callDebugWindow()
     </script>
   </body>
 </html>
