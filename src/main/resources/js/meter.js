@@ -68,7 +68,10 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow }) =>
   };
 
   const renderRows = (rows) => {
+    elList.classList.toggle("hasRows", rows.length > 0);
+    
     let topDps = 1;
+
     for (const row of rows) topDps = Math.max(topDps, Number(row?.dps) || 0);
 
     for (let i = 0; i < rowSlots.length; i++) {

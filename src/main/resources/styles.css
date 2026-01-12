@@ -79,6 +79,9 @@
     }
   }
 }
+.list:has(.item:not([style*="display: none"])) {
+  padding: 4px 12px 12px;
+}
 
 .list {
   display: grid;
@@ -92,12 +95,7 @@
     overflow: hidden;
     background: rgba(0, 0, 0, 0.3);
   }
-  .item:first-child {
-    margin-top: 4px;
-  }
-  .item:last-child {
-    margin-bottom: 12px;
-  }
+
   .item.isUser {
     cursor: pointer;
   }
