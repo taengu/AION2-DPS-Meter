@@ -11,29 +11,78 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     fun onPacketReceived(packet: ByteArray) {
         // 매직패킷 단일로 올때 무시
-        if (packet.size <= 3) return
         val packetLengthInfo = readVarInt(packet)
         if (packet.size == packetLengthInfo.value) {
             parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))
             //더이상 자를필요가 없는 최종 패킷뭉치
             return
         }
+        if (packet.size <= 3) return
+        if (packetLengthInfo.value > packet.size){
+            parseBrokenLengthPacket(packet)
+            //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
+            return
+        }
+        if (packetLengthInfo.value <= 2) {
+            onPacketReceived(packet.copyOfRange(1, packet.size))
+            return
+        }
 
         try {
-            if (packetLengthInfo.value <= 3) return
-            if (packetLengthInfo.value > packet.size) return
+            if (packet.copyOfRange(0, packetLengthInfo.value - 3).size != 3){
             parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3))
             //매직패킷이 빠져있는 패킷뭉치
+                }
 
             onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size))
             //남은패킷 재처리
         } catch (e: Exception) {
             println("${this::class.java.simpleName} : [경고] 패킷 소비자 에러")
+            println(toHex(packet))
             e.printStackTrace()
             return
             //구현부끝나면 로거넣고 빼기
         }
 
+    }
+
+    private fun parseBrokenLengthPacket(packet:ByteArray){
+        var originOffset = 0
+        while (originOffset < packet.size) {
+            val info = readVarInt(packet, originOffset)
+            if (info.length == -1) {
+                return
+            }
+            val innerOffset = originOffset + info.length
+
+            if (innerOffset + 6 >= packet.size) {
+                originOffset++
+                continue
+            }
+
+            if (packet[innerOffset + 3] == 0x01.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
+                val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
+                if (innerOffset + 6 + possibleNameLength <= packet.size) {
+                    val possibleNameBytes = packet.copyOfRange(innerOffset + 6, innerOffset + 6 + possibleNameLength)
+                    if (hasPossibilityNickname(String(possibleNameBytes, Charsets.UTF_8))) {
+                        dataStorage.appendNickname(info.value, String(possibleNameBytes, Charsets.UTF_8))
+                        originOffset++
+                        continue
+                    }
+                }
+            }
+            originOffset++
+        }
+    }
+
+    private fun hasPossibilityNickname(nickname: String): Boolean {
+        if (nickname.isEmpty()) return false
+        val regex = Regex("^[가-힣a-zA-Z0-9]+$")
+        if (!regex.matches(nickname)) return false
+        val onlyNumbers = Regex("^[0-9]+$")
+        if (onlyNumbers.matches(nickname)) return false
+        val oneAlphabet = Regex("^[A-Za-z]$")
+        return !oneAlphabet.matches(nickname)
     }
 
     private fun parsePerfectPacket(packet: ByteArray) {
@@ -142,6 +191,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         offset += packetLengthInfo.length
 
+        if (offset >= packet.size) return false
         if (packet[offset] != 0x04.toByte()) return false
         if (packet[offset + 1] != 0x38.toByte()) return false
         offset += 2
@@ -258,7 +308,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             shift += 7
-            if (shift >= 64) throw RuntimeException("VarInt too long")
+            if (shift >= 64) return VarIntOutput(-1,-1)
         }
     }
 }
