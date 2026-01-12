@@ -310,6 +310,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (true) {
             if (offset + count >= bytes.size) {
                 println("${this::class.java.simpleName} : [에러] 배열 범위 초과")
+                return VarIntOutput(-1,-1)
             }
 
             val byteVal = bytes[offset + count].toInt()
