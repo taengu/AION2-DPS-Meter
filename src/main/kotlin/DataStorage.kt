@@ -29,7 +29,7 @@ class DataStorage {
     }
 
     @Synchronized
-    private fun flushDamageStorage() {
+    fun flushDamageStorage() {
         byActorStorage.clear()
         byTargetStorage.clear()
     }

@@ -21,10 +21,14 @@ import kotlin.system.exitProcess
 
 class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
-    class JSBridge(private val stage: Stage) {
+    class JSBridge(private val stage: Stage,private val dpsCalculator: DpsCalculator) {
         fun moveWindow(x: Double, y: Double) {
             stage.x = x
             stage.y = y
+        }
+
+        fun resetDps(){
+            dpsCalculator.resetDataStorage()
         }
     }
 
@@ -42,7 +46,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         val engine = webView.engine
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 
-        val bridge = JSBridge(stage)
+        val bridge = JSBridge(stage,dpsCalculator)
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject

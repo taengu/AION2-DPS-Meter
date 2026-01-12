@@ -90,5 +90,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return null
     }
 
+    fun resetDataStorage(){
+        dataStorage.flushDamageStorage()
+        targetInfoMap.clear()
+    }
 
 }

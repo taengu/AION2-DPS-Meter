@@ -64,6 +64,7 @@
     align-items: center;
     font-weight: bold;
     color: white;
+    gap: 8px;
     text-shadow: var(--text-shadow);
     cursor: pointer;
   }

@@ -13,6 +13,7 @@
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/spoqa-han-sans@3.3.0/css/SpoqaHanSansNeo.min.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
 
   <body>
@@ -29,12 +30,15 @@
           흑풍마녀
         </div>
         <div class="headerBtns">
-          <div
+          <btn id="resetBtn"><i data-lucide="rotate-ccw"></i> </btn>
+          <btn
             class="collapseBtn"
-            id="collapseBtn"
-            title="접기">
-            ▲
-          </div>
+            id="collapseBtn">
+            <i
+              class="collapseIcon"
+              id="collapseIcon"
+              data-lucide="arrow-up-wide-narrow"></i>
+          </btn>
         </div>
       </div>
 
@@ -98,13 +102,18 @@
     </div>
 
     <script>
+      lucide.createIcons();
+
       const elList = document.getElementById("list");
       const elBossName = document.getElementById("bossName");
 
       const overlay = document.getElementById("overlay");
       const detailsClose = document.getElementById("detailsClose");
       const detailsTitle = document.getElementById("detailsTitle");
+
+      const resetBtn = document.getElementById("resetBtn");
       const collapseBtn = document.getElementById("collapseBtn");
+      const collapseIcon = document.getElementById("collapseIcon");
 
       const detailsStatsEl = document.getElementById("detailsStats");
       const skillsListEl = document.getElementById("skillsList");
@@ -321,9 +330,24 @@
       collapseBtn?.addEventListener("click", () => {
         isCollapse = !isCollapse;
         elList.style.display = isCollapse ? "none" : "grid";
-        collapseBtn.textContent = isCollapse ? "▼" : "▲";
+
+        const iconName = isCollapse ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
+
+        const iconEl =
+          collapseBtn.querySelector("svg") || collapseBtn.querySelector("[data-lucide]");
+
+        if (!iconEl) return;
+
+        iconEl.setAttribute("data-lucide", iconName);
+
+        lucide.createIcons({ root: collapseBtn });
       });
 
+      resetBtn.addEventListener("click", () => {
+        window.javaBridge.resetDps();
+      });
+
+      const onResetDps = () => {};
       // 상위 6개만, 내가 6등밖이면 총 7개
       const getDisplayRows = (sortedAll) => {
         const top6 = sortedAll.slice(0, 6);
