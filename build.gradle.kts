@@ -56,7 +56,7 @@ compose.desktop {
             windows{
                 includeAllModules = true
             }
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Msi)
             packageName = "aion2meter4j"
             packageVersion = "1.0.0"
         }
