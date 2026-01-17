@@ -36,7 +36,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
     @Volatile
     private var dpsData: DpsData = dpsCalculator.getDps()
 
-    private val debugMode = false
+    private val debugMode = true
 
 
     override fun start(stage: Stage) {

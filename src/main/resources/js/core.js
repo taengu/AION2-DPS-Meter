@@ -59,7 +59,7 @@ class DpsApp {
     this.elBossName.textContent = "DPS METER";
     this.fetchDps();
     setInterval(() => this.fetchDps(), this.POLL_MS);
-    // this.callDebugWindow();
+    this.callDebugWindow();
   }
 
   fetchDps() {
@@ -102,8 +102,9 @@ class DpsApp {
 
       const job = isObj ? value.job ?? "" : "";
       const dpsRaw = isObj ? value.dps : value;
-
       const dps = Math.trunc(Number(dpsRaw));
+      const damageContribution = isObj ? Number(value.damageContribution).toFixed(1) : "";
+
       if (!Number.isFinite(dps)) {
         continue;
       }
@@ -113,6 +114,7 @@ class DpsApp {
         name,
         job,
         dps,
+        damageContribution,
         isUser: name === this.USER_NAME,
       });
     }

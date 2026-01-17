@@ -1,6 +1,8 @@
 :root {
   --row-fill: #ffc837;
   --isUser-fill: #65d635;
+  --warning-fill: #ffa537;
+  --error-fill: #c24343;
   --dps: #29ff6f;
 
   --text-color: rgb(255, 255, 255);
@@ -27,7 +29,7 @@
   position: relative;
 }
 .meter {
-  width: 320px;
+  width: 340px;
 
   backdrop-filter: blur(1px) saturate(180%);
   background-color: rgba(255, 255, 255, 0.1);
@@ -105,7 +107,12 @@
   .item.isUser .fill {
     background: var(--isUser-fill);
   }
-
+  .item.warning .fill {
+    background: var(--warning-fill);
+  }
+  .item.error .fill {
+    background: var(--error-fill);
+  }
   .fill {
     position: absolute;
     inset: 0;
@@ -148,6 +155,9 @@
       font-size: var(--font);
       text-shadow: var(--text-shadow);
       font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
   }
 }

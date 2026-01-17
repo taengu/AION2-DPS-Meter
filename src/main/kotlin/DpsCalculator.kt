@@ -66,10 +66,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         dpsData.targetName = targetData.second
         val battleTime = targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         val nicknameData = dataStorage.getNickname()
+        var totalDamage = 0.0
         if (battleTime == 0L) {
             return dpsData
         }
         pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
+            totalDamage += pdp.getDamage()
             val nickname = nicknameData[pdp.getActorId()] ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]
                 ?: return@lastPdpLoop] ?: return@lastPdpLoop
             if (!dpsData.map.containsKey(nickname)) {
@@ -86,6 +88,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         dpsData.map.forEach { (_, data) ->
             data.dps = data.amount / battleTime * 1000
+            data.damageContribution = data.amount / totalDamage * 100
         }
         return dpsData
     }
