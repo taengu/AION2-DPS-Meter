@@ -7,7 +7,7 @@ class DpsApp {
     }
 
     this.POLL_MS = 200;
-    this.USER_NAME = "------------";
+    this.USER_NAME = "--------";
     this.lastJson = null;
     this.isCollapse = false;
 
@@ -59,7 +59,6 @@ class DpsApp {
     this.elBossName.textContent = "DPS METER";
     this.fetchDps();
     setInterval(() => this.fetchDps(), this.POLL_MS);
-    this.callDebugWindow();
   }
 
   fetchDps() {
@@ -71,6 +70,7 @@ class DpsApp {
       return;
     }
     this.lastJson = raw;
+    uiDebug?.log("getDpsData", raw);
 
     const { rows, targetName } = this.buildRowsFromPayload(raw);
 
@@ -97,10 +97,10 @@ class DpsApp {
   buildRowsFromMapObject(mapObj) {
     const rows = [];
 
-    for (const [name, value] of Object.entries(mapObj || {})) {
+    for (const [id, value] of Object.entries(mapObj || {})) {
       const isObj = value && typeof value === "object";
 
-      const job = isObj ? value.job ?? "" : "";
+      const job = isObj ? (value.job ?? "") : "";
       const dpsRaw = isObj ? value.dps : value;
       const dps = Math.trunc(Number(dpsRaw));
       const damageContribution = isObj ? Number(value.damageContribution).toFixed(1) : "";
@@ -110,12 +110,12 @@ class DpsApp {
       }
 
       rows.push({
-        id: name,
-        name,
+        id: id,
+        name: value.nickname,
         job,
         dps,
         damageContribution,
-        isUser: name === this.USER_NAME,
+        isUser: value.nickname === this.USER_NAME,
       });
     }
 
@@ -123,6 +123,9 @@ class DpsApp {
   }
 
   getDetails(row) {
+    const data = window.dpsData.getBattleDetail(row.id);
+    uiDebug?.log("getBattleDetail", data);
+
     const skills = [
       {
         code: 24,
@@ -221,30 +224,51 @@ class DpsApp {
       isDragging = false;
     });
   }
-  callDebugWindow() {
-    if (!window.dpsData) {
-      setTimeout(() => this.callDebugWindow(), 100);
-      return;
-    }
-
-    const consoleDiv = document.querySelector(".console");
-
-    if (window.dpsData.isDebuggingMode()) {
-      consoleDiv.style.display = "block";
-      const originalLog = console.log;
-
-      console.log = function (...args) {
-        originalLog.apply(console, args);
-        consoleDiv.innerHTML += args.join(" ") + "<br>";
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
-      };
-      console.log("콘솔 활성화됨");
-      setInterval(() => {
-        const data = window.dpsData.getDpsData();
-        console.log(data);
-      }, 500);
-    }
-  }
 }
+
+const setupDebugConsole = () => {
+  if (globalThis.uiDebug?.log) return globalThis.uiDebug;
+
+  const consoleDiv = document.querySelector(".console");
+
+  if (!consoleDiv) {
+    globalThis.uiDebug = { log: () => {}, clear: () => {} };
+    return globalThis.uiDebug;
+  }
+
+  const safeStringify = (v) => {
+    if (typeof v === "string") return v;
+    if (v instanceof Error) return `${v.name}: ${v.message}`;
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  };
+
+  const appendLine = (line) => {
+    consoleDiv.style.display = "block";
+    consoleDiv.innerHTML += line + "<br>";
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+  };
+
+  globalThis.uiDebug = {
+    log(tag, payload) {
+      if (globalThis.dpsData?.isDebuggingMode?.() !== true) return;
+
+      const time = new Date().toLocaleTimeString("ko-KR", { hour12: false });
+      const line = `${time} ${tag} ${safeStringify(payload)}`;
+
+      appendLine(line);
+    },
+
+    clear() {
+      consoleDiv.innerHTML = "";
+    },
+  };
+
+  return globalThis.uiDebug;
+};
+setupDebugConsole();
 
 const dpsApp = DpsApp.createInstance();
