@@ -58,7 +58,7 @@ compose.desktop {
             }
             targetFormats(TargetFormat.Msi)
             packageName = "aion2meter4j"
-            packageVersion = "0.1.0"
+            packageVersion = "0.1.1"
             copyright = "Copyright 2026 TK open public Licensed under MIT License"
         }
 
