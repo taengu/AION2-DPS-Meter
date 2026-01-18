@@ -95,8 +95,11 @@ class DpsApp {
     } else {
       this.lastSnapshot = rows; // 정상 데이터면 스냅샷 갱신
     }
-
-    this.elBossName.textContent = targetName;
+    if (!!targetName) {
+      this.elBossName.textContent = targetName;
+    } else {
+      this.elBossName.textContent = "타겟 코드 미수집";
+    }
     this.meterUI.updateFromRows(rows);
   }
   buildRowsFromPayload(raw) {

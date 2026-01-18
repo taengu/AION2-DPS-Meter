@@ -121,7 +121,7 @@ const createDetailsUI = ({
       const barFillRatio = clamp01(damage / percentBaseTotal);
 
       view.nameEl.textContent = skill.name ?? "";
-      view.castEl.textContent = `${skill.time}회 (${skill.crit})`;
+      view.castEl.textContent = `${skill.time}회 (${skill.crit}회)`;
       view.dmgTextEl.textContent = `${formatNum(damage)} (${damagePercentRounded}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
