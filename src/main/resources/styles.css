@@ -208,7 +208,7 @@
   left: 0px;
   top: calc(100% + 4px);
   font-weight: bold;
-  width: 600px;
+  width: 640px;
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, 0.7);
   padding: 12px 24px;
@@ -259,7 +259,8 @@
   .detailsSkills {
     margin-top: 14px;
     .cell.name {
-      flex: 1;
+      flex: 0 0 210px;
+
       color: var(--row-fill);
     }
     .cell.cast {
@@ -272,7 +273,7 @@
       overflow: visible;
     }
     .cell.dmg {
-      flex: 2;
+      flex: 1;
       text-align: center;
     }
     .cell.right {
@@ -289,7 +290,6 @@
       padding: 8px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       .cell.name {
-        flex: 1;
         color: white;
       }
     }

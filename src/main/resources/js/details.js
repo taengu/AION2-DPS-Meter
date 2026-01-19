@@ -151,13 +151,21 @@ const createDetailsUI = ({
 
   const isOpen = () => detailsPanel.classList.contains("open");
 
-  const open = async (row, { force = false } = {}) => {
+  const open = async (row, { force = false, restartOnSwitch = true } = {}) => {
     const rowId = row?.id ?? null;
-    if (!rowId) {
-      return;
-    }
+    if (!rowId) return;
 
-    if (!force && detailsPanel.classList.contains("open") && openedRowId === rowId) {
+    const isOpen = detailsPanel.classList.contains("open");
+    const isSame = isOpen && openedRowId === rowId;
+    const isSwitch = isOpen && openedRowId && openedRowId !== rowId;
+
+    if (!force && isSame) return;
+
+    if (isSwitch && restartOnSwitch) {
+      close();
+      requestAnimationFrame(() => {
+        open(row, { force: true, restartOnSwitch: false });
+      });
       return;
     }
 
@@ -178,21 +186,20 @@ const createDetailsUI = ({
     try {
       const details = await getDetails(row);
 
-      if (seq !== openSeq) {
-        return;
-      }
+      if (seq !== openSeq) return;
 
       render(details, row);
     } catch (e) {
-      if (seq !== openSeq) {
-        return;
-      }
+      if (seq !== openSeq) return;
       uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
     }
   };
+  const close = () => {
+    openSeq++;
 
-  const close = () => detailsPanel.classList.remove("open");
-
+    openedRowId = null;
+    detailsPanel.classList.remove("open");
+  };
   detailsClose?.addEventListener("click", close);
 
   return { open, close, isOpen, render };
