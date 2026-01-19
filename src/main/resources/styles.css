@@ -86,14 +86,13 @@
     }
   }
 }
-.list:has(.item:not([style*="display: none"])) {
-  padding: 4px 12px 12px;
-}
-
 .list {
   display: grid;
   gap: 4px;
   padding: 0px 12px;
+  &:has(.item:not([style*="display: none"])) {
+    padding: 4px 12px 12px;
+  }
   .item {
     position: relative;
     height: 36px;
@@ -164,9 +163,41 @@
     }
   }
 }
+.battleTime {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px; /* 리스트 위쪽에 띄우고 싶으면 */
+  padding: 0px 12px;
 
-.detailsPanel.open {
-  display: block;
+  &.isVisible {
+    display: flex;
+  }
+  .tick {
+    color: var(--text-color);
+    text-shadow: var(--text-shadow);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .status {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+    flex: 0 0 auto;
+  }
+
+  &.state-fighting .status {
+    background: var(--dps);
+  }
+  &.state-grace .status {
+    background: var(--warning-fill);
+  }
+  &.state-ended .status {
+    background: rgba(255, 255, 255, 0.28);
+  }
 }
 
 .detailsPanel {
@@ -179,118 +210,119 @@
   width: 600px;
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, 0.7);
-  overflow: hidden;
   padding: 12px 24px;
   border-radius: var(--rounded);
-}
-
-.detailsHeader {
-  display: flex;
-  align-items: center;
-  color: var(--title);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  .tooltip {
-    opacity: 0.6;
-    margin-left: 12px;
-
-    font-size: 12px;
+  &.open {
+    display: block;
   }
-  .closeX {
-    cursor: pointer;
-    margin-left: auto;
-    user-select: none;
-    font-size: 22px;
-    padding: 2px 8px;
-    border-radius: 6px;
-    transition: 0.2s;
-    border-radius: 4px;
-  }
-  .closeX:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-}
-
-.detailsStats {
-  display: grid;
-  gap: 12px 24px;
-  grid-template-columns: repeat(2, 1fr);
-  .stat {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-  }
-}
-
-.detailsSkills {
-  margin-top: 14px;
-  .cell.name {
-    flex: 1;
-    color: var(--row-fill);
-  }
-  .cell.cast {
-    flex: 0 0 110px;
-    display: flex;
-    position: relative;
-
-    justify-content: space-between;
-    align-items: center;
-    overflow: visible;
-  }
-  .cell.dmg {
-    flex: 2;
-    text-align: center;
-  }
-  .cell.right {
-    text-align: right;
-  }
-  .cell.center {
-    text-align: center;
-  }
-
-  .skillHeader {
+  .detailsHeader {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 8px 0;
+    color: var(--title);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    .tooltip {
+      opacity: 0.6;
+      margin-left: 12px;
+
+      font-size: 12px;
+    }
+    .closeX {
+      cursor: pointer;
+      margin-left: auto;
+      user-select: none;
+      font-size: 22px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      transition: 0.2s;
+      border-radius: 4px;
+    }
+    .closeX:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .detailsStats {
+    display: grid;
+    gap: 12px 24px;
+    grid-template-columns: repeat(2, 1fr);
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+  }
+
+  .detailsSkills {
+    margin-top: 14px;
     .cell.name {
       flex: 1;
-      color: white;
+      color: var(--row-fill);
     }
-  }
-  .skillRow {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    &:last-child {
-      border-bottom: none;
-    }
-
-    .cell.dmg {
+    .cell.cast {
+      flex: 0 0 110px;
+      display: flex;
       position: relative;
-      overflow: hidden;
-      height: 32px;
 
-      .dmgFill {
-        position: absolute;
-        inset: 0;
-        background: var(--isUser-fill);
-        border-radius: var(--rounded-xs);
-        transform-origin: left center;
+      justify-content: space-between;
+      align-items: center;
+      overflow: visible;
+    }
+    .cell.dmg {
+      flex: 2;
+      text-align: center;
+    }
+    .cell.right {
+      text-align: right;
+    }
+    .cell.center {
+      text-align: center;
+    }
+
+    .skillHeader {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      .cell.name {
+        flex: 1;
+        color: white;
       }
-      .dmgText {
+    }
+    .skillRow {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .cell.dmg {
         position: relative;
-        z-index: 1;
-        height: 100%;
-        display: flex;
-        justify-content: end;
-        align-items: center;
-        text-shadow: var(--text-shadow);
-        color: var(--dps);
+        overflow: hidden;
+        height: 32px;
+
+        .dmgFill {
+          position: absolute;
+          inset: 0;
+          background: var(--isUser-fill);
+          border-radius: var(--rounded-xs);
+          transform-origin: left center;
+        }
+        .dmgText {
+          position: relative;
+          z-index: 1;
+          height: 100%;
+          display: flex;
+          justify-content: end;
+          align-items: center;
+          text-shadow: var(--text-shadow);
+          color: var(--dps);
+        }
       }
     }
   }
