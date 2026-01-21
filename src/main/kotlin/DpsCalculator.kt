@@ -942,8 +942,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     fun analyzingData(uid: Int) {
         val dpsData = getDps()
         dpsData.map.forEach { (_, pData) ->
-            logger.info("-----------------------------------------")
-            logger.info(
+            logger.debug("-----------------------------------------")
+            logger.debug(
                 "닉네임: {} 직업: {} 총 딜량: {} 기여도: {}",
                 pData.nickname,
                 pData.job,
@@ -951,16 +951,16 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 pData.damageContribution
             )
             pData.analyzedData.forEach { (key, data) ->
-                logger.info("스킬(코드): {} 스킬 총 피해량: {}", SKILL_MAP[key] ?: key, data.damageAmount)
-                logger.info(
+                logger.debug("스킬(코드): {} 스킬 총 피해량: {}", SKILL_MAP[key] ?: key, data.damageAmount)
+                logger.debug(
                     "사용 횟수: {} 치명타 횟수: {} 치명타 비율:{}",
                     data.times,
                     data.critTimes,
                     data.critTimes / data.times * 100
                 )
-                logger.info("스킬의 딜 지분: {}%", (data.damageAmount / pData.amount * 100).roundToInt())
+                logger.debug("스킬의 딜 지분: {}%", (data.damageAmount / pData.amount * 100).roundToInt())
             }
-            logger.info("-----------------------------------------")
+            logger.debug("-----------------------------------------")
         }
     }
 
