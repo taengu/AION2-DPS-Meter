@@ -74,6 +74,7 @@ cd Aion2-Dps-Meter
 노란불에서 일정 시간이 경과한다면 전투 종료로 판정하며, 종료 될 경우 회색으로 표시되며 타이머가 중단됩니다.
 
 <br />
+![image](./readme-asset/battleAnalyze.png)
 
 
 <br />
