@@ -123,9 +123,54 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (flag) return
         flag = parseSummonPacket(packet)
         if (flag) return
+        parseDoTPacket(packet)
 
     }
 
+    private fun parseDoTPacket(packet:ByteArray){
+        var offset = 0
+        val pdp = ParsedDamagePacket()
+        pdp.setDot(true)
+        val packetLengthInfo = readVarInt(packet)
+        if (packetLengthInfo.length < 0) return
+        offset += packetLengthInfo.length
+
+        if (packet[offset] != 0x05.toByte()) return
+        if (packet[offset+1] != 0x38.toByte()) return
+        offset += 2
+        if (packet.size < offset) return
+
+        val targetInfo = readVarInt(packet,offset)
+        if (targetInfo.length < 0) return
+        offset += targetInfo.length
+        if (packet.size < offset) return
+        pdp.setTargetId(targetInfo)
+
+        offset += 1
+        if (packet.size < offset) return
+
+        val actorInfo = readVarInt(packet,offset)
+        if (actorInfo.length < 0) return
+        offset += actorInfo.length + 1
+        if (packet.size < offset) return
+        pdp.setActorId(actorInfo)
+
+        val skillCode:Int = parseUInt32le(packet,offset) / 100
+        offset += 4
+        if (packet.size < offset) return
+        pdp.setSkillCode(skillCode)
+
+        val damageInfo = readVarInt(packet,offset)
+        if (damageInfo.length < 0) return
+        pdp.setDamage(damageInfo)
+
+        logger.info("도트데미지 공격자 {},피격자 {},스킬 {},데미지 {}",pdp.getActorId(),pdp.getTargetId(),pdp.getSkillCode1(),pdp.getDamage())
+        logger.info("전체 패킷: {}",toHex(packet))
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            dataStorage.appendDamage(pdp)
+        }
+
+    }
     private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
         if (pattern.isEmpty()) return 0
 
@@ -349,7 +394,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 .replace(' ', '0')
         )
         logger.trace("가변패킷: {}", toHex(packet.copyOfRange(start, start + tempV)))
-        logger.debug(
+        logger.info(
             "피격자: {},공격자: {},스킬: {},타입: {},데미지: {},데미지플래그: {}",
             pdp.getTargetId(),
             pdp.getActorId(),
