@@ -38,6 +38,8 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     private val debugMode = false
 
+    private val version = "0.2.2"
+
 
     override fun start(stage: Stage) {
         stage.setOnCloseRequest {
@@ -96,6 +98,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     fun getBattleDetail(uid:Int):String{
         return Json.encodeToString(dpsData.map[uid]?.analyzedData)
+    }
+
+    fun getVersion():String{
+        return version
     }
 
 }
