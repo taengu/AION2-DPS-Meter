@@ -383,16 +383,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setLoop(loopInfo)
         offset += loopInfo.length
 
-        if (loopInfo.value != 0 && offset >= packet.size) return false
-
-        if (loopInfo.value != 0) {
-            for (i in 0 until loopInfo.length) {
-                var skipValueInfo = readVarInt(packet, offset)
-                if (skipValueInfo.length < 0) return false
-                pdp.addSkipData(skipValueInfo)
-                offset += skipValueInfo.length
-            }
-        }
+//        if (loopInfo.value != 0 && offset >= packet.size) return false
+//
+//        if (loopInfo.value != 0) {
+//            for (i in 0 until loopInfo.length) {
+//                var skipValueInfo = readVarInt(packet, offset)
+//                if (skipValueInfo.length < 0) return false
+//                pdp.addSkipData(skipValueInfo)
+//                offset += skipValueInfo.length
+//            }
+//        }
 
         logger.trace("{}", toHex(packet))
         logger.trace("타입패킷 {}", toHex(byteArrayOf(damageType)))
