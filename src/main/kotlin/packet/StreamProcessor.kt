@@ -200,7 +200,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val actorInfo = readVarInt(packet,offset)
         if (actorInfo.length < 0) return
-        offset += actorInfo.length + 1
+        offset += actorInfo.length + 2
         if (packet.size < offset) return
         pdp.setActorId(actorInfo)
 
