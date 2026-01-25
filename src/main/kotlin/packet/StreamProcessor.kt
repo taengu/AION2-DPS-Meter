@@ -58,17 +58,29 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             var processed = false
             if (target != 0) {
                 val targetBytes = convertVarInt(target)
-                val opcodes = byteArrayOf(0x04, 0x38)
-                val keyword = opcodes + targetBytes
-                val idx = findArrayIndex(packet, keyword)
-                if (idx > 0) {
+                val damageOpcodes = byteArrayOf(0x04, 0x38)
+                val dotOpcodes = byteArrayOf(0x05, 0x38)
+                val damageKeyword = damageOpcodes + targetBytes
+                val dotKeyword = dotOpcodes + targetBytes
+                val damageIdx = findArrayIndex(packet, damageKeyword)
+                val dotIdx = findArrayIndex(packet,dotKeyword)
+                val (idx, handler) = when {
+                    damageIdx > 0 && dotIdx > 0 -> {
+                        if (damageIdx < dotIdx) damageIdx to ::parsingDamage
+                        else dotIdx to ::parseDoTPacket
+                    }
+                    damageIdx > 0 -> damageIdx to ::parsingDamage
+                    dotIdx > 0 -> dotIdx to ::parseDoTPacket
+                    else -> -1 to null
+                }
+                if (idx > 0 && handler != null){
                     val packetLengthInfo = readVarInt(packet, idx - 1)
                     if (packetLengthInfo.length == 1) {
                         val startIdx = idx - 1
                         val endIdx = idx - 1 + packetLengthInfo.value - 3
                         if (startIdx in 0..<endIdx && endIdx <= packet.size) {
                             val extractedPacket = packet.copyOfRange(startIdx, endIdx)
-                            parsingDamage(extractedPacket)
+                            handler(extractedPacket)
                             processed = true
                             if (endIdx < packet.size) {
                                 val remainingPacket = packet.copyOfRange(endIdx, packet.size)
@@ -79,7 +91,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
             if (flag && !processed) {
-                logger.info("잔여패킷 {}",toHex(packet))
+                logger.debug("잔여패킷 {}",toHex(packet))
                 parseNicknameFromBrokenLengthPacket(packet)
             }
             return
