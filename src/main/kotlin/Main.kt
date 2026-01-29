@@ -1,7 +1,9 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
+import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PcapCapturer
+import com.tbread.packet.PropertyHandler
 import com.tbread.packet.StreamAssembler
 import com.tbread.packet.StreamProcessor
 import com.tbread.webview.BrowserApp
@@ -20,6 +22,7 @@ fun main() = runBlocking {
     }
     val channel = Channel<ByteArray>(Channel.UNLIMITED)
     val config = PcapCapturerConfig.loadFromProperties()
+    LocalPlayer.characterName = PropertyHandler.getProperty("character.name")
 
     val dataStorage = DataStorage()
     val processor = StreamProcessor(dataStorage)
@@ -42,5 +45,4 @@ fun main() = runBlocking {
         browserApp.start(Stage())
     }
 }
-
 

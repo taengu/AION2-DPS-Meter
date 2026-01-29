@@ -87,6 +87,87 @@
     }
   }
 }
+.settingsPanel {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 16, 32, 0.6);
+  color: var(--text-color);
+  text-shadow: var(--text-shadow);
+
+  &.isOpen {
+    display: flex;
+  }
+
+  .settingsRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settingsInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .settingsLabel {
+    font-size: 12px;
+    opacity: 0.75;
+  }
+
+  .settingsValue {
+    display: flex;
+    gap: 6px;
+    font-weight: 700;
+  }
+
+  .lockedPort::before {
+    content: ":";
+    opacity: 0.6;
+    margin-right: 4px;
+  }
+
+  .characterNameInput {
+    flex: 1;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--rounded-xs);
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-color);
+  }
+
+  .settingsAction {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--rounded-xs);
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-color);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .settingsCheckbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .discordButton {
+    border: none;
+    border-radius: var(--rounded-xs);
+    padding: 8px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    background: linear-gradient(90deg, #5865f2, #4e5bd5);
+    text-shadow: var(--text-shadow);
+  }
+}
 .list {
   display: grid;
   gap: 4px;

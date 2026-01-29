@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.entity.ParsedDamagePacket
+import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
@@ -56,6 +57,11 @@ class DataStorage {
         }
         logger.debug("닉네임 등록 {} -> {}",nicknameStorage[uid],nickname)
         nicknameStorage[uid] = nickname
+
+        val desiredName = LocalPlayer.characterName
+        if (!desiredName.isNullOrBlank() && desiredName == nickname) {
+            LocalPlayer.playerId = uid.toLong()
+        }
     }
 
     @Synchronized

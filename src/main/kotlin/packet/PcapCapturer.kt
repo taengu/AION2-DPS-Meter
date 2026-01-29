@@ -7,6 +7,8 @@ import org.pcap4j.core.PacketListener
 import org.pcap4j.core.PcapNativeException
 import org.pcap4j.core.PcapNetworkInterface
 import org.pcap4j.core.Pcaps
+import org.pcap4j.packet.IpV4Packet
+import org.pcap4j.packet.IpV6Packet
 import org.pcap4j.packet.Packet
 import org.pcap4j.packet.TcpPacket
 import org.slf4j.LoggerFactory
@@ -19,6 +21,8 @@ class PcapCapturer(
 
     companion object {
         private val logger = LoggerFactory.getLogger(javaClass.enclosingClass)
+        private val MAGIC_PACKET = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
+        private val EXCLUDED_PACKET = byteArrayOf(0x05.toByte(), 0x01.toByte(), 0x00.toByte())
 
         private fun getAllDevices(): List<PcapNetworkInterface> {
             return try {
@@ -63,6 +67,30 @@ class PcapCapturer(
         handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
         logger.info("Packet filter set to \"$filter\"")
 
+        fun containsSequence(data: ByteArray, target: ByteArray): Boolean {
+            if (target.isEmpty() || data.size < target.size) return false
+            for (i in 0..data.size - target.size) {
+                var match = true
+                for (j in target.indices) {
+                    if (data[i + j] != target[j]) {
+                        match = false
+                        break
+                    }
+                }
+                if (match) return true
+            }
+            return false
+        }
+
+        fun extractSourceIp(packet: Packet): String? {
+            val ipv4 = packet.get(IpV4Packet::class.java)
+            if (ipv4 != null) {
+                return ipv4.header.srcAddr.hostAddress
+            }
+            val ipv6 = packet.get(IpV6Packet::class.java)
+            return ipv6?.header?.srcAddr?.hostAddress
+        }
+
         val listener = PacketListener { packet: Packet ->
             val tcp = packet.get(TcpPacket::class.java) ?: return@PacketListener
             val payload = tcp.payload ?: return@PacketListener
@@ -70,18 +98,30 @@ class PcapCapturer(
             val data = payload.rawData
             if (data.isEmpty()) return@PacketListener
 
+            if (packet.length < 60) return@PacketListener
+            if (!containsSequence(data, MAGIC_PACKET)) return@PacketListener
+            if (containsSequence(data, EXCLUDED_PACKET)) return@PacketListener
+
             val port = tcp.header.srcPort.valueAsInt()
+            val ip = extractSourceIp(packet)
 
             /*
              * Forward packets as follows:
-             * - Before combat port is locked → allow everything
-             * - After lock → only allow matching port
-             *
-             * CombatPortDetector.lock(port) is called later
-             * by StreamProcessor when real combat is parsed.
+             * - Before combat port is locked → allow packets matching the magic filter
+             * - After lock → only allow matching endpoint
              */
-            val lockedPort = CombatPortDetector.currentPort()
-            if (lockedPort == null || lockedPort == port) {
+            val lock = CombatPortDetector.currentLock()
+            if (lock == null) {
+                CombatPortDetector.lock(port, ip)
+            }
+
+            val lockedPort = lock?.port
+            val lockedIp = lock?.ip
+
+            val portMatches = lockedPort == null || lockedPort == port
+            val ipMatches = lockedIp == null || lockedIp == ip
+
+            if (portMatches && ipMatches) {
                 channel.trySend(data)
             }
         }

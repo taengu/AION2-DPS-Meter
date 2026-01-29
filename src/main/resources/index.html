@@ -34,16 +34,51 @@
                 class="collapseIcon"
                 data-lucide="arrow-up-wide-narrow"></i>
             </div>
+            <div class="headerBtn settingsBtn">
+              <i data-lucide="settings"></i>
+            </div>
           </div>
+        </div>
+        <div class="settingsPanel">
+          <div class="settingsRow">
+            <div class="settingsInfo">
+              <div class="settingsLabel">Locked endpoint</div>
+              <div class="settingsValue">
+                <span class="lockedIp">Auto-detecting</span>
+                <span class="lockedPort">-</span>
+              </div>
+            </div>
+            <button class="settingsAction resetAutoDetectBtn">Reset detection</button>
+          </div>
+          <div class="settingsRow">
+            <label
+              class="settingsLabel"
+              for="characterNameInput"
+              >Character name</label
+            >
+            <input
+              class="characterNameInput"
+              id="characterNameInput"
+              type="text"
+              placeholder="Enter your character name" />
+          </div>
+          <label class="settingsCheckbox">
+            <input
+              class="onlyMyCharacterToggle"
+              type="checkbox" />
+            <span>Only show my character</span>
+          </label>
+          <button class="discordButton">Discuss on Discord</button>
         </div>
         <div
           class="detailsPanel"
           role="dialog"
           aria-modal="true">
           <div class="detailsHeader">
-            <div class="detailsTitle">상세</div>
+            <div class="detailsTitle">Details</div>
             <div class="tooltip">
-              지속 피해의 타격횟수는 총합 치명타, 강타, 완벽, 백어택, 막기 비율에 포함되지 않습니다.
+              Damage-over-time hits are not included in critical, double, perfect, back attack, or
+              parry totals.
             </div>
 
             <div class="closeX detailsClose">×</div>
@@ -54,14 +89,14 @@
 
             <div class="detailsSkills">
               <div class="skillHeader">
-                <div class="cell name center">스킬명</div>
-                <div class="cell center hit">타격횟수</div>
-                <div class="cell center crit">치명타</div>
-                <div class="cell center parry">패리</div>
-                <div class="cell center perfect">완벽</div>
-                <div class="cell center double">강타</div>
-                <div class="cell center back">백어택</div>
-                <div class="cell dmg">누적 피해량</div>
+                <div class="cell name center">Skill</div>
+                <div class="cell center hit">Hits</div>
+                <div class="cell center crit">Critical</div>
+                <div class="cell center parry">Parry</div>
+                <div class="cell center perfect">Perfect</div>
+                <div class="cell center double">Double</div>
+                <div class="cell center back">Back Attack</div>
+                <div class="cell dmg">Total Damage</div>
               </div>
 
               <div class="skills"></div>

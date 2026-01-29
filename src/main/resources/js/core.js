@@ -6,6 +6,7 @@ class DpsApp {
 
     this.POLL_MS = 200;
     this.USER_NAME = "-------";
+    this.onlyShowMyCharacter = false;
 
     this.dpsFormatter = new Intl.NumberFormat("ko-KR");
     this.lastJson = null;
@@ -26,6 +27,7 @@ class DpsApp {
     this._lastBattleTimeMs = null;
 
     this._pollTimer = null;
+    this._settingsOpen = false;
 
     DpsApp.instance = this;
   }
@@ -42,9 +44,18 @@ class DpsApp {
 
     this.resetBtn = document.querySelector(".resetBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
+    this.settingsBtn = document.querySelector(".settingsBtn");
+    this.settingsPanel = document.querySelector(".settingsPanel");
+    this.lockedIpEl = document.querySelector(".lockedIp");
+    this.lockedPortEl = document.querySelector(".lockedPort");
+    this.resetAutoDetectBtn = document.querySelector(".resetAutoDetectBtn");
+    this.characterNameInput = document.querySelector(".characterNameInput");
+    this.onlyMyCharacterToggle = document.querySelector(".onlyMyCharacterToggle");
+    this.discordButton = document.querySelector(".discordButton");
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
+    this.bindSettingsPanel();
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -134,6 +145,72 @@ class DpsApp {
     }
   }
 
+  bindSettingsPanel() {
+    const storedName =
+      window.javaBridge?.getCharacterName?.() ?? localStorage.getItem("characterName");
+    if (typeof storedName === "string" && storedName.trim()) {
+      this.USER_NAME = storedName.trim();
+    }
+    if (this.characterNameInput) {
+      this.characterNameInput.value = this.USER_NAME === "-------" ? "" : this.USER_NAME;
+    }
+
+    const storedOnlyMine = localStorage.getItem("onlyShowMyCharacter");
+    this.onlyShowMyCharacter = storedOnlyMine === "true";
+    if (this.onlyMyCharacterToggle) {
+      this.onlyMyCharacterToggle.checked = this.onlyShowMyCharacter;
+    }
+
+    this.settingsBtn?.addEventListener("click", () => {
+      this._settingsOpen = !this._settingsOpen;
+      this.settingsPanel?.classList.toggle("isOpen", this._settingsOpen);
+      if (this._settingsOpen) {
+        this.refreshLockedEndpoint();
+      }
+    });
+
+    this.resetAutoDetectBtn?.addEventListener("click", () => {
+      window.javaBridge?.resetAutoDetection?.();
+      this.resetAll({ callBackend: false });
+      this.refreshLockedEndpoint();
+    });
+
+    this.characterNameInput?.addEventListener("input", (event) => {
+      const value = event.target?.value ?? "";
+      const trimmed = String(value).trim();
+      this.USER_NAME = trimmed || "-------";
+      localStorage.setItem("characterName", trimmed);
+      window.javaBridge?.setCharacterName?.(trimmed);
+      this.fetchDps();
+    });
+
+    this.onlyMyCharacterToggle?.addEventListener("change", (event) => {
+      const nextValue = !!event.target?.checked;
+      this.onlyShowMyCharacter = nextValue;
+      localStorage.setItem("onlyShowMyCharacter", String(nextValue));
+      this.fetchDps();
+    });
+
+    this.discordButton?.addEventListener("click", (event) => {
+      event.preventDefault();
+      window.javaBridge?.openBrowser?.("https://discord.gg/Aion2Global");
+    });
+  }
+
+  refreshLockedEndpoint() {
+    const lockRaw = window.javaBridge?.getLockedEndpoint?.();
+    const lock = this.safeParseJSON(lockRaw, {});
+    const ip = typeof lock?.ip === "string" ? lock.ip : null;
+    const port = Number.isFinite(Number(lock?.port)) ? Number(lock.port) : null;
+
+    if (this.lockedIpEl) {
+      this.lockedIpEl.textContent = ip || "Auto-detecting";
+    }
+    if (this.lockedPortEl) {
+      this.lockedPortEl.textContent = port ? String(port) : "-";
+    }
+  }
+
 
 
 
@@ -194,6 +271,10 @@ class DpsApp {
       }
     } else {
       this.lastSnapshot = rows;
+    }
+
+    if (this.onlyShowMyCharacter) {
+      rowsToRender = rowsToRender.filter((row) => row.isUser);
     }
 
     // 타이머 표시 여부
@@ -287,7 +368,7 @@ class DpsApp {
       if (!value || typeof value !== "object") continue;
 
       const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
-      const baseName = nameRaw ? nameRaw : `스킬 ${code}`;
+      const baseName = nameRaw ? nameRaw : `Skill ${code}`;
 
       // 공통 
       const pushSkill = ({
@@ -348,7 +429,7 @@ class DpsApp {
       if (Number(String(value.dotDamageAmount ?? "").replace(/,/g, "")) > 0) {
         pushSkill({
           codeKey: `${code}-dot`, // 유니크키
-          name: `${baseName} - 지속피해`,
+          name: `${baseName} - Damage over Time`,
           time: value.dotTimes,
           dmg: value.dotDamageAmount,
           countForTotals: false,

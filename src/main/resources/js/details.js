@@ -22,16 +22,16 @@ const createDetailsUI = ({
     return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
   };
   const STATUS = [
-    { label: "누적 피해량", getValue: (d) => formatNum(d?.totalDmg) },
-    { label: "피해량 기여도", getValue: (d) => pctText(d?.contributionPct) },
-    // { label: "보스 막기비율", getValue: (d) => d?.parry ?? "-" },
-    // { label: "보스 회피비율", getValue: (d) => d?.eva ?? "-" },
-    { label: "치명타 비율", getValue: (d) => pctText(d?.totalCritPct) },
-    { label: "완벽 비율", getValue: (d) => pctText(d?.totalPerfectPct) },
-    { label: "강타 비율", getValue: (d) => pctText(d?.totalDoublePct) },
-    { label: "백어택 비율", getValue: (d) => pctText(d?.totalBackPct) },
-    { label: "보스 막기비율", getValue: (d) => pctText(d?.totalParryPct) },
-    { label: "전투시간", getValue: (d) => d?.combatTime ?? "-" },
+    { label: "Total Damage", getValue: (d) => formatNum(d?.totalDmg) },
+    { label: "Damage Contribution", getValue: (d) => pctText(d?.contributionPct) },
+    // { label: "Boss Block Rate", getValue: (d) => d?.parry ?? "-" },
+    // { label: "Boss Evasion Rate", getValue: (d) => d?.eva ?? "-" },
+    { label: "Critical Rate", getValue: (d) => pctText(d?.totalCritPct) },
+    { label: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
+    { label: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
+    { label: "Back Attack Rate", getValue: (d) => pctText(d?.totalBackPct) },
+    { label: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
+    { label: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
   ];
 
   const createStatView = (labelText) => {
@@ -176,7 +176,7 @@ const createDetailsUI = ({
       const doubleRate = pct(double, hits);
 
       view.nameEl.textContent = skill.name ?? "";
-      view.hitEl.textContent = `${hits}회`;
+      view.hitEl.textContent = `${hits} hits`;
       view.critEl.textContent = `${critRate}%`;
 
       view.parryEl.textContent = `${parryRate}%`;
@@ -190,7 +190,7 @@ const createDetailsUI = ({
   };
 
   const render = (details, row) => {
-    detailsTitle.textContent = `${String(row.name)} 상세내역`;
+    detailsTitle.textContent = `${String(row.name)} Details`;
     renderStats(details);
     renderSkills(details);
   };
@@ -217,7 +217,7 @@ const createDetailsUI = ({
 
     openedRowId = rowId;
 
-    detailsTitle.textContent = `${row.name} 상세내역`;
+    detailsTitle.textContent = `${row.name} Details`;
     detailsPanel.classList.add("open");
 
     // 이전 값 비우기
