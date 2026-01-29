@@ -2,9 +2,6 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.entity.DpsData
-import com.tbread.packet.CombatPortDetector
-import com.tbread.packet.LocalPlayer
-import com.tbread.packet.PropertyHandler
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
 import javafx.application.Application
@@ -19,6 +16,8 @@ import javafx.util.Duration
 import javafx.application.Platform
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
+import kotlin.system.exitProcess
+
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
@@ -26,9 +25,6 @@ import kotlin.system.exitProcess
 class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
-
-    @kotlinx.serialization.Serializable
-    data class LockedEndpoint(val ip: String? = null, val port: Int? = null)
 
     class JSBridge(private val stage: Stage,private val dpsCalculator: DpsCalculator,private val hostServices: HostServices,) {
         fun moveWindow(x: Double, y: Double) {
@@ -39,27 +35,6 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         fun resetDps(){
             dpsCalculator.resetDataStorage()
         }
-
-        fun resetAutoDetection() {
-            CombatPortDetector.reset()
-            dpsCalculator.resetDataStorage()
-        }
-
-        fun getLockedEndpoint(): String {
-            val lock = CombatPortDetector.currentLock()
-            return Json.encodeToString(LockedEndpoint(lock?.ip, lock?.port))
-        }
-
-        fun getCharacterName(): String? {
-            return LocalPlayer.characterName
-        }
-
-        fun setCharacterName(name: String?) {
-            val trimmed = name?.trim()?.ifBlank { null }
-            LocalPlayer.characterName = trimmed
-            PropertyHandler.setProperty("character.name", trimmed ?: "")
-        }
-
         fun openBrowser(url: String) {
             try {
                 hostServices.showDocument(url)
