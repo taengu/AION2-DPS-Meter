@@ -91,6 +91,10 @@ class PcapCapturer(
             return ipv6?.header?.srcAddr?.hostAddress
         }
 
+        var pendingLock: Pair<Int, String?>? = null
+        var pendingHits = 0
+        val lockHitThreshold = 3
+
         val listener = PacketListener { packet: Packet ->
             val tcp = packet.get(TcpPacket::class.java) ?: return@PacketListener
             val payload = tcp.payload ?: return@PacketListener
@@ -98,7 +102,7 @@ class PcapCapturer(
             val data = payload.rawData
             if (data.isEmpty()) return@PacketListener
 
-            if (packet.length < 60) return@PacketListener
+            if (packet.length() < 60) return@PacketListener
             if (!containsSequence(data, MAGIC_PACKET)) return@PacketListener
             if (containsSequence(data, EXCLUDED_PACKET)) return@PacketListener
 
@@ -112,7 +116,16 @@ class PcapCapturer(
              */
             val lock = CombatPortDetector.currentLock()
             if (lock == null) {
-                CombatPortDetector.lock(port, ip)
+                val candidate = port to ip
+                if (pendingLock == candidate) {
+                    pendingHits += 1
+                } else {
+                    pendingLock = candidate
+                    pendingHits = 1
+                }
+                if (pendingHits >= lockHitThreshold) {
+                    CombatPortDetector.lock(port, ip)
+                }
             }
 
             val lockedPort = lock?.port

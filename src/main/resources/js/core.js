@@ -245,6 +245,11 @@ class DpsApp {
 
     const { rows, targetName, battleTimeMs } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
+    globalThis.uiDebug?.log("Captured DPS payload", {
+      targetName,
+      rowCount: rows.length,
+      battleTimeMs,
+    });
 
 
     const showByServer = rows.length > 0;

@@ -484,3 +484,348 @@
     }
   }
 }
+
+/* Compatibility: flatten nested rules for environments without CSS nesting support. */
+.header .bossIcon {
+  display: flex;
+  align-items: center;
+  width: 88px;
+}
+.header .bossIcon img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  width: 100%;
+}
+.header .bossNames {
+  flex: 1;
+  color: var(--text-color);
+  text-shadow: var(--text-shadow);
+  font-weight: bold;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+}
+.header .headerBtns {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  color: white;
+  gap: 8px;
+  text-shadow: var(--text-shadow);
+  cursor: pointer;
+}
+.header .headerBtns .headerBtn {
+  display: flex;
+  align-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+.settingsPanel.isOpen {
+  display: flex;
+}
+.settingsPanel .settingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settingsPanel .settingsInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settingsPanel .settingsLabel {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.settingsPanel .settingsValue {
+  display: flex;
+  gap: 6px;
+  font-weight: 700;
+}
+.settingsPanel .lockedPort::before {
+  content: ":";
+  opacity: 0.6;
+  margin-right: 4px;
+}
+.settingsPanel .characterNameInput {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--rounded-xs);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+}
+.settingsPanel .settingsAction {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--rounded-xs);
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+  font-weight: 600;
+  cursor: pointer;
+}
+.settingsPanel .settingsCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.settingsPanel .discordButton {
+  border: none;
+  border-radius: var(--rounded-xs);
+  padding: 8px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(90deg, #5865f2, #4e5bd5);
+  text-shadow: var(--text-shadow);
+}
+
+.list .item {
+  position: relative;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--rounded-xs);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.list .item.isUser .fill {
+  background: var(--isUser-fill);
+}
+.list .item.warning .fill {
+  background: var(--warning-fill);
+}
+.list .item.error .fill {
+  background: var(--error-fill);
+}
+.list .item .fill {
+  position: absolute;
+  inset: 0;
+  background: var(--row-fill);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 150ms ease;
+}
+.list .item .content {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.list .item .classIcon {
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.list .item .classIcon .classIconImg {
+  width: 100%;
+  height: 100%;
+}
+.list .item .name {
+  flex: 1;
+  color: var(--text-color);
+  font-size: 18px;
+  text-shadow: var(--text-shadow);
+  font-weight: bold;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.list .item .dps {
+  color: var(--dps);
+  font-size: var(--font);
+  text-shadow: var(--text-shadow);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.battleTime.isVisible {
+  display: flex;
+}
+.battleTime .tick {
+  color: var(--text-color);
+  text-shadow: var(--text-shadow);
+  font-weight: 700;
+  font-size: 14px;
+}
+.battleTime .status {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+  flex: 0 0 auto;
+}
+.battleTime.state-fighting .status {
+  background: var(--dps);
+}
+.battleTime.state-grace .status {
+  background: var(--warning-fill);
+}
+.battleTime.state-ended .status {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.detailsPanel.open {
+  display: block;
+}
+.detailsPanel .detailsHeader {
+  display: flex;
+  align-items: center;
+  color: var(--title);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 28px;
+  padding-bottom: 12px;
+}
+.detailsPanel .detailsHeader .tooltip {
+  opacity: 0.6;
+  margin-left: 12px;
+  font-size: 12px;
+}
+.detailsPanel .detailsHeader .closeX {
+  cursor: pointer;
+  margin-left: auto;
+  user-select: none;
+  font-size: 22px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: 0.2s;
+  border-radius: 4px;
+}
+.detailsPanel .detailsHeader .closeX:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.detailsPanel .detailsStats {
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 12px 28px;
+}
+.detailsPanel .detailsStats .stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.detailsPanel .detailsSkills .cell {
+  min-width: 60px;
+}
+.detailsPanel .detailsSkills .cell.center {
+  text-align: center;
+}
+.detailsPanel .detailsSkills .cell.name {
+  flex: 0 0 210px;
+  color: var(--row-fill);
+}
+.detailsPanel .detailsSkills .cell.dmg {
+  flex: 1;
+  text-align: center;
+}
+.detailsPanel .detailsSkills .cell.right {
+  text-align: right;
+}
+.detailsPanel .detailsSkills .skillHeader {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.detailsPanel .detailsSkills .skillHeader .cell.name {
+  color: white;
+}
+.detailsPanel .detailsSkills .skills {
+  max-height: 562px;
+  padding: 0 28px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+.detailsPanel .detailsSkills .skills::-webkit-scrollbar {
+  width: 10px;
+}
+.detailsPanel .detailsSkills .skills::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30);
+  border-radius: 999px;
+  margin-top: 8px;
+  margin-bottom: -8px;
+}
+.detailsPanel .detailsSkills .skills::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .detailsSkills .skills::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.detailsPanel .detailsSkills .skills .skillRow {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.detailsPanel .detailsSkills .skills .skillRow:last-child {
+  border-bottom: none;
+}
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmg {
+  position: relative;
+  overflow: hidden;
+  height: 32px;
+}
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgFill {
+  position: absolute;
+  inset: 0;
+  background: var(--isUser-fill);
+  border-radius: var(--rounded-xs);
+  transform-origin: left center;
+}
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgText {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  justify-content: end;
+  align-items: center;
+  text-shadow: var(--text-shadow);
+  color: var(--dps);
+}
+
+.updateModal.isOpen {
+  display: flex;
+}
+.updateModal .updateModalCard {
+  width: 360px;
+  border-radius: 24px;
+  background: rgb(12, 22, 40);
+  padding: 24px;
+  font-weight: bold;
+  color: white;
+}
+.updateModal .updateModalCard .updateModalTitle {
+  font-size: 24px;
+}
+.updateModal .updateModalCard .updateModalText {
+  margin: 24px 0px;
+  white-space: pre-line;
+}
+.updateModal .updateModalCard .updateModalBtn {
+  border: none;
+  background: var(--error-fill);
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  padding: 8px;
+  width: 100%;
+  cursor: pointer;
+  color: white;
+  text-shadow: var(--text-shadow);
+}
