@@ -20,7 +20,6 @@ import javafx.util.Duration
 import javafx.application.Platform
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinUser
-import java.awt.event.KeyEvent as AwtKeyEvent
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -144,12 +143,17 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 
         hotkeyManager = if (isWindows()) {
-            GlobalHotkeyManager {
-                try {
-                    engine.executeScript("window.dpsApp?.triggerRefreshKeybind?.()")
-                } catch (e: Exception) {
-                    logger.warn("Failed to trigger refresh keybind from global hotkey.", e)
+            try {
+                GlobalHotkeyManager {
+                    try {
+                        engine.executeScript("window.dpsApp?.triggerRefreshKeybind?.()")
+                    } catch (e: Exception) {
+                        logger.warn("Failed to trigger refresh keybind from global hotkey.", e)
+                    }
                 }
+            } catch (e: Exception) {
+                logger.warn("Failed to initialize global hotkey manager.", e)
+                null
             }
         } else {
             null
@@ -376,37 +380,41 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         private fun mapKeyToVirtualKey(key: String): Int? {
             val normalized = key.trim()
             if (normalized.length == 1) {
-                return AwtKeyEvent.getExtendedKeyCodeForChar(normalized[0].code)
-                    .takeIf { it != AwtKeyEvent.VK_UNDEFINED }
+                val charCode = normalized.uppercase()[0].code
+                return when {
+                    charCode in 0x30..0x39 -> charCode
+                    charCode in 0x41..0x5A -> charCode
+                    else -> null
+                }
             }
             val upper = normalized.uppercase()
             if (upper.startsWith("F")) {
                 val number = upper.removePrefix("F").toIntOrNull()
                 if (number != null && number in 1..24) {
-                    return AwtKeyEvent.VK_F1 + (number - 1)
+                    return WinUser.VK_F1 + (number - 1)
                 }
             }
             if (upper.startsWith("NUMPAD")) {
                 val num = upper.removePrefix("NUMPAD").toIntOrNull()
                 if (num != null && num in 0..9) {
-                    return AwtKeyEvent.VK_NUMPAD0 + num
+                    return WinUser.VK_NUMPAD0 + num
                 }
             }
             return when (upper) {
-                "SPACE" -> AwtKeyEvent.VK_SPACE
-                "TAB" -> AwtKeyEvent.VK_TAB
-                "ENTER" -> AwtKeyEvent.VK_ENTER
-                "ESC", "ESCAPE" -> AwtKeyEvent.VK_ESCAPE
-                "BACKSPACE" -> AwtKeyEvent.VK_BACK_SPACE
-                "DELETE" -> AwtKeyEvent.VK_DELETE
-                "HOME" -> AwtKeyEvent.VK_HOME
-                "END" -> AwtKeyEvent.VK_END
-                "PAGEUP", "PAGE UP" -> AwtKeyEvent.VK_PAGE_UP
-                "PAGEDOWN", "PAGE DOWN" -> AwtKeyEvent.VK_PAGE_DOWN
-                "UP" -> AwtKeyEvent.VK_UP
-                "DOWN" -> AwtKeyEvent.VK_DOWN
-                "LEFT" -> AwtKeyEvent.VK_LEFT
-                "RIGHT" -> AwtKeyEvent.VK_RIGHT
+                "SPACE" -> WinUser.VK_SPACE
+                "TAB" -> WinUser.VK_TAB
+                "ENTER", "RETURN" -> WinUser.VK_RETURN
+                "ESC", "ESCAPE" -> WinUser.VK_ESCAPE
+                "BACKSPACE" -> WinUser.VK_BACK
+                "DELETE" -> WinUser.VK_DELETE
+                "HOME" -> WinUser.VK_HOME
+                "END" -> WinUser.VK_END
+                "PAGEUP", "PAGE UP" -> WinUser.VK_PRIOR
+                "PAGEDOWN", "PAGE DOWN" -> WinUser.VK_NEXT
+                "UP" -> WinUser.VK_UP
+                "DOWN" -> WinUser.VK_DOWN
+                "LEFT" -> WinUser.VK_LEFT
+                "RIGHT" -> WinUser.VK_RIGHT
                 else -> null
             }
         }
