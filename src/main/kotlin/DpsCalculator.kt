@@ -2,12 +2,12 @@ package com.tbread
 
 import com.tbread.entity.DpsData
 import com.tbread.entity.JobClass
+import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
 import com.tbread.entity.TargetInfo
-import kotlinx.coroutines.Job
 import org.slf4j.LoggerFactory
-import kotlin.math.log
 import kotlin.math.roundToInt
+import java.util.UUID
 
 class DpsCalculator(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -15,6 +15,25 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     enum class Mode {
         ALL, BOSS_ONLY
     }
+
+    enum class TargetSelectionMode(val id: String) {
+        MOST_DAMAGE("mostDamage"),
+        MOST_RECENT("mostRecent"),
+        ALL_TARGETS("allTargets");
+
+        companion object {
+            fun fromId(id: String?): TargetSelectionMode {
+                return entries.firstOrNull { it.id == id } ?: MOST_DAMAGE
+            }
+        }
+    }
+
+    data class TargetDecision(
+        val targetIds: Set<Int>,
+        val targetName: String,
+        val mode: TargetSelectionMode,
+        val trackingTargetId: Int,
+    )
 
     companion object {
         val POSSIBLE_OFFSETS: IntArray =
@@ -851,10 +870,15 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private var mode: Mode = Mode.BOSS_ONLY
     private var currentTarget: Int = 0
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.MOST_DAMAGE
 
     fun setMode(mode: Mode) {
         this.mode = mode
         //모드 변경시 이전기록 초기화?
+    }
+
+    fun setTargetSelectionModeById(id: String?) {
+        targetSelectionMode = TargetSelectionMode.fromId(id)
     }
 
     fun getDps(): DpsData {
@@ -877,15 +901,27 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
         val dpsData = DpsData()
-        val targetData = decideTarget()
-        dpsData.targetName = targetData.second
-        val battleTime = targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
+        val targetDecision = decideTarget()
+        dpsData.targetName = targetDecision.targetName
+        dpsData.targetMode = targetDecision.mode.id
+
+        currentTarget = targetDecision.trackingTargetId
+        dataStorage.setCurrentTarget(currentTarget)
+
+        val battleTime = when (targetDecision.mode) {
+            TargetSelectionMode.ALL_TARGETS -> parseAllBattleTime(targetDecision.targetIds)
+            else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
+        }
         val nicknameData = dataStorage.getNickname()
         var totalDamage = 0.0
         if (battleTime == 0L) {
             return dpsData
         }
-        pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
+        val pdps = when (targetDecision.mode) {
+            TargetSelectionMode.ALL_TARGETS -> collectAllPdp(pdpMap, targetDecision.targetIds)
+            else -> pdpMap[currentTarget]?.toList() ?: return dpsData
+        }
+        pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
             val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
             val nickname:String = nicknameData[uid]
@@ -918,20 +954,54 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return dpsData
     }
 
-    private fun decideTarget(): Pair<Int, String> {
-        val target: Int = targetInfoMap.maxByOrNull { it.value.damagedAmount() }?.key ?: 0
-        var targetName = ""
-        currentTarget = target
-        dataStorage.setCurrentTarget(target)
-        //데미지 누계말고도 건수누적방식도 추가하는게 좋을지도? 지금방식은 정복같은데선 타겟변경에 너무 오랜H이듬
-        if (dataStorage.getMobData().containsKey(target)) {
-            val mobCode = dataStorage.getMobData()[target]
-            if (dataStorage.getMobCodeData().containsKey(mobCode)) {
-                targetName = dataStorage.getMobCodeData()[mobCode]!!
+    private fun decideTarget(): TargetDecision {
+        if (targetInfoMap.isEmpty()) {
+            return TargetDecision(emptySet(), "", targetSelectionMode, 0)
+        }
+        val mostDamageTarget = targetInfoMap.maxByOrNull { it.value.damagedAmount() }?.key ?: 0
+        val mostRecentTarget = targetInfoMap.maxByOrNull { it.value.lastDamageTime() }?.key ?: 0
+
+        return when (targetSelectionMode) {
+            TargetSelectionMode.MOST_DAMAGE -> {
+                TargetDecision(setOf(mostDamageTarget), resolveTargetName(mostDamageTarget), targetSelectionMode, mostDamageTarget)
+            }
+            TargetSelectionMode.MOST_RECENT -> {
+                TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
+            }
+            TargetSelectionMode.ALL_TARGETS -> {
+                TargetDecision(targetInfoMap.keys.toSet(), "", targetSelectionMode, mostRecentTarget)
             }
         }
+    }
 
-        return Pair(target, targetName)
+    private fun resolveTargetName(target: Int): String {
+        if (!dataStorage.getMobData().containsKey(target)) return ""
+        val mobCode = dataStorage.getMobData()[target] ?: return ""
+        return dataStorage.getMobCodeData()[mobCode] ?: ""
+    }
+
+    private fun parseAllBattleTime(targetIds: Set<Int>): Long {
+        val targets = targetIds.mapNotNull { targetInfoMap[it] }
+        if (targets.isEmpty()) return 0
+        val start = targets.minOf { it.firstDamageTime() }
+        val end = targets.maxOf { it.lastDamageTime() }
+        return end - start
+    }
+
+    private fun collectAllPdp(
+        pdpMap: Map<Int, Iterable<ParsedDamagePacket>>,
+        targetIds: Set<Int>,
+    ): List<ParsedDamagePacket> {
+        val combined = mutableListOf<ParsedDamagePacket>()
+        val seen = mutableSetOf<UUID>()
+        targetIds.forEach { targetId ->
+            pdpMap[targetId]?.forEach { pdp ->
+                if (seen.add(pdp.getUuid())) {
+                    combined.add(pdp)
+                }
+            }
+        }
+        return combined
     }
 
     private fun inferOriginalSkillCode(skillCode: Int): Int? {

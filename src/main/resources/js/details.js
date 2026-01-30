@@ -21,26 +21,31 @@ const createDetailsUI = ({
     const n = Number(v);
     return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
   };
+  const i18n = window.i18n;
+  const labelText = (key, fallback) => i18n?.t?.(key, fallback) ?? fallback;
+  const formatTitle = (name) =>
+    i18n?.format?.("details.title", { name }, `${name} Details`) ?? `${name} Details`;
+
   const STATUS = [
-    { label: "Total Damage", getValue: (d) => formatNum(d?.totalDmg) },
-    { label: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
+    { key: "details.stats.totalDamage", fallback: "Total Damage", getValue: (d) => formatNum(d?.totalDmg) },
+    { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     // { label: "보스 막기비율", getValue: (d) => d?.parry ?? "-" },
     // { label: "보스 회피비율", getValue: (d) => d?.eva ?? "-" },
-    { label: "Crit Rate", getValue: (d) => pctText(d?.totalCritPct) },
-    { label: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
-    { label: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
-    { label: "Back Attack Rate", getValue: (d) => pctText(d?.totalBackPct) },
-    { label: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
-    { label: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
+    { key: "details.stats.critRate", fallback: "Crit Rate", getValue: (d) => pctText(d?.totalCritPct) },
+    { key: "details.stats.perfectRate", fallback: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
+    { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
+    { key: "details.stats.backRate", fallback: "Back Attack Rate", getValue: (d) => pctText(d?.totalBackPct) },
+    { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
+    { key: "details.stats.combatTime", fallback: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
   ];
 
-  const createStatView = (labelText) => {
+  const createStatView = (labelKey, fallbackLabel) => {
     const statEl = document.createElement("div");
     statEl.className = "stat";
 
     const labelEl = document.createElement("p");
     labelEl.className = "label";
-    labelEl.textContent = labelText;
+    labelEl.textContent = labelText(labelKey, fallbackLabel);
 
     const valueEl = document.createElement("p");
     valueEl.className = "value";
@@ -49,11 +54,23 @@ const createDetailsUI = ({
     statEl.appendChild(labelEl);
     statEl.appendChild(valueEl);
 
-    return { statEl, valueEl };
+    return { statEl, labelEl, valueEl, labelKey, fallbackLabel };
   };
 
-  const statSlots = STATUS.map((def) => createStatView(def.label));
+  const statSlots = STATUS.map((def) => createStatView(def.key, def.fallback));
   statSlots.forEach((value) => detailsStatsEl.appendChild(value.statEl));
+
+  const updateLabels = () => {
+    for (let i = 0; i < statSlots.length; i++) {
+      const slot = statSlots[i];
+      slot.labelEl.textContent = labelText(slot.labelKey, slot.fallbackLabel);
+    }
+    if (!detailsPanel.classList.contains("open")) {
+      detailsTitle.textContent = labelText("details.header", "Details");
+    } else if (currentRowName) {
+      detailsTitle.textContent = formatTitle(currentRowName);
+    }
+  };
 
   const renderStats = (details) => {
     for (let i = 0; i < STATUS.length; i++) {
@@ -189,8 +206,11 @@ const createDetailsUI = ({
     }
   };
 
+  let currentRowName = "";
+
   const render = (details, row) => {
-    detailsTitle.textContent = `${String(row.name)} Details`;
+    currentRowName = String(row.name);
+    detailsTitle.textContent = formatTitle(currentRowName);
     renderStats(details);
     renderSkills(details);
   };
@@ -217,7 +237,8 @@ const createDetailsUI = ({
 
     openedRowId = rowId;
 
-    detailsTitle.textContent = `${row.name} Details`;
+    currentRowName = String(row.name);
+    detailsTitle.textContent = formatTitle(currentRowName);
     detailsPanel.classList.add("open");
 
     // 이전 값 비우기
@@ -248,5 +269,5 @@ const createDetailsUI = ({
   };
   detailsClose?.addEventListener("click", close);
 
-  return { open, close, isOpen, render };
+  return { open, close, isOpen, render, updateLabels };
 };

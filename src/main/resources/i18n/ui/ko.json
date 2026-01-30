@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "DPS 미터"
+  },
+  "details": {
+    "header": "상세",
+    "title": "{name} 상세",
+    "tooltip": "지속 피해(DOT) 타격은 총 치명타, 더블, 퍼펙트, 백어택, 패리 비율에 포함되지 않습니다.",
+    "settings": {
+      "ariaLabel": "상세 설정 열기"
+    },
+    "panelBackground": "패널 배경",
+    "skills": {
+      "skill": "스킬",
+      "hits": "타수",
+      "crit": "치명",
+      "parry": "패리",
+      "perfect": "퍼펙트",
+      "double": "더블",
+      "back": "백",
+      "totalDamage": "총 피해"
+    },
+    "stats": {
+      "totalDamage": "총 피해",
+      "contribution": "기여도",
+      "critRate": "치명타율",
+      "perfectRate": "퍼펙트율",
+      "doubleRate": "더블율",
+      "backRate": "백어택율",
+      "parryRate": "패리율",
+      "combatTime": "전투 시간"
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "lockedPort": "고정 포트",
+    "resetDetection": "감지 초기화",
+    "characterName": "캐릭터 이름",
+    "characterNamePlaceholder": "캐릭터 이름 입력",
+    "onlyMe": "내 캐릭터만 표시",
+    "discord": "💬 디스코드에서 지원 받기",
+    "language": {
+      "label": "언어"
+    },
+    "targetSelection": {
+      "label": "대상 선택",
+      "options": {
+        "mostDamage": "가장 큰 피해(현재)",
+        "mostRecent": "최근 피해 대상",
+        "allTargets": "모든 대상 합산"
+      }
+    }
+  },
+  "battleTime": {
+    "analysing": "데이터 분석 중..."
+  },
+  "skills": {
+    "fallback": "스킬 {code}",
+    "dot": "{name} - DOT"
+  },
+  "update": {
+    "title": "새 업데이트 사용 가능",
+    "ok": "확인",
+    "text": "새 업데이트가 있습니다!\n\n현재 버전: v.{current}\n최신 버전: v.{latest}\n\n계속하기 전에 업데이트해 주세요."
+  },
+  "connection": {
+    "auto": "자동"
+  },
+  "target": {
+    "all": "모든 대상"
+  }
+}

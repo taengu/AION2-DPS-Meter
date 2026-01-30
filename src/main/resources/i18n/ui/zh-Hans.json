@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "DPS 计量器"
+  },
+  "details": {
+    "header": "详情",
+    "title": "{name} 详情",
+    "tooltip": "持续伤害（DOT）不计入总暴击、双重、完美、背击或格挡比例。",
+    "settings": {
+      "ariaLabel": "打开详情设置"
+    },
+    "panelBackground": "面板背景",
+    "skills": {
+      "skill": "技能",
+      "hits": "命中",
+      "crit": "暴击",
+      "parry": "格挡",
+      "perfect": "完美",
+      "double": "双重",
+      "back": "背击",
+      "totalDamage": "总伤害"
+    },
+    "stats": {
+      "totalDamage": "总伤害",
+      "contribution": "贡献度",
+      "critRate": "暴击率",
+      "perfectRate": "完美率",
+      "doubleRate": "双重率",
+      "backRate": "背击率",
+      "parryRate": "格挡率",
+      "combatTime": "战斗时间"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "lockedPort": "锁定端口",
+    "resetDetection": "重置检测",
+    "characterName": "角色名称",
+    "characterNamePlaceholder": "输入你的角色名称",
+    "onlyMe": "仅显示我的角色",
+    "discord": "💬 在 Discord 获取支持",
+    "language": {
+      "label": "语言"
+    },
+    "targetSelection": {
+      "label": "目标选择",
+      "options": {
+        "mostDamage": "最高伤害（当前）",
+        "mostRecent": "最近受伤目标",
+        "allTargets": "所有目标合并"
+      }
+    }
+  },
+  "battleTime": {
+    "analysing": "正在分析数据..."
+  },
+  "skills": {
+    "fallback": "技能 {code}",
+    "dot": "{name} - DOT"
+  },
+  "update": {
+    "title": "有新更新",
+    "ok": "确定",
+    "text": "有新更新可用！\n\n当前版本：v.{current}\n最新版本：v.{latest}\n\n请在继续前更新。"
+  },
+  "connection": {
+    "auto": "自动"
+  },
+  "target": {
+    "all": "所有目标"
+  }
+}

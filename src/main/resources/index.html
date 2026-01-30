@@ -42,8 +42,8 @@
           role="dialog"
           aria-modal="true">
           <div class="detailsHeader">
-            <div class="detailsTitle">Details</div>
-            <div class="tooltip">
+            <div class="detailsTitle" data-i18n="details.header">Details</div>
+            <div class="tooltip" data-i18n="details.tooltip">
               Damage over time hits are not included in total crit, double, perfect, back attack, or
               parry ratios.
             </div>
@@ -52,12 +52,15 @@
                 <button
                   class="detailsSettingsBtn"
                   type="button"
-                  aria-label="Open details settings">
+                  aria-label="Open details settings"
+                  data-i18n-aria-label="details.settings.ariaLabel">
                   <i data-lucide="settings"></i>
                 </button>
                 <div class="detailsSettingsMenu" role="menu">
                   <div class="detailsSettings">
-                    <div class="detailsSettingsLabel">Panel background</div>
+                    <div class="detailsSettingsLabel" data-i18n="details.panelBackground">
+                      Panel background
+                    </div>
                     <div class="detailsSettingsControl">
                       <input
                         class="detailsOpacityInput"
@@ -80,14 +83,14 @@
 
             <div class="detailsSkills">
               <div class="skillHeader">
-                <div class="cell name center">Skill</div>
-                <div class="cell center hit">Hits</div>
-                <div class="cell center crit">Crit</div>
-                <div class="cell center parry">Parry</div>
-                <div class="cell center perfect">Perfect</div>
-                <div class="cell center double">Double</div>
-                <div class="cell center back">Back</div>
-                <div class="cell dmg">Total Damage</div>
+                <div class="cell name center" data-i18n="details.skills.skill">Skill</div>
+                <div class="cell center hit" data-i18n="details.skills.hits">Hits</div>
+                <div class="cell center crit" data-i18n="details.skills.crit">Crit</div>
+                <div class="cell center parry" data-i18n="details.skills.parry">Parry</div>
+                <div class="cell center perfect" data-i18n="details.skills.perfect">Perfect</div>
+                <div class="cell center double" data-i18n="details.skills.double">Double</div>
+                <div class="cell center back" data-i18n="details.skills.back">Back</div>
+                <div class="cell dmg" data-i18n="details.skills.totalDamage">Total Damage</div>
               </div>
 
               <div class="skills"></div>
@@ -99,40 +102,80 @@
           role="dialog"
           aria-modal="true">
           <div class="settingsHeader">
-            <div class="settingsTitle">Settings</div>
+            <div class="settingsTitle" data-i18n="settings.title">Settings</div>
             <div class="closeX settingsClose">×</div>
           </div>
           <div class="settingsBody">
             <div class="settingsRow">
               <div class="settingsInfo">
-                <div class="settingsLabel">Locked port</div>
+                <div class="settingsLabel" data-i18n="settings.lockedPort">Locked port</div>
                 <div class="settingsValue">
                   <span class="lockedIp" style='display:none;'>-</span>
                   <span class="lockedPort">-</span>
                 </div>
               </div>
-              <button class="settingsAction resetDetectBtn">Reset detection</button>
+              <button class="settingsAction resetDetectBtn" data-i18n="settings.resetDetection">
+                Reset detection
+              </button>
             </div>
             <div class="settingsRow settingsRowInput">
-              <label class="settingsLabel" for="characterNameInput">Character name</label>
+              <label
+                class="settingsLabel"
+                for="characterNameInput"
+                data-i18n="settings.characterName">
+                Character name
+              </label>
               <input
                 id="characterNameInput"
                 class="characterNameInput"
-                placeholder="Enter your character name" />
+                placeholder="Enter your character name"
+                data-i18n-placeholder="settings.characterNamePlaceholder" />
             </div>
             <label class="settingsCheckbox">
               <input
                 type="checkbox"
                 class="onlyMeCheckbox" />
-              Only show my character
+              <span data-i18n="settings.onlyMe">Only show my character</span>
             </label>
-            <button class="discordButton">💬 Get support on our Discord</button>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.language.label">Language</div>
+              </div>
+              <select class="settingsSelect languageSelect">
+                <option value="en">English</option>
+                <option value="ko">한국어</option>
+                <option value="zh-Hant">繁體中文</option>
+                <option value="zh-Hans">简体中文</option>
+              </select>
+            </div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.targetSelection.label">
+                  Target selection
+                </div>
+              </div>
+              <select class="settingsSelect targetSelect">
+                <option value="mostDamage" data-i18n="settings.targetSelection.options.mostDamage">
+                  Most damage (current)
+                </option>
+                <option value="mostRecent" data-i18n="settings.targetSelection.options.mostRecent">
+                  Most recently damaged
+                </option>
+                <option value="allTargets" data-i18n="settings.targetSelection.options.allTargets">
+                  All targets combined
+                </option>
+              </select>
+            </div>
+            <button class="discordButton" data-i18n="settings.discord">
+              💬 Get support on our Discord
+            </button>
           </div>
         </div>
         <div class="list"></div>
         <div class="battleTime">
           <div class="status"></div>
           <div class="tick"></div>
+          <div class="analysisStatus" data-i18n="battleTime.analysing">Analysing data...</div>
         </div>
       </div>
       <div
@@ -156,12 +199,12 @@
       class="updateModal"
       id="updateModal">
       <div class="updateModalCard">
-        <div class="updateModalTitle">New update available</div>
+        <div class="updateModalTitle" data-i18n="update.title">New update available</div>
         <div
           class="updateModalText"
           id="updateModalText"></div>
         <div class="updateModalActions">
-          <button class="updateModalBtn primary">OK</button>
+          <button class="updateModalBtn primary" data-i18n="update.ok">OK</button>
         </div>
       </div>
     </div>
@@ -172,6 +215,7 @@
     <!-- 추가 -->
     <script src="./js/checkRelease.js"></script>
 
+    <script src="./js/i18n.js"></script>
     <script src="./js/core.js"></script>
   </body>
 </html>

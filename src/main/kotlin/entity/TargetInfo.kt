@@ -21,6 +21,14 @@ data class TargetInfo(
         return targetId
     }
 
+    fun firstDamageTime(): Long {
+        return targetDamageStarted
+    }
+
+    fun lastDamageTime(): Long {
+        return targetDamageEnded
+    }
+
     fun processPdp(pdp:ParsedDamagePacket){
         if (processedUuid.contains(pdp.getUuid())) return
         damagedAmount += pdp.getDamage()

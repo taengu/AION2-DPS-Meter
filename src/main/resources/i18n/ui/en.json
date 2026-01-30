@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "DPS METER"
+  },
+  "details": {
+    "header": "Details",
+    "title": "{name} Details",
+    "tooltip": "Damage over time hits are not included in total crit, double, perfect, back attack, or parry ratios.",
+    "settings": {
+      "ariaLabel": "Open details settings"
+    },
+    "panelBackground": "Panel background",
+    "skills": {
+      "skill": "Skill",
+      "hits": "Hits",
+      "crit": "Crit",
+      "parry": "Parry",
+      "perfect": "Perfect",
+      "double": "Double",
+      "back": "Back",
+      "totalDamage": "Total Damage"
+    },
+    "stats": {
+      "totalDamage": "Total Damage",
+      "contribution": "Contribution",
+      "critRate": "Crit Rate",
+      "perfectRate": "Perfect Rate",
+      "doubleRate": "Double Rate",
+      "backRate": "Back Attack Rate",
+      "parryRate": "Parry Rate",
+      "combatTime": "Combat Time"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "lockedPort": "Locked port",
+    "resetDetection": "Reset detection",
+    "characterName": "Character name",
+    "characterNamePlaceholder": "Enter your character name",
+    "onlyMe": "Only show my character",
+    "discord": "💬 Get support on our Discord",
+    "language": {
+      "label": "Language"
+    },
+    "targetSelection": {
+      "label": "Target selection",
+      "options": {
+        "mostDamage": "Most damage (current)",
+        "mostRecent": "Most recently damaged",
+        "allTargets": "All targets combined"
+      }
+    }
+  },
+  "battleTime": {
+    "analysing": "Analysing data..."
+  },
+  "skills": {
+    "fallback": "Skill {code}",
+    "dot": "{name} - DOT"
+  },
+  "update": {
+    "title": "New update available",
+    "ok": "OK",
+    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing."
+  },
+  "connection": {
+    "auto": "Auto"
+  },
+  "target": {
+    "all": "All targets"
+  }
+}

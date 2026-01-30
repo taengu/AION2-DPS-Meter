@@ -3,6 +3,8 @@ const createBattleTimeUI = ({
   rootEl,
   tickSelector,
   statusSelector,
+  analysisSelector,
+  getAnalysisText,
   graceMs,
   graceArmMs,
   visibleClass,
@@ -11,6 +13,7 @@ const createBattleTimeUI = ({
 
   const tickEl = rootEl.querySelector(tickSelector);
   const statusEl = statusSelector ? rootEl.querySelector(statusSelector) : null;
+  const analysisEl = analysisSelector ? rootEl.querySelector(analysisSelector) : null;
 
   let lastBattleTimeMs = null;
 
@@ -19,6 +22,8 @@ const createBattleTimeUI = ({
   let lastChangedAt = 0;
 
   let lastSeenAt = 0;
+
+  let analysisTextProvider = getAnalysisText;
 
   const formatMMSS = (ms) => {
     const v = Math.max(0, Math.floor(Number(ms) || 0));
@@ -34,6 +39,14 @@ const createBattleTimeUI = ({
     currentState = state || "";
 
     if (statusEl) statusEl.dataset.state = state || "";
+    if (analysisEl) {
+      const shouldShow = state === "state-grace" || state === "state-ended";
+      analysisEl.style.display = shouldShow ? "" : "none";
+      if (shouldShow) {
+        const text = analysisTextProvider ? analysisTextProvider() : "Analysing data...";
+        analysisEl.textContent = text;
+      }
+    }
   };
 
   const setVisible = (visible) => {
@@ -95,5 +108,25 @@ const createBattleTimeUI = ({
   const getState = () => currentState;
   const isEnded = () => currentState === "state-ended";
 
-  return { setVisible, update, render, reset, getCombatTimeText, getState, isEnded };
+  const setAnalysisTextProvider = (provider) => {
+    analysisTextProvider = provider;
+    if (analysisEl) {
+      const shouldShow = currentState === "state-grace" || currentState === "state-ended";
+      if (shouldShow) {
+        const text = analysisTextProvider ? analysisTextProvider() : "Analysing data...";
+        analysisEl.textContent = text;
+      }
+    }
+  };
+
+  return {
+    setVisible,
+    update,
+    render,
+    reset,
+    getCombatTimeText,
+    getState,
+    isEnded,
+    setAnalysisTextProvider,
+  };
 };

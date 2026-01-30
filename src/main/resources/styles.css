@@ -310,6 +310,13 @@
     font-size: 14px;
   }
 
+  .analysisStatus {
+    color: rgba(255, 255, 255, 0.75);
+    text-shadow: var(--text-shadow);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
   .status {
     width: 10px;
     height: 10px;
@@ -677,6 +684,9 @@
   justify-content: space-between;
   gap: 12px;
 }
+.settingsPanel .settingsRowSelect {
+  align-items: center;
+}
 .settingsPanel .settingsRowInput {
   align-items: flex-start;
 }
@@ -715,6 +725,14 @@
   color: var(--text-color);
   font-weight: 600;
   cursor: pointer;
+}
+.settingsPanel .settingsSelect {
+  min-width: 180px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--rounded-xs);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
 }
 .settingsPanel .settingsCheckbox {
   display: flex;

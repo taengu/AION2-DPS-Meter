@@ -9,6 +9,7 @@ class DpsApp {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
+      targetSelection: "dpsMeter.targetSelection",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -30,6 +31,11 @@ class DpsApp {
     this._lastBattleTimeMs = null;
 
     this._pollTimer = null;
+
+    this.i18n = window.i18n;
+    this.targetSelection = "mostDamage";
+    this.lastTargetMode = "";
+    this.lastTargetName = "";
 
     DpsApp.instance = this;
   }
@@ -60,7 +66,7 @@ class DpsApp {
   start() {
     this.elList = document.querySelector(".list");
     this.elBossName = document.querySelector(".bossName");
-    this.elBossName.textContent = "DPS METER";
+    this.elBossName.textContent = this.getDefaultTargetLabel();
 
     this.resetBtn = document.querySelector(".resetBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
@@ -79,6 +85,8 @@ class DpsApp {
       rootEl: document.querySelector(".battleTime"),
       tickSelector: ".tick",
       statusSelector: ".status",
+      analysisSelector: ".analysisStatus",
+      getAnalysisText: () => this.i18n?.t("battleTime.analysing", "Analysing data..."),
       graceMs: this.GRACE_MS,
       graceArmMs: this.GRACE_ARM_MS,
       visibleClass: "isVisible",
@@ -102,6 +110,20 @@ class DpsApp {
     });
     this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
+    this.detailsUI?.updateLabels?.();
+    this.i18n?.onChange?.((lang) => {
+      if (this.languageSelect) {
+        this.languageSelect.value = lang;
+      }
+      this.detailsUI?.updateLabels?.();
+      if (this.battleTime?.setAnalysisTextProvider) {
+        this.battleTime.setAnalysisTextProvider(() =>
+          this.i18n?.t("battleTime.analysing", "Analysing data...")
+        );
+      }
+      this.refreshConnectionInfo();
+      this.refreshBossLabel();
+    });
     window.ReleaseChecker?.start?.();
 
     this.startPolling();
@@ -141,6 +163,8 @@ class DpsApp {
 
     this.lastSnapshot = null;
     this.lastJson = null;
+    this.lastTargetMode = "";
+    this.lastTargetName = "";
 
     this._battleTimeVisible = false;
     this._lastBattleTimeMs = null;
@@ -151,7 +175,7 @@ class DpsApp {
     this.meterUI?.onResetMeterUi?.();
 
     if (this.elBossName) {
-      this.elBossName.textContent = "DPS METER";
+      this.elBossName.textContent = this.getDefaultTargetLabel();
     }
     if (callBackend) {
       window.javaBridge?.resetDps?.();
@@ -190,8 +214,10 @@ class DpsApp {
 
     this.lastJson = raw;
 
-    const { rows, targetName, battleTimeMs } = this.buildRowsFromPayload(raw);
+    const { rows, targetName, targetMode, battleTimeMs } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
+    this.lastTargetMode = targetMode;
+    this.lastTargetName = targetName;
 
 
     const showByServer = rows.length > 0;
@@ -240,13 +266,14 @@ class DpsApp {
     }
 
     // render
-    this.elBossName.textContent = targetName ? targetName : "";
+    this.elBossName.textContent = targetName ? targetName : this.getDefaultTargetLabel(targetMode);
     this.meterUI.updateFromRows(rowsToRender);
   }
 
   buildRowsFromPayload(raw) {
     const payload = this.safeParseJSON(raw, {});
     const targetName = typeof payload?.targetName === "string" ? payload.targetName : "";
+    const targetMode = typeof payload?.targetMode === "string" ? payload.targetMode : "";
 
     const mapObj = payload?.map && typeof payload.map === "object" ? payload.map : {};
     const rows = this.buildRowsFromMapObject(mapObj);
@@ -254,7 +281,7 @@ class DpsApp {
     const battleTimeMsRaw = payload?.battleTime;
     const battleTimeMs = Number.isFinite(Number(battleTimeMsRaw)) ? Number(battleTimeMsRaw) : null;
 
-    return { rows, targetName, battleTimeMs };
+    return { rows, targetName, targetMode, battleTimeMs };
   }
 
   buildRowsFromMapObject(mapObj) {
@@ -315,7 +342,14 @@ class DpsApp {
       if (!value || typeof value !== "object") continue;
 
       const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
-      const baseName = nameRaw ? nameRaw : `Skill ${code}`;
+      const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
+      const baseName =
+        translatedName ||
+        this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||
+        `Skill ${code}`;
+      const dotName =
+        this.i18n?.format?.("skills.dot", { name: baseName }, `${baseName} - DOT`) ||
+        `${baseName} - DOT`;
 
       // 공통
       const pushSkill = ({
@@ -376,7 +410,7 @@ class DpsApp {
       if (Number(String(value.dotDamageAmount ?? "").replace(/,/g, "")) > 0) {
         pushSkill({
           codeKey: `${code}-dot`, // 유니크키
-          name: `${baseName} - DOT`,
+          name: dotName,
           time: value.dotTimes,
           dmg: value.dotDamageAmount,
           countForTotals: false,
@@ -446,12 +480,19 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.onlyMeCheckbox = document.querySelector(".onlyMeCheckbox");
     this.discordButton = document.querySelector(".discordButton");
+    this.languageSelect = document.querySelector(".languageSelect");
+    this.targetSelect = document.querySelector(".targetSelect");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
+    const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
+    this.setTargetSelection(storedTargetSelection || this.targetSelection, {
+      persist: false,
+      syncBackend: true,
+    });
 
     if (this.characterNameInput) {
       this.characterNameInput.value = this.USER_NAME;
@@ -466,6 +507,27 @@ class DpsApp {
       this.onlyMeCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setOnlyShowUser(isChecked, { persist: true });
+      });
+    }
+
+    if (this.languageSelect) {
+      const currentLanguage = this.i18n?.getLanguage?.() || "en";
+      this.languageSelect.value = currentLanguage;
+      this.languageSelect.addEventListener("change", (event) => {
+        const value = event.target?.value;
+        if (value) {
+          this.i18n?.setLanguage?.(value, { persist: true });
+        }
+      });
+    }
+
+    if (this.targetSelect) {
+      this.targetSelect.value = this.targetSelection;
+      this.targetSelect.addEventListener("change", (event) => {
+        const value = event.target?.value;
+        if (value) {
+          this.setTargetSelection(value, { persist: true, syncBackend: true });
+        }
       });
     }
 
@@ -605,6 +667,19 @@ class DpsApp {
     }
   }
 
+  setTargetSelection(mode, { persist = false, syncBackend = false } = {}) {
+    this.targetSelection = mode || "mostDamage";
+    if (persist) {
+      localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
+    }
+    if (syncBackend) {
+      window.javaBridge?.setTargetSelection?.(this.targetSelection);
+    }
+    if (this.targetSelect && document.activeElement !== this.targetSelect) {
+      this.targetSelect.value = this.targetSelection;
+    }
+  }
+
   refreshConnectionInfo() {
     if (!this.lockedIp || !this.lockedPort) return;
     const raw = window.javaBridge?.getConnectionInfo?.();
@@ -615,9 +690,26 @@ class DpsApp {
     }
     const info = this.safeParseJSON(raw, {});
     const ip = info?.ip || "-";
-    const port = Number.isFinite(Number(info?.port)) ? String(info.port) : "Auto";
+    const port = Number.isFinite(Number(info?.port))
+      ? String(info.port)
+      : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+  }
+
+  getDefaultTargetLabel(targetMode = "") {
+    if (targetMode === "allTargets") {
+      return this.i18n?.t("target.all", "All targets") ?? "All targets";
+    }
+    return this.i18n?.t("header.title", "DPS METER") ?? "DPS METER";
+  }
+
+  refreshBossLabel() {
+    if (!this.elBossName) return;
+    if (this.lastTargetName) {
+      return;
+    }
+    this.elBossName.textContent = this.getDefaultTargetLabel(this.lastTargetMode);
   }
 
   bindDragToMoveWindow() {
@@ -710,14 +802,15 @@ window.addEventListener("unhandledrejection", (event) => {
   debug?.log?.("unhandledrejection", event.reason);
 });
 
-const startApp = () => {
+const startApp = async () => {
   debug?.log?.("startApp", {
     readyState: document.readyState,
     hasDpsData: !!window.dpsData,
     hasJavaBridge: !!window.javaBridge,
   });
-  window.lucide?.createIcons?.();
   try {
+    await window.i18n?.init?.();
+    window.lucide?.createIcons?.();
     dpsApp.start();
   } catch (err) {
     debug?.log?.("startApp.error", err);

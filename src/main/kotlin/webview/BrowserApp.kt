@@ -59,6 +59,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             LocalPlayer.characterName = if (trimmed.isBlank()) null else trimmed
         }
 
+        fun setTargetSelection(mode: String?) {
+            dpsCalculator.setTargetSelectionModeById(mode)
+        }
+
         fun getConnectionInfo(): String {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()

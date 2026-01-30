@@ -56,7 +56,9 @@
 
       const latest = (await res.json()).tag_name;
       if (latest && n(latest) > n(current)) {
-        text.textContent = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.`;
+        const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.`;
+        text.textContent =
+          window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;
         modal.classList.add("isOpen");
       }
     }, START_DELAY);
