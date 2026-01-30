@@ -177,12 +177,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun hasPossibilityNickname(nickname: String): Boolean {
         if (nickname.isEmpty()) return false
-        val regex = Regex("^[\\p{IsHan}가-힣a-zA-Z0-9]+$")
-        if (!regex.matches(nickname)) return false
-        val onlyNumbers = Regex("^[0-9]+$")
-        if (onlyNumbers.matches(nickname)) return false
-        val oneAlphabet = Regex("^[A-Za-z]$")
-        return !oneAlphabet.matches(nickname)
+        var onlyNumbers = true
+        for (ch in nickname) {
+            when {
+                ch in '0'..'9' -> {
+                    // keep onlyNumbers true
+                }
+                ch in 'A'..'Z' || ch in 'a'..'z' -> onlyNumbers = false
+                ch in '가'..'힣' -> onlyNumbers = false
+                Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN -> onlyNumbers = false
+                else -> return false
+            }
+        }
+        if (onlyNumbers) return false
+        if (nickname.length == 1 && (nickname[0] in 'A'..'Z' || nickname[0] in 'a'..'z')) return false
+        return true
     }
 
     private fun parsePerfectPacket(packet: ByteArray) {
