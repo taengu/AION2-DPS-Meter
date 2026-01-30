@@ -136,22 +136,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     }
                 }
             }
-            if (packet.size > innerOffset + 3 && packet[innerOffset + 1] == 0x00.toByte()) {
-                val possibleNameLength = packet[innerOffset + 2].toInt() and 0xff
-                if (packet.size >= innerOffset + possibleNameLength + 3 && possibleNameLength.toInt() != 0) {
-                    val possibleNameBytes = packet.copyOfRange(innerOffset + 3, innerOffset + possibleNameLength + 3)
-                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                    val sanitizedName = sanitizeNickname(possibleName)
-                    if (sanitizedName != null) {
-                        logger.info(
-                            "Potential nickname found in pattern 2: {} (hex={})",
-                            sanitizedName,
-                            toHex(possibleNameBytes)
-                        )
-                        dataStorage.appendNickname(info.value, sanitizedName)
-                    }
-                }
-            }
+            // Pattern 2 disabled temporarily due to unreliable results.
             if (packet.size > innerOffset + 5) {
                 if (packet[innerOffset + 3] == 0x00.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
                     val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
