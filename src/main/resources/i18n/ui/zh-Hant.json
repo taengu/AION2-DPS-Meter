@@ -38,6 +38,15 @@
     "characterName": "角色名稱",
     "characterNamePlaceholder": "輸入你的角色名稱",
     "onlyMe": "只顯示我的角色",
+    "refreshKeybind": {
+      "label": "重新整理快捷鍵",
+      "hint": "點擊輸入框後按鍵（預設 Ctrl+R）",
+      "placeholder": "按下按鍵",
+      "capture": "請按下按鍵...",
+      "enabled": "啟用重新整理快捷鍵",
+      "reset": "重設",
+      "ariaLabel": "重新整理快捷鍵"
+    },
     "discord": "💬 在 Discord 取得支援",
     "language": {
       "label": "語言"

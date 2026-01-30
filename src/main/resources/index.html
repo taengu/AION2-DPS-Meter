@@ -137,6 +137,38 @@
                 class="onlyMeCheckbox" />
               <span data-i18n="settings.onlyMe">Only show my character</span>
             </label>
+            <div class="settingsRow settingsRowKeybind">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.refreshKeybind.label">
+                  Refresh keybind
+                </div>
+                <div class="settingsHint" data-i18n="settings.refreshKeybind.hint">
+                  Click the field and press keys (default Ctrl+R)
+                </div>
+              </div>
+              <div class="settingsKeybindControls">
+                <input
+                  class="settingsKeybindInput refreshKeybindInput"
+                  type="text"
+                  readonly
+                  placeholder="Press keys"
+                  aria-label="Refresh keybind"
+                  data-i18n-placeholder="settings.refreshKeybind.placeholder"
+                  data-i18n-aria-label="settings.refreshKeybind.ariaLabel" />
+                <button
+                  class="settingsKeybindReset refreshKeybindReset"
+                  type="button"
+                  data-i18n="settings.refreshKeybind.reset">
+                  Reset
+                </button>
+              </div>
+            </div>
+            <label class="settingsCheckbox settingsKeybindToggle">
+              <input
+                type="checkbox"
+                class="refreshKeybindToggle" />
+              <span data-i18n="settings.refreshKeybind.enabled">Enable refresh keybind</span>
+            </label>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.language.label">Language</div>

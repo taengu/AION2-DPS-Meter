@@ -22,6 +22,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
+import java.net.ServerSocket
 import kotlin.system.exitProcess
 
 class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
@@ -104,12 +105,15 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
     private val debugMode = false
 
     private val version = "0.1.3"
+    private var firewallPromptSocket: ServerSocket? = null
 
 
     override fun start(stage: Stage) {
         stage.setOnCloseRequest {
+            closeFirewallPrompt()
             exitProcess(0)
         }
+        ensureWindowsFirewallPrompt()
         val webView = WebView()
         val engine = webView.engine
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
@@ -167,6 +171,37 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     fun getVersion():String{
         return version
+    }
+
+    private fun ensureWindowsFirewallPrompt() {
+        val osName = System.getProperty("os.name")?.lowercase().orEmpty()
+        if (!osName.contains("windows")) {
+            return
+        }
+        if (firewallPromptSocket != null) {
+            return
+        }
+        try {
+            firewallPromptSocket = ServerSocket(0).apply {
+                reuseAddress = true
+            }
+            logger.info(
+                "Opened firewall prompt socket on port {} to trigger Windows firewall dialog.",
+                firewallPromptSocket?.localPort
+            )
+        } catch (e: Exception) {
+            logger.warn("Failed to open firewall prompt socket.", e)
+        }
+    }
+
+    private fun closeFirewallPrompt() {
+        try {
+            firewallPromptSocket?.close()
+        } catch (e: Exception) {
+            logger.warn("Failed to close firewall prompt socket.", e)
+        } finally {
+            firewallPromptSocket = null
+        }
     }
 
 }

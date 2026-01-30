@@ -38,6 +38,15 @@
     "characterName": "Character name",
     "characterNamePlaceholder": "Enter your character name",
     "onlyMe": "Only show my character",
+    "refreshKeybind": {
+      "label": "Refresh keybind",
+      "hint": "Click the field and press keys (default Ctrl+R)",
+      "placeholder": "Press keys",
+      "capture": "Press keys...",
+      "enabled": "Enable refresh keybind",
+      "reset": "Reset",
+      "ariaLabel": "Refresh keybind"
+    },
     "discord": "💬 Get support on our Discord",
     "language": {
       "label": "Language"

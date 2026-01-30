@@ -162,6 +162,11 @@
     opacity: 0.75;
   }
 
+  .settingsHint {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
   .settingsValue {
     display: flex;
     gap: 6px;
@@ -198,6 +203,37 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
+  }
+
+  .settingsKeybindControls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .settingsKeybindInput {
+    min-width: 140px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--rounded-xs);
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-color);
+    cursor: pointer;
+  }
+
+  .settingsKeybindInput.isCapturing {
+    border-color: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+  }
+
+  .settingsKeybindReset {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--rounded-xs);
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-color);
+    font-weight: 600;
+    cursor: pointer;
   }
 
   .discordButton {
@@ -699,6 +735,10 @@
   font-size: 12px;
   opacity: 0.75;
 }
+.settingsPanel .settingsHint {
+  font-size: 11px;
+  opacity: 0.6;
+}
 .settingsPanel .settingsValue {
   display: flex;
   gap: 6px;
@@ -739,6 +779,33 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
+}
+.settingsPanel .settingsKeybindControls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.settingsPanel .settingsKeybindInput {
+  min-width: 140px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--rounded-xs);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+  cursor: pointer;
+}
+.settingsPanel .settingsKeybindInput.isCapturing {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.settingsPanel .settingsKeybindReset {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--rounded-xs);
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+  font-weight: 600;
+  cursor: pointer;
 }
 .settingsPanel .discordButton {
   border: none;

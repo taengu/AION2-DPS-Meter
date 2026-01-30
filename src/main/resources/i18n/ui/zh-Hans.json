@@ -38,6 +38,15 @@
     "characterName": "角色名称",
     "characterNamePlaceholder": "输入你的角色名称",
     "onlyMe": "仅显示我的角色",
+    "refreshKeybind": {
+      "label": "刷新快捷键",
+      "hint": "点击输入框后按键（默认 Ctrl+R）",
+      "placeholder": "按下按键",
+      "capture": "请按下按键...",
+      "enabled": "启用刷新快捷键",
+      "reset": "重置",
+      "ariaLabel": "刷新快捷键"
+    },
     "discord": "💬 在 Discord 获取支持",
     "language": {
       "label": "语言"
