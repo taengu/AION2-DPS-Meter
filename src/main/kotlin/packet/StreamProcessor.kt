@@ -125,14 +125,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (innerOffset + 6 + possibleNameLength <= packet.size) {
                     val possibleNameBytes = packet.copyOfRange(innerOffset + 6, innerOffset + 6 + possibleNameLength)
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                    if (hasPossibilityNickname(possibleName)) {
+                    val sanitizedName = sanitizeNickname(possibleName)
+                    if (sanitizedName != null) {
                         logger.info(
                             "Potential nickname found in pattern 1: {} (hex={})",
-                            possibleName,
+                            sanitizedName,
                             toHex(possibleNameBytes)
                         )
-                        dataStorage.appendNickname(info.value, possibleName)
-                        originOffset++
+                        dataStorage.appendNickname(info.value, sanitizedName)
                     }
                 }
             }
@@ -141,14 +141,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (packet.size >= innerOffset + possibleNameLength + 3 && possibleNameLength.toInt() != 0) {
                     val possibleNameBytes = packet.copyOfRange(innerOffset + 3, innerOffset + possibleNameLength + 3)
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                    if (hasPossibilityNickname(possibleName)) {
+                    val sanitizedName = sanitizeNickname(possibleName)
+                    if (sanitizedName != null) {
                         logger.info(
                             "Potential nickname found in pattern 2: {} (hex={})",
-                            possibleName,
+                            sanitizedName,
                             toHex(possibleNameBytes)
                         )
-                        dataStorage.appendNickname(info.value, possibleName)
-                        originOffset++
+                        dataStorage.appendNickname(info.value, sanitizedName)
                     }
                 }
             }
@@ -159,14 +159,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         val possibleNameBytes =
                             packet.copyOfRange(innerOffset + 6, innerOffset + possibleNameLength + 6)
                         val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                        if (hasPossibilityNickname(possibleName)) {
+                        val sanitizedName = sanitizeNickname(possibleName)
+                        if (sanitizedName != null) {
                             logger.info(
                                 "Potential nickname found in new pattern: {} (hex={})",
-                                possibleName,
+                                sanitizedName,
                                 toHex(possibleNameBytes)
                             )
-                            dataStorage.appendNickname(info.value, possibleName)
-                            originOffset++
+                            dataStorage.appendNickname(info.value, sanitizedName)
                         }
                     }
                 }
@@ -175,23 +175,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
     }
 
-    private fun hasPossibilityNickname(nickname: String): Boolean {
-        if (nickname.isEmpty()) return false
+    private fun sanitizeNickname(nickname: String): String? {
+        val sanitizedNickname = nickname.substringBefore('\u0000').trim()
+        if (sanitizedNickname.isEmpty()) return null
+        val nicknameBuilder = StringBuilder()
         var onlyNumbers = true
-        for (ch in nickname) {
-            when {
-                ch in '0'..'9' -> {
-                    // keep onlyNumbers true
-                }
-                ch in 'A'..'Z' || ch in 'a'..'z' -> onlyNumbers = false
-                ch in '가'..'힣' -> onlyNumbers = false
-                Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN -> onlyNumbers = false
-                else -> return false
+        var hasHan = false
+        for (ch in sanitizedNickname) {
+            if (!Character.isLetterOrDigit(ch)) {
+                if (nicknameBuilder.isEmpty()) return null
+                break
+            }
+            if (ch == '\uFFFD') {
+                if (nicknameBuilder.isEmpty()) return null
+                break
+            }
+            if (Character.isISOControl(ch)) {
+                if (nicknameBuilder.isEmpty()) return null
+                break
+            }
+            nicknameBuilder.append(ch)
+            if (Character.isLetter(ch)) onlyNumbers = false
+            if (Character.UnicodeScript.of(ch.code) == Character.UnicodeScript.HAN) {
+                hasHan = true
             }
         }
-        if (onlyNumbers) return false
-        if (nickname.length == 1 && (nickname[0] in 'A'..'Z' || nickname[0] in 'a'..'z')) return false
-        return true
+        val trimmedNickname = nicknameBuilder.toString()
+        if (trimmedNickname.isEmpty()) return null
+        if (trimmedNickname.length < 3 && !hasHan) return null
+        if (onlyNumbers) return null
+        if (trimmedNickname.length == 1 &&
+            (trimmedNickname[0] in 'A'..'Z' || trimmedNickname[0] in 'a'..'z')
+        ) {
+            return null
+        }
+        return trimmedNickname
     }
 
     private fun parsePerfectPacket(packet: ByteArray) {
@@ -398,8 +416,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val np = packet.copyOfRange(offset + 1, offset + nicknameLength + 1)
 
-        logger.debug("Confirmed nickname found in pattern 0 {}", String(np, Charsets.UTF_8))
-        dataStorage.appendNickname(playerInfo.value, String(np, Charsets.UTF_8))
+        val possibleName = String(np, Charsets.UTF_8)
+        val sanitizedName = sanitizeNickname(possibleName) ?: return false
+        logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
+        dataStorage.appendNickname(playerInfo.value, sanitizedName)
 
         return true
     }
