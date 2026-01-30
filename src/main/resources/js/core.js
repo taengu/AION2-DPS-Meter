@@ -10,8 +10,6 @@ class DpsApp {
       onlyShowUser: "dpsMeter.onlyShowUser",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       targetSelection: "dpsMeter.targetSelection",
-      refreshKeybind: "dpsMeter.refreshKeybind",
-      refreshKeybindEnabled: "dpsMeter.refreshKeybindEnabled",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -38,10 +36,6 @@ class DpsApp {
     this.targetSelection = "mostDamage";
     this.lastTargetMode = "";
     this.lastTargetName = "";
-    this.refreshKeybind = "";
-    this.refreshKeybindEnabled = true;
-    this.isCapturingKeybind = false;
-    this.lastKeybindTriggerAt = 0;
 
     DpsApp.instance = this;
   }
@@ -75,7 +69,12 @@ class DpsApp {
     this.elBossName.textContent = this.getDefaultTargetLabel();
 
     this.resetBtn = document.querySelector(".resetBtn");
+    this.settingsBtn = document.querySelector(".settingsBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
+    this.settingsPanel = document.querySelector(".settingsPanel");
+    this.settingsClose = document.querySelector(".settingsClose");
+    this.settingsSave = document.querySelector(".settingsSave");
+    this.settingsInput = document.querySelector(".settingsInput");
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
@@ -116,6 +115,7 @@ class DpsApp {
     });
     this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
+    this.bindNativeKeyEvents();
     this.detailsUI?.updateLabels?.();
     this.i18n?.onChange?.((lang) => {
       if (this.languageSelect) {
@@ -447,6 +447,13 @@ class DpsApp {
   }
 
   bindHeaderButtons() {
+    this.settingsBtn?.addEventListener("click", () => {
+      if (!this.settingsUI) {
+        this.bindSettingsUI();
+      }
+      this.settingsUI?.open?.();
+      this.refreshConnectionInfo();
+    });
     this.collapseBtn?.addEventListener("click", () => {
       this.isCollapse = !this.isCollapse;
 
@@ -477,10 +484,23 @@ class DpsApp {
     });
   }
 
+  bindSettingsUI() {
+    if (this.settingsUI || typeof window.createSettingsUI !== "function") return;
+    this.settingsUI = window.createSettingsUI({
+      panel: this.settingsPanel,
+      closeBtn: this.settingsClose,
+      saveBtn: this.settingsSave,
+      input: this.settingsInput,
+    });
+  }
+
+  bindNativeKeyEvents() {
+    window.addEventListener("nativeResetHotKey", () => {
+      this.resetAll({ callBackend: true });
+    });
+  }
+
   setupSettingsPanel() {
-    this.settingsPanel = document.querySelector(".settingsPanel");
-    this.settingsClose = document.querySelector(".settingsClose");
-    this.settingsBtn = document.querySelector(".settingsBtn");
     this.lockedIp = document.querySelector(".lockedIp");
     this.lockedPort = document.querySelector(".lockedPort");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
@@ -489,15 +509,10 @@ class DpsApp {
     this.discordButton = document.querySelector(".discordButton");
     this.languageSelect = document.querySelector(".languageSelect");
     this.targetSelect = document.querySelector(".targetSelect");
-    this.refreshKeybindInput = document.querySelector(".refreshKeybindInput");
-    this.refreshKeybindToggle = document.querySelector(".refreshKeybindToggle");
-    this.refreshKeybindReset = document.querySelector(".refreshKeybindReset");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
-    const storedRefreshKeybind = this.safeGetStorage(this.storageKeys.refreshKeybind);
-    const storedRefreshKeybindEnabled = this.safeGetStorage(this.storageKeys.refreshKeybindEnabled);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
@@ -505,13 +520,6 @@ class DpsApp {
       persist: false,
       syncBackend: true,
     });
-    this.setRefreshKeybind(storedRefreshKeybind || this.getDefaultRefreshKeybind(), {
-      persist: false,
-    });
-    this.setRefreshKeybindEnabled(
-      storedRefreshKeybindEnabled === null ? true : storedRefreshKeybindEnabled === "true",
-      { persist: false }
-    );
 
     if (this.characterNameInput) {
       this.characterNameInput.value = this.USER_NAME;
@@ -550,66 +558,6 @@ class DpsApp {
       });
     }
 
-    if (this.refreshKeybindInput) {
-      this.refreshKeybindInput.value = this.formatKeybindDisplay(this.refreshKeybind);
-      this.refreshKeybindInput.addEventListener("keydown", (event) => {
-        if (event.key === "Tab") {
-          return;
-        }
-        event.preventDefault();
-      });
-      this.refreshKeybindInput.addEventListener("mousedown", () => {
-        this.refreshKeybindInput?.focus();
-      });
-      this.refreshKeybindInput.addEventListener("focus", () => {
-        this.isCapturingKeybind = true;
-        this.refreshKeybindInput?.classList.add("isCapturing");
-        this.refreshKeybindInput.value =
-          this.i18n?.t("settings.refreshKeybind.capture", "Press keys...") ?? "Press keys...";
-      });
-      this.refreshKeybindInput.addEventListener("blur", () => {
-        this.isCapturingKeybind = false;
-        this.refreshKeybindInput?.classList.remove("isCapturing");
-        this.refreshKeybindInput.value = this.formatKeybindDisplay(this.refreshKeybind);
-      });
-      this.refreshKeybindInput.addEventListener("keydown", (event) => {
-        const keybind = this.getKeybindFromEvent(event);
-        if (!keybind) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        this.setRefreshKeybind(keybind, { persist: true });
-        this.refreshKeybindInput.blur();
-      });
-    }
-
-    if (this.refreshKeybindToggle) {
-      this.refreshKeybindToggle.checked = this.refreshKeybindEnabled;
-      this.refreshKeybindToggle.addEventListener("change", (event) => {
-        const enabled = !!event.target?.checked;
-        this.setRefreshKeybindEnabled(enabled, { persist: true });
-      });
-    }
-
-    if (this.refreshKeybindReset) {
-      this.refreshKeybindReset.addEventListener("click", () => {
-        this.setRefreshKeybind(this.getDefaultRefreshKeybind(), { persist: true });
-        if (this.refreshKeybindInput) {
-          this.refreshKeybindInput.value = this.formatKeybindDisplay(this.refreshKeybind);
-        }
-      });
-    }
-
-    document.addEventListener("keydown", (event) => this.handleRefreshKeybind(event), true);
-    document.addEventListener("keyup", (event) => this.handleRefreshKeybind(event), true);
-
-    this.settingsBtn?.addEventListener("click", () => {
-      this.toggleSettingsPanel();
-    });
-
-    this.settingsClose?.addEventListener("click", () => this.closeSettingsPanel());
-
     this.resetDetectBtn?.addEventListener("click", () => {
       window.javaBridge?.resetAutoDetection?.();
       this.refreshConnectionInfo();
@@ -618,192 +566,6 @@ class DpsApp {
     this.discordButton?.addEventListener("click", () => {
       window.javaBridge?.openBrowser?.("https://discord.gg/Aion2Global");
     });
-  }
-
-  getDefaultRefreshKeybind() {
-    return "Ctrl+R";
-  }
-
-  normalizeKeybindString(value) {
-    if (!value) return "";
-    const parts = String(value)
-      .split("+")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const modifiers = new Set();
-    let key = "";
-    for (const part of parts) {
-      const normalized = part.toLowerCase();
-      if (["ctrl", "control"].includes(normalized)) {
-        modifiers.add("Ctrl");
-      } else if (normalized === "alt") {
-        modifiers.add("Alt");
-      } else if (normalized === "shift") {
-        modifiers.add("Shift");
-      } else if (["meta", "cmd", "command", "win", "windows"].includes(normalized)) {
-        modifiers.add("Meta");
-      } else {
-        key = this.normalizeKeyName(part);
-      }
-    }
-    if (!key) return "";
-    const ordered = ["Ctrl", "Alt", "Shift", "Meta"].filter((mod) => modifiers.has(mod));
-    ordered.push(key);
-    return ordered.join("+");
-  }
-
-  normalizeKeyName(key) {
-    if (!key) return "";
-    const raw = String(key);
-    const digitMatch = raw.match(/^digit(\d)$/i);
-    if (digitMatch) {
-      return digitMatch[1];
-    }
-    const numpadMatch = raw.match(/^numpad(\d)$/i);
-    if (numpadMatch) {
-      return `Numpad${numpadMatch[1]}`;
-    }
-    if (raw.length === 1) {
-      return raw.toUpperCase();
-    }
-    return raw
-      .replace(/_/g, " ")
-      .split(" ")
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
-      .join(" ");
-  }
-
-  formatKeybindDisplay(value) {
-    if (!value) return "";
-    return value.split("+").join(" + ");
-  }
-
-  getKeybindFromEvent(event) {
-    return this.getKeybindFromKeyboardEvent(event);
-  }
-
-  getKeyFromCode(code) {
-    if (!code) return "";
-    const normalized = String(code);
-    if (normalized.startsWith("Key")) {
-      return normalized.slice(3);
-    }
-    const digitMatch = normalized.match(/^Digit(\d)$/i);
-    if (digitMatch) {
-      return digitMatch[1];
-    }
-    const numpadMatch = normalized.match(/^Numpad(\d)$/i);
-    if (numpadMatch) {
-      return `Numpad${numpadMatch[1]}`;
-    }
-    return normalized;
-  }
-
-  getKeybindFromKeyboardEvent(event) {
-    if (!event) return "";
-    const rawKey = event.key;
-    const key =
-      rawKey && rawKey !== "Unidentified" && rawKey !== "Dead"
-        ? rawKey
-        : this.getKeyFromCode(event.code);
-    if (!key) return "";
-    const normalizedKey = this.normalizeKeyName(key);
-    if (["Control", "Shift", "Alt", "Meta"].includes(normalizedKey)) {
-      return "";
-    }
-    const parts = [];
-    if (event.ctrlKey) parts.push("Ctrl");
-    if (event.altKey) parts.push("Alt");
-    if (event.shiftKey) parts.push("Shift");
-    if (event.metaKey) parts.push("Meta");
-    parts.push(normalizedKey);
-    return parts.join("+");
-  }
-
-  setRefreshKeybind(value, { persist = false } = {}) {
-    const normalized =
-      this.normalizeKeybindString(value) || this.normalizeKeybindString(this.getDefaultRefreshKeybind());
-    this.refreshKeybind = normalized;
-    if (this.refreshKeybindInput && !this.isCapturingKeybind) {
-      this.refreshKeybindInput.value = this.formatKeybindDisplay(this.refreshKeybind);
-    }
-    if (persist) {
-      this.safeSetStorage(this.storageKeys.refreshKeybind, normalized);
-    }
-    this.syncRefreshHotkey();
-  }
-
-  setRefreshKeybindEnabled(enabled, { persist = false } = {}) {
-    this.refreshKeybindEnabled = !!enabled;
-    if (this.refreshKeybindToggle && document.activeElement !== this.refreshKeybindToggle) {
-      this.refreshKeybindToggle.checked = this.refreshKeybindEnabled;
-    }
-    if (persist) {
-      this.safeSetStorage(
-        this.storageKeys.refreshKeybindEnabled,
-        String(this.refreshKeybindEnabled)
-      );
-    }
-    this.syncRefreshHotkey();
-  }
-
-  isEditableElement(element) {
-    if (!element) return false;
-    const tagName = element.tagName?.toLowerCase?.();
-    if (tagName === "textarea") return true;
-    if (tagName === "input") {
-      const type = element.type?.toLowerCase?.();
-      return type !== "checkbox" && type !== "radio" && type !== "button";
-    }
-    return element.isContentEditable;
-  }
-
-  handleRefreshKeybind(event) {
-    if (!event) return;
-    const keybind = this.getKeybindFromKeyboardEvent(event);
-    if (!this.canTriggerRefreshKeybind(keybind)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.triggerRefreshKeybind();
-  }
-
-  canTriggerRefreshKeybind(keybind) {
-    if (!this.refreshKeybindEnabled) return false;
-    if (this.isCapturingKeybind) return false;
-    if (!keybind) return false;
-    if (keybind !== this.refreshKeybind) return false;
-    if (this.isEditableElement(document.activeElement)) return false;
-    const now = Date.now();
-    if (now - this.lastKeybindTriggerAt < 250) {
-      return false;
-    }
-    this.lastKeybindTriggerAt = now;
-    return true;
-  }
-
-  triggerRefreshKeybind() {
-    this.resetAll({ callBackend: true });
-  }
-
-  syncRefreshHotkey() {
-    try {
-      window.javaBridge?.setRefreshHotkey?.(this.refreshKeybind, this.refreshKeybindEnabled);
-    } catch (e) {
-      globalThis.uiDebug?.log?.("syncRefreshHotkey.failed", { error: String(e) });
-    }
-  }
-
-  handleHostKeybindEvent(eventData) {
-    const keybind = this.getKeybindFromKeyboardEvent(eventData);
-    if (!keybind) return false;
-    if (this.isCapturingKeybind) {
-      this.setRefreshKeybind(keybind, { persist: true });
-      this.refreshKeybindInput?.blur();
-      return true;
-    }
-    if (!this.canTriggerRefreshKeybind(keybind)) return false;
-    this.triggerRefreshKeybind();
-    return true;
   }
 
   setupDetailsPanelSettings() {

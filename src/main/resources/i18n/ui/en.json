@@ -47,6 +47,7 @@
       "reset": "Reset",
       "ariaLabel": "Refresh keybind"
     },
+    "saveHotkey": "Save hotkey",
     "discord": "💬 Get support on our Discord",
     "language": {
       "label": "Language"

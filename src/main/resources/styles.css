@@ -696,7 +696,8 @@
   height: 20px;
 }
 
-.settingsPanel.isOpen {
+.settingsPanel.isOpen,
+.settingsPanel.open {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -760,6 +761,19 @@
 .settingsPanel .settingsHint {
   font-size: 11px;
   opacity: 0.6;
+}
+.settingsPanel .settingsInput {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--rounded-xs);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+  cursor: pointer;
+}
+.settingsPanel .settingsInput.isCapturing {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 .settingsPanel .settingsKeybindHint {
   margin-top: -4px;
@@ -833,6 +847,19 @@
   color: var(--text-color);
   font-weight: 600;
   cursor: pointer;
+}
+.settingsPanel .settingsFooter {
+  padding: 0 16px 12px;
+}
+.settingsPanel .settingsBtnPrimary {
+  border: none;
+  border-radius: var(--rounded-xs);
+  padding: 8px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  background: #1877f2;
+  width: 100%;
 }
 .settingsPanel .discordButton {
   border: none;

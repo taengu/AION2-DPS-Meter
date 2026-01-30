@@ -47,6 +47,7 @@
       "reset": "重置",
       "ariaLabel": "刷新快捷键"
     },
+    "saveHotkey": "保存快捷键",
     "discord": "💬 在 Discord 获取支持",
     "language": {
       "label": "语言"
