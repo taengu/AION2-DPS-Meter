@@ -21,7 +21,7 @@ A combat analysis (DPS meter) tool for **AION 2**. Lovingly forked from [Aion2-D
    https://npcap.com/#download  
    - You **must** check **“Install Npcap in WinPcap API-compatible Mode”**
 
-2. Download the latest release:  
+2. Download the latest release and install:  
    👉 https://github.com/taengu/Aion2-Dps-Meter/releases
 
 3. If AION 2 is already running, **go to the character selection screen first**.
@@ -91,7 +91,7 @@ cd Aion2-Dps-Meter
 
 **Q: I see DPS from others but not myself.**  
 - DPS is calculated based on the monster with the highest total damage  
-- Use the same training dummy
+- Use the same training dummy as the player(s) already showing on the meter.
 
 **Q: Contribution is not 100% while solo.**  
 - Name capture may have failed
@@ -103,7 +103,7 @@ cd Aion2-Dps-Meter
 - Multi-hit skills count each hit separately
 
 **Q: Some skills show as numbers.**  
-- These are usually Godstones  
+- These are usually Theostones  
 - Report others via GitHub Issues
 
 ---
