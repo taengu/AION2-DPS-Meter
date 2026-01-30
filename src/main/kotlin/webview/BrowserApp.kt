@@ -176,7 +176,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         }
 
         fun setHotkey(modifiers: Int, keyCode: Int) {
-            logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
+            app.logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
             app.lastHotkeyMods = modifiers
             app.lastHotkeyKey = keyCode
             app.updateHotkeyRegistration(app.isAion2ForegroundCached)
