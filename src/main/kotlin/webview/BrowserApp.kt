@@ -19,7 +19,6 @@ import javafx.stage.StageStyle
 import javafx.util.Duration
 import javafx.application.Platform
 import com.sun.jna.platform.win32.User32
-import com.sun.jna.platform.win32.WinDef.HWND
 import com.sun.jna.platform.win32.WinUser
 import java.awt.event.KeyEvent as AwtKeyEvent
 import java.util.concurrent.LinkedBlockingQueue
@@ -55,7 +54,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         val metaKey: Boolean,
     )
 
-    class JSBridge(
+    private class JSBridge(
         private val stage: Stage,
         private val dpsCalculator: DpsCalculator,
         private val hostServices: HostServices,
@@ -267,9 +266,12 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         return osName.contains("windows")
     }
 
+    private data class Hotkey(val modifiers: Int, val keyCode: Int)
+
     private inner class GlobalHotkeyManager(
         private val onHotkey: () -> Unit
     ) {
+        private val pmRemove = 0x0001
         private val running = AtomicBoolean(false)
         private val registeredId = AtomicReference<Int?>(null)
         private val taskQueue = LinkedBlockingQueue<() -> Unit>()
@@ -307,7 +309,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             thread = Thread({
                 val msg = WinUser.MSG()
                 while (running.get()) {
-                    while (User32.INSTANCE.PeekMessage(msg, HWND(null), 0, 0, WinUser.PM_REMOVE)) {
+                    while (User32.INSTANCE.PeekMessage(msg, null, 0, 0, pmRemove)) {
                         if (msg.message == WinUser.WM_HOTKEY) {
                             Platform.runLater {
                                 onHotkey()
@@ -333,7 +335,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             unregisterHotkey()
             val id = 1
             val registered = User32.INSTANCE.RegisterHotKey(
-                HWND(null),
+                null,
                 id,
                 hotkey.modifiers,
                 hotkey.keyCode
@@ -348,11 +350,9 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
         private fun unregisterHotkey() {
             val id = registeredId.getAndSet(null) ?: return
-            User32.INSTANCE.UnregisterHotKey(HWND(null), id)
+            User32.INSTANCE.UnregisterHotKey(null, id)
             currentHotkey = null
         }
-
-        private data class Hotkey(val modifiers: Int, val keyCode: Int)
 
         private fun parseKeybind(keybind: String): Hotkey? {
             val parts = keybind.split("+").map { it.trim() }.filter { it.isNotBlank() }
