@@ -470,12 +470,15 @@
   .detailsSkills {
     .cell {
       min-width: 46px;
+      display: flex;
+      align-items: center;
     }
     .cell.center {
-      text-align: center;
+      justify-content: center;
     }
     .cell.name {
       flex: 0 0 160px;
+      justify-content: flex-start;
 
       color: var(--row-fill);
     }
@@ -485,10 +488,10 @@
       text-align: center;
     }
     .cell.right {
-      text-align: right;
+      justify-content: flex-end;
     }
     .cell.center {
-      text-align: center;
+      justify-content: center;
     }
 
     .skillHeader {
@@ -949,20 +952,23 @@
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 46px;
-}
-.detailsPanel .detailsSkills .cell.center {
-  text-align: center;
+  display: flex;
+  align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
   flex: 0 0 160px;
+  justify-content: flex-start;
   color: var(--row-fill);
+}
+.detailsPanel .detailsSkills .cell.center {
+  justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.dmg {
   flex: 1;
-  text-align: center;
+  justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {
-  text-align: right;
+  justify-content: flex-end;
 }
 .detailsPanel .detailsSkills .skillHeader {
   display: flex;
