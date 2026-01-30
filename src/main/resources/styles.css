@@ -147,6 +147,11 @@
     gap: 12px;
   }
 
+  .settingsRowKeybind {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .settingsRowInput {
     align-items: flex-start;
   }
@@ -162,9 +167,17 @@
     opacity: 0.75;
   }
 
+  .settingsKeybindLabel {
+    white-space: nowrap;
+  }
+
   .settingsHint {
     font-size: 11px;
     opacity: 0.6;
+  }
+
+  .settingsKeybindHint {
+    margin-top: -4px;
   }
 
   .settingsValue {
@@ -209,10 +222,12 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    width: 100%;
   }
 
   .settingsKeybindInput {
-    min-width: 140px;
+    flex: 1;
+    min-width: 160px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: var(--rounded-xs);
     padding: 6px 8px;
@@ -720,6 +735,10 @@
   justify-content: space-between;
   gap: 12px;
 }
+.settingsPanel .settingsRowKeybind {
+  flex-direction: column;
+  align-items: flex-start;
+}
 .settingsPanel .settingsRowSelect {
   align-items: center;
 }
@@ -735,9 +754,15 @@
   font-size: 12px;
   opacity: 0.75;
 }
+.settingsPanel .settingsKeybindLabel {
+  white-space: nowrap;
+}
 .settingsPanel .settingsHint {
   font-size: 11px;
   opacity: 0.6;
+}
+.settingsPanel .settingsKeybindHint {
+  margin-top: -4px;
 }
 .settingsPanel .settingsValue {
   display: flex;
@@ -784,9 +809,11 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  width: 100%;
 }
 .settingsPanel .settingsKeybindInput {
-  min-width: 140px;
+  flex: 1;
+  min-width: 160px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--rounded-xs);
   padding: 6px 8px;

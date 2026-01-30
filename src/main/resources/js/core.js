@@ -551,6 +551,15 @@ class DpsApp {
 
     if (this.refreshKeybindInput) {
       this.refreshKeybindInput.value = this.formatKeybindDisplay(this.refreshKeybind);
+      this.refreshKeybindInput.addEventListener("keydown", (event) => {
+        if (event.key === "Tab") {
+          return;
+        }
+        event.preventDefault();
+      });
+      this.refreshKeybindInput.addEventListener("mousedown", () => {
+        this.refreshKeybindInput?.focus();
+      });
       this.refreshKeybindInput.addEventListener("focus", () => {
         this.isCapturingKeybind = true;
         this.refreshKeybindInput?.classList.add("isCapturing");
@@ -591,7 +600,7 @@ class DpsApp {
       });
     }
 
-    document.addEventListener("keydown", (event) => this.handleRefreshKeybind(event));
+    window.addEventListener("keydown", (event) => this.handleRefreshKeybind(event), true);
 
     this.settingsBtn?.addEventListener("click", () => {
       this.toggleSettingsPanel();
@@ -718,6 +727,7 @@ class DpsApp {
     if (!keybind) return;
     if (keybind !== this.refreshKeybind) return;
     event.preventDefault();
+    event.stopPropagation();
     this.resetAll({ callBackend: true });
   }
 
