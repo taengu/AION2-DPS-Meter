@@ -26,7 +26,7 @@ A combat analysis (DPS meter) tool for **AION 2**. Lovingly forked from [Aion2-D
 
 3. If AION 2 is already running, **go to the character selection screen first**.
 
-4. Run `aion2meter-tw.exe` **as Administrator** *(installs to C:\Program Files\aion2meter-tw by default)*
+4. Run `aion2meter-tw.exe` **as Administrator** *(installs to C:\Program Files\aion2meter-tw by default; Windows builds embed a manifest that requests elevation via UAC)*
 
 5. If the UI appears, the application has started successfully.
 

@@ -56,6 +56,7 @@ compose.desktop {
             windows{
                 includeAllModules = true
             }
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("installer-resources/windows"))
             targetFormats(TargetFormat.Msi)
             packageName = "aion2meter-tw"
             packageVersion = "0.1.4"
