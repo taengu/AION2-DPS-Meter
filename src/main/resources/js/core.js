@@ -8,6 +8,7 @@ class DpsApp {
     this.storageKeys = {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
+      detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -99,6 +100,7 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getDetails: (row) => this.getDetails(row),
     });
+    this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
     window.ReleaseChecker?.start?.();
 
@@ -481,6 +483,48 @@ class DpsApp {
     this.discordButton?.addEventListener("click", () => {
       window.javaBridge?.openBrowser?.("https://discord.gg/Aion2Global");
     });
+  }
+
+  setupDetailsPanelSettings() {
+    this.detailsOpacityInput = document.querySelector(".detailsOpacityInput");
+    this.detailsOpacityValue = document.querySelector(".detailsOpacityValue");
+
+    const storedOpacity = this.safeGetStorage(this.storageKeys.detailsBackgroundOpacity);
+    const initialOpacity = this.parseDetailsOpacity(storedOpacity);
+    this.setDetailsBackgroundOpacity(initialOpacity, { persist: false });
+
+    if (this.detailsOpacityInput) {
+      this.detailsOpacityInput.value = String(Math.round(initialOpacity * 100));
+      this.detailsOpacityInput.addEventListener("input", (event) => {
+        const nextValue = Number(event.target?.value);
+        const nextOpacity = Number.isFinite(nextValue) ? nextValue / 100 : 1;
+        this.setDetailsBackgroundOpacity(nextOpacity, { persist: true });
+      });
+    }
+  }
+
+  parseDetailsOpacity(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return 1;
+    }
+    return Math.min(1, Math.max(0.2, parsed));
+  }
+
+  setDetailsBackgroundOpacity(opacity, { persist = false } = {}) {
+    const clamped = Math.min(1, Math.max(0.2, opacity));
+    if (this.detailsPanel) {
+      this.detailsPanel.style.setProperty("--details-bg-opacity", clamped);
+    }
+    if (this.detailsOpacityValue) {
+      this.detailsOpacityValue.textContent = `${Math.round(clamped * 100)}%`;
+    }
+    if (this.detailsOpacityInput && document.activeElement !== this.detailsOpacityInput) {
+      this.detailsOpacityInput.value = String(Math.round(clamped * 100));
+    }
+    if (persist) {
+      this.safeSetStorage(this.storageKeys.detailsBackgroundOpacity, String(clamped));
+    }
   }
 
   toggleSettingsPanel() {
