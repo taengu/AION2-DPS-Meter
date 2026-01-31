@@ -29,7 +29,7 @@ class DpsApp {
 
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
-    this.GRACE_ARM_MS = 1000;
+    this.GRACE_ARM_MS = 3000;
 
 
     // battleTime 캐시

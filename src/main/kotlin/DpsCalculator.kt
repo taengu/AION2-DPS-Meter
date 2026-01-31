@@ -874,6 +874,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private var mode: Mode = Mode.BOSS_ONLY
     private var currentTarget: Int = 0
     @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.MOST_DAMAGE
+    private val targetSwitchStaleMs = 10_000L
+    private var lastLocalHitTime: Long = -1L
 
     fun setMode(mode: Mode) {
         this.mode = mode
@@ -963,16 +965,18 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         val mostDamageTarget = targetInfoMap.maxByOrNull { it.value.damagedAmount() }?.key ?: 0
         val mostRecentTarget = targetInfoMap.maxByOrNull { it.value.lastDamageTime() }?.key ?: 0
+        val shouldPreferMostRecent = shouldPreferMostRecentTarget(mostDamageTarget, mostRecentTarget)
 
         return when (targetSelectionMode) {
             TargetSelectionMode.MOST_DAMAGE -> {
-                TargetDecision(setOf(mostDamageTarget), resolveTargetName(mostDamageTarget), targetSelectionMode, mostDamageTarget)
+                val selectedTarget = if (shouldPreferMostRecent) mostRecentTarget else mostDamageTarget
+                TargetDecision(setOf(selectedTarget), resolveTargetName(selectedTarget), targetSelectionMode, selectedTarget)
             }
             TargetSelectionMode.MOST_RECENT -> {
                 TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
             }
             TargetSelectionMode.LAST_HIT_BY_ME -> {
-                val targetId = selectTargetLastHitByMe(mostRecentTarget)
+                val targetId = selectTargetLastHitByMe(currentTarget)
                 TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
             }
             TargetSelectionMode.ALL_TARGETS -> {
@@ -981,15 +985,35 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
     }
 
+    private fun shouldPreferMostRecentTarget(mostDamageTarget: Int, mostRecentTarget: Int): Boolean {
+        if (mostDamageTarget == 0 || mostRecentTarget == 0 || mostDamageTarget == mostRecentTarget) {
+            return false
+        }
+        val mostDamageInfo = targetInfoMap[mostDamageTarget] ?: return false
+        val mostRecentInfo = targetInfoMap[mostRecentTarget] ?: return false
+        val now = System.currentTimeMillis()
+        val mostDamageStale = now - mostDamageInfo.lastDamageTime() >= targetSwitchStaleMs
+        val mostRecentFresh = now - mostRecentInfo.lastDamageTime() < targetSwitchStaleMs
+        return mostDamageStale && mostRecentFresh
+    }
+
     private fun selectTargetLastHitByMe(fallbackTarget: Int): Int {
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         if (localName.isBlank()) return fallbackTarget
 
-        val nicknameData = dataStorage.getNickname()
-        val localActorIds = nicknameData
-            .filterValues { it == localName }
-            .keys
-            .toMutableSet()
+        val localActorIds = mutableSetOf<Int>()
+        val localPlayerId = LocalPlayer.playerId?.toInt()
+        if (localPlayerId != null) {
+            localActorIds.add(localPlayerId)
+        }
+        if (localActorIds.isEmpty()) {
+            val nicknameData = dataStorage.getNickname()
+            localActorIds.addAll(
+                nicknameData
+                    .filterValues { it == localName }
+                    .keys
+            )
+        }
         if (localActorIds.isEmpty()) return fallbackTarget
 
         val summonData = dataStorage.getSummonData()
@@ -1031,19 +1055,28 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
-        if (recentCounts.size > 1) {
+        if (mostRecentTime < 0) {
+            return fallbackTarget
+        }
+
+        if (mostRecentTime <= lastLocalHitTime) {
+            return fallbackTarget
+        }
+
+        val selectedTarget = if (recentCounts.size > 1) {
             val frequentTarget = recentCounts.entries.maxWithOrNull(
                 compareBy<Map.Entry<Int, Int>> { it.value }
                     .thenBy { recentTimes[it.key] ?: 0L }
             )?.key
-            if (frequentTarget != null) {
-                return frequentTarget
-            }
+            frequentTarget ?: mostRecentTarget
         } else if (recentCounts.size == 1) {
-            return recentCounts.keys.first()
+            recentCounts.keys.first()
+        } else {
+            mostRecentTarget
         }
 
-        return if (mostRecentTime >= 0) mostRecentTarget else fallbackTarget
+        lastLocalHitTime = mostRecentTime
+        return selectedTarget
     }
 
     private fun resolveTargetName(target: Int): String {
