@@ -3,6 +3,7 @@ class DpsApp {
     if (DpsApp.instance) return DpsApp.instance;
 
     this.POLL_MS = 200;
+    this.WINDOW_TITLE_POLL_MS = 2000;
     this.USER_NAME = "";
     this.onlyShowUser = false;
     this.storageKeys = {
@@ -34,6 +35,7 @@ class DpsApp {
     this._lastBattleTimeMs = null;
 
     this._pollTimer = null;
+    this._windowTitleTimer = null;
 
     this.i18n = window.i18n;
     this.targetSelection = "mostDamage";
@@ -137,6 +139,7 @@ class DpsApp {
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
 
     this.startPolling();
+    this.startWindowTitlePolling();
     this.fetchDps();
   }
 
@@ -159,6 +162,35 @@ class DpsApp {
   startPolling() {
     if (this._pollTimer) return;
     this._pollTimer = setInterval(() => this.fetchDps(), this.POLL_MS);
+  }
+
+  startWindowTitlePolling() {
+    if (this._windowTitleTimer) return;
+    this._windowTitleTimer = setInterval(
+      () => this.checkAion2WindowTitle(),
+      this.WINDOW_TITLE_POLL_MS
+    );
+    this.checkAion2WindowTitle();
+  }
+
+  parseCharacterNameFromWindowTitle(title) {
+    const trimmed = String(title ?? "").trim();
+    if (!trimmed) return "";
+    if (!trimmed.toLowerCase().startsWith("aion2")) return "";
+    const remainder = trimmed.slice(5).trim();
+    if (!remainder) return "";
+    return remainder.replace(/^[|l:-]+/i, "").trim();
+  }
+
+  checkAion2WindowTitle() {
+    const title = window.javaBridge?.getAion2WindowTitle?.();
+    if (!title || typeof title !== "string") return;
+    const detectedName = this.parseCharacterNameFromWindowTitle(title);
+    if (!detectedName || detectedName === this.USER_NAME) return;
+    this.setUserName(detectedName, { persist: true, syncBackend: true });
+    if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
+      this.characterNameInput.value = detectedName;
+    }
   }
 
   stopPolling() {
@@ -673,6 +705,9 @@ class DpsApp {
   setUserName(name, { persist = false, syncBackend = false } = {}) {
     const trimmed = String(name ?? "").trim();
     this.USER_NAME = trimmed;
+    if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
+      this.characterNameInput.value = trimmed;
+    }
     if (persist) {
       localStorage.setItem(this.storageKeys.userName, trimmed);
     }
