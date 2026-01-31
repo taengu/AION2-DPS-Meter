@@ -11,6 +11,7 @@ class DpsApp {
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
+      language: "dpsMeter.language",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -503,6 +504,7 @@ class DpsApp {
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
+    const storedLanguage = this.safeGetStorage(this.storageKeys.language);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
@@ -510,6 +512,9 @@ class DpsApp {
       persist: false,
       syncBackend: true,
     });
+    if (storedLanguage) {
+      this.i18n?.setLanguage?.(storedLanguage, { persist: false });
+    }
 
     if (this.characterNameInput) {
       this.characterNameInput.value = this.USER_NAME;
@@ -528,11 +533,12 @@ class DpsApp {
     }
 
     if (this.languageSelect) {
-      const currentLanguage = this.i18n?.getLanguage?.() || "en";
+      const currentLanguage = this.i18n?.getLanguage?.() || storedLanguage || "en";
       this.languageSelect.value = currentLanguage;
       this.languageSelect.addEventListener("change", (event) => {
         const value = event.target?.value;
         if (value) {
+          this.safeSetStorage(this.storageKeys.language, value);
           this.i18n?.setLanguage?.(value, { persist: true });
         }
       });
