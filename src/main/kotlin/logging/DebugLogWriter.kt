@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter
 
 object DebugLogWriter {
     const val SETTING_KEY = "dpsMeter.debugLoggingEnabled"
+    private const val MAX_MESSAGE_LENGTH = 240
 
     private val lock = Any()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
@@ -19,8 +20,8 @@ object DebugLogWriter {
     private var enabled = false
 
     fun loadFromSettings() {
-        val stored = PropertyHandler.getProperty(SETTING_KEY)
-        setEnabled(stored?.toBoolean() ?: false)
+        setEnabled(false)
+        PropertyHandler.setProperty(SETTING_KEY, false.toString())
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -40,9 +41,10 @@ object DebugLogWriter {
     private fun write(level: String, loggerName: String, message: String, args: Array<out Any?>) {
         if (!enabled) return
         val result = MessageFormatter.arrayFormat(message, args)
-        val formattedMessage = result.message ?: ""
+        val formattedMessage = truncate(result.message ?: "")
         val timestamp = LocalTime.now().format(timeFormatter)
-        val line = "$timestamp [${Thread.currentThread().name}] $level $loggerName - $formattedMessage"
+        val shortLoggerName = loggerName.substringAfterLast('.')
+        val line = "$timestamp $level $shortLoggerName - $formattedMessage"
         synchronized(lock) {
             logFile.parentFile?.mkdirs()
             FileWriter(logFile, true).use { writer ->
@@ -52,5 +54,10 @@ object DebugLogWriter {
                 }
             }
         }
+    }
+
+    private fun truncate(message: String): String {
+        if (message.length <= MAX_MESSAGE_LENGTH) return message
+        return message.take(MAX_MESSAGE_LENGTH - 1) + "…"
     }
 }
