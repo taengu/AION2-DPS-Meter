@@ -504,6 +504,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val start = offset
         var tempV = 0
         tempV += when (andResult) {
+            0 -> {
+                logger.debug("Damage packet with zero switchInfo mask, skipping specials: {}", toHex(packet))
+                0
+            }
             4 -> 8
             5 -> 12
             6 -> 10
