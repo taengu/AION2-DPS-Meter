@@ -188,6 +188,35 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     }
                 }
             }
+            val pattern3ScanEnd = minOf(packet.size - 2, innerOffset + 20)
+            var scanOffset = innerOffset + 1
+            while (scanOffset <= pattern3ScanEnd) {
+                if (packet[scanOffset] == 0x03.toByte() && packet[scanOffset - 1] == 0xF8.toByte()) {
+                    val possibleNameLength = packet[scanOffset + 1].toInt() and 0xff
+                    if (possibleNameLength in 3..72 && scanOffset + 2 + possibleNameLength <= packet.size) {
+                        val possibleNameBytes =
+                            packet.copyOfRange(scanOffset + 2, scanOffset + 2 + possibleNameLength)
+                        val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                        val sanitizedName = sanitizeNickname(possibleName)
+                        if (sanitizedName != null) {
+                            logger.info(
+                                "Potential nickname found in pattern 3: {} (hex={})",
+                                sanitizedName,
+                                toHex(possibleNameBytes)
+                            )
+                            DebugLogWriter.info(
+                                logger,
+                                "Potential nickname found in pattern 3: {} (hex={})",
+                                sanitizedName,
+                                toHex(possibleNameBytes)
+                            )
+                            dataStorage.appendNickname(info.value, sanitizedName)
+                            break
+                        }
+                    }
+                }
+                scanOffset++
+            }
             originOffset++
         }
     }
