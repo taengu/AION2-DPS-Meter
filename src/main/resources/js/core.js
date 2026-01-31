@@ -811,12 +811,32 @@ class DpsApp {
     this.metricToggleBtn.setAttribute("aria-label", ariaLabel);
   }
 
+  formatAbbreviatedNumber(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "-";
+    const abs = Math.abs(n);
+    const units = [
+      { value: 1e12, suffix: "t" },
+      { value: 1e9, suffix: "b" },
+      { value: 1e6, suffix: "m" },
+      { value: 1e3, suffix: "k" },
+    ];
+    for (const unit of units) {
+      if (abs >= unit.value) {
+        const scaled = (n / unit.value).toFixed(2);
+        const trimmed = scaled.replace(/\.?0+$/, "");
+        return `${trimmed}${unit.suffix}`;
+      }
+    }
+    return this.dpsFormatter.format(n);
+  }
+
   getMetricForRow(row) {
     if (this.displayMode === "totalDamage") {
       const totalDamage = Number(row?.totalDamage) || 0;
       return {
         value: totalDamage,
-        text: this.dpsFormatter.format(totalDamage),
+        text: this.formatAbbreviatedNumber(totalDamage),
       };
     }
     const dps = Number(row?.dps) || 0;
