@@ -5,6 +5,7 @@ import com.tbread.entity.DpsData
 import com.tbread.packet.CombatPortDetector
 import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PropertyHandler
+import com.tbread.windows.WindowTitleDetector
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
 import javafx.application.Application
@@ -74,6 +75,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
                 characterName = LocalPlayer.characterName
             )
             return Json.encodeToString(info)
+        }
+
+        fun getAion2WindowTitle(): String? {
+            return WindowTitleDetector.findAion2WindowTitle()
         }
 
         fun openBrowser(url: String) {
