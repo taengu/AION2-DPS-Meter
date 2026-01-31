@@ -11,6 +11,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     data class VarIntOutput(val value: Int, val length: Int)
 
+    private val suspiciousDamageThreshold = 1_000_000
     private val mask = 0x0f
 
     fun onPacketReceived(packet: ByteArray) {
@@ -578,6 +579,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage(),
             pdp.getSpecials()
         )
+        if (pdp.getDamage() >= suspiciousDamageThreshold) {
+            logSuspiciousDamagePacket(
+                packet = packet,
+                targetInfo = targetInfo,
+                switchInfo = switchInfo,
+                flagInfo = flagInfo,
+                actorInfo = actorInfo,
+                typeInfo = typeInfo,
+                damageInfo = damageInfo,
+                loopInfo = loopInfo,
+                specialsLength = tempV,
+                damageType = damageType
+            )
+        }
 
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
@@ -586,6 +601,65 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         return true
 
+    }
+
+    private fun logSuspiciousDamagePacket(
+        packet: ByteArray,
+        targetInfo: VarIntOutput,
+        switchInfo: VarIntOutput,
+        flagInfo: VarIntOutput,
+        actorInfo: VarIntOutput,
+        typeInfo: VarIntOutput,
+        damageInfo: VarIntOutput,
+        loopInfo: VarIntOutput,
+        specialsLength: Int,
+        damageType: Byte
+    ) {
+        val damageTypeBits =
+            String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
+        logger.debug(
+            "Suspicious damage packet: dmg={} typeBits={} specialsLen={} target(id={},len={}) actor(id={},len={}) switch(id={},len={}) flag(id={},len={}) type(id={},len={}) damage(id={},len={}) loop(id={},len={}) packet={}",
+            damageInfo.value,
+            damageTypeBits,
+            specialsLength,
+            targetInfo.value,
+            targetInfo.length,
+            actorInfo.value,
+            actorInfo.length,
+            switchInfo.value,
+            switchInfo.length,
+            flagInfo.value,
+            flagInfo.length,
+            typeInfo.value,
+            typeInfo.length,
+            damageInfo.value,
+            damageInfo.length,
+            loopInfo.value,
+            loopInfo.length,
+            toHex(packet)
+        )
+        DebugLogWriter.debug(
+            logger,
+            "Suspicious damage packet: dmg={} typeBits={} specialsLen={} target(id={},len={}) actor(id={},len={}) switch(id={},len={}) flag(id={},len={}) type(id={},len={}) damage(id={},len={}) loop(id={},len={}) packet={}",
+            damageInfo.value,
+            damageTypeBits,
+            specialsLength,
+            targetInfo.value,
+            targetInfo.length,
+            actorInfo.value,
+            actorInfo.length,
+            switchInfo.value,
+            switchInfo.length,
+            flagInfo.value,
+            flagInfo.length,
+            typeInfo.value,
+            typeInfo.length,
+            damageInfo.value,
+            damageInfo.length,
+            loopInfo.value,
+            loopInfo.length,
+            toHex(packet)
+        )
     }
 
     private fun toHex(bytes: ByteArray): String {
