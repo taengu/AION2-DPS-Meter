@@ -3,7 +3,7 @@ class DpsApp {
     if (DpsApp.instance) return DpsApp.instance;
 
     this.POLL_MS = 200;
-    this.WINDOW_TITLE_POLL_MS = 2000;
+    this.WINDOW_TITLE_POLL_MS = 30000;
     this.USER_NAME = "";
     this.onlyShowUser = false;
     this.storageKeys = {
