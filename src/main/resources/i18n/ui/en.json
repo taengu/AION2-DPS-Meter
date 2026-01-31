@@ -45,6 +45,10 @@
     "characterNamePlaceholder": "Enter your character name",
     "onlyMe": "Only show my character",
     "debugLogging": "Enable debug logging",
+    "debugActor": {
+      "label": "Debug actor focus (experimental)",
+      "none": "No focus"
+    },
     "quit": "Quit",
     "discord": "💬 Get support on our Discord",
     "language": {
