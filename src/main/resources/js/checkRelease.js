@@ -1,5 +1,5 @@
 (() => {
-  const API = "https://api.github.com/repos/taengu/Aion2-Dps-Meter/releases/latest";
+  const API = "https://api.github.com/repos/taengu/Aion2-Dps-Meter/releases?per_page=10";
   const URL = "https://github.com/taengu/Aion2-Dps-Meter/releases";
   const START_DELAY = 800,
     RETRY = 500,
@@ -54,7 +54,14 @@
         return;
       }
 
-      const latest = (await res.json()).tag_name;
+      const releases = await res.json();
+      const latest = releases.find((release) => {
+        const tag = String(release?.tag_name || "").trim().toLowerCase();
+        if (tag.startsWith("pre")) {
+          return false;
+        }
+        return !release?.draft && !release?.prerelease;
+      })?.tag_name;
       if (latest && n(latest) > n(current)) {
         const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.`;
         text.textContent =
