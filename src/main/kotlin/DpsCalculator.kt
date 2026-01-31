@@ -6,6 +6,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.DebugLogWriter
+import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import kotlin.math.roundToInt
 import java.util.UUID
@@ -20,6 +21,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     enum class TargetSelectionMode(val id: String) {
         MOST_DAMAGE("mostDamage"),
         MOST_RECENT("mostRecent"),
+        LAST_HIT_BY_ME("lastHitByMe"),
         ALL_TARGETS("allTargets");
 
         companion object {
@@ -969,10 +971,79 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             TargetSelectionMode.MOST_RECENT -> {
                 TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
             }
+            TargetSelectionMode.LAST_HIT_BY_ME -> {
+                val targetId = selectTargetLastHitByMe(mostRecentTarget)
+                TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
+            }
             TargetSelectionMode.ALL_TARGETS -> {
                 TargetDecision(targetInfoMap.keys.toSet(), "", targetSelectionMode, mostRecentTarget)
             }
         }
+    }
+
+    private fun selectTargetLastHitByMe(fallbackTarget: Int): Int {
+        val localName = LocalPlayer.characterName?.trim().orEmpty()
+        if (localName.isBlank()) return fallbackTarget
+
+        val nicknameData = dataStorage.getNickname()
+        val localActorIds = nicknameData
+            .filterValues { it == localName }
+            .keys
+            .toMutableSet()
+        if (localActorIds.isEmpty()) return fallbackTarget
+
+        val summonData = dataStorage.getSummonData()
+        if (summonData.isNotEmpty()) {
+            summonData.forEach { (summonId, summonerId) ->
+                if (summonerId in localActorIds) {
+                    localActorIds.add(summonId)
+                }
+                if (summonId in localActorIds) {
+                    localActorIds.add(summonerId)
+                }
+            }
+        }
+
+        val actorData = dataStorage.getActorData()
+        val cutoff = System.currentTimeMillis() - 10_000L
+        var mostRecentTarget = fallbackTarget
+        var mostRecentTime = -1L
+        val recentCounts = mutableMapOf<Int, Int>()
+        val recentTimes = mutableMapOf<Int, Long>()
+
+        localActorIds.forEach { actorId ->
+            val pdps = actorData[actorId] ?: return@forEach
+            for (pdp in pdps) {
+                if (pdp.isDoT()) continue
+                val timestamp = pdp.getTimeStamp()
+                val targetId = pdp.getTargetId()
+                if (timestamp > mostRecentTime) {
+                    mostRecentTime = timestamp
+                    mostRecentTarget = targetId
+                }
+                if (timestamp >= cutoff) {
+                    recentCounts[targetId] = (recentCounts[targetId] ?: 0) + 1
+                    val existingTime = recentTimes[targetId] ?: 0L
+                    if (timestamp > existingTime) {
+                        recentTimes[targetId] = timestamp
+                    }
+                }
+            }
+        }
+
+        if (recentCounts.size > 1) {
+            val frequentTarget = recentCounts.entries.maxWithOrNull(
+                compareBy<Map.Entry<Int, Int>> { it.value }
+                    .thenBy { recentTimes[it.key] ?: 0L }
+            )?.key
+            if (frequentTarget != null) {
+                return frequentTarget
+            }
+        } else if (recentCounts.size == 1) {
+            return recentCounts.keys.first()
+        }
+
+        return if (mostRecentTime >= 0) mostRecentTarget else fallbackTarget
     }
 
     private fun resolveTargetName(target: Int): String {

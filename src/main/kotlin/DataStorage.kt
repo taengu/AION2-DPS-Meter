@@ -86,6 +86,10 @@ class DataStorage {
         return byTargetStorage
     }
 
+    fun getActorData(): ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>> {
+        return byActorStorage
+    }
+
     fun getNickname(): ConcurrentHashMap<Int, String> {
         return nicknameStorage
     }

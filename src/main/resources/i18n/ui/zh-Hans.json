@@ -55,6 +55,7 @@
       "options": {
         "mostDamage": "最高伤害（当前）",
         "mostRecent": "最近受伤目标",
+        "lastHitByMe": "我最近攻击的目标",
         "allTargets": "所有目标合并"
       }
     }

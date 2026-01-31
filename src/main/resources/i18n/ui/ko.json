@@ -55,6 +55,7 @@
       "options": {
         "mostDamage": "가장 큰 피해(현재)",
         "mostRecent": "최근 피해 대상",
+        "lastHitByMe": "내가 최근에 공격한 대상",
         "allTargets": "모든 대상 합산"
       }
     }

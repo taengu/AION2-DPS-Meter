@@ -55,6 +55,7 @@
       "options": {
         "mostDamage": "Most damage (current)",
         "mostRecent": "Most recently damaged",
+        "lastHitByMe": "Last hit by me",
         "allTargets": "All targets combined"
       }
     }
