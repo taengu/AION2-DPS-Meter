@@ -176,9 +176,10 @@ class DpsApp {
   parseCharacterNameFromWindowTitle(title) {
     const trimmed = String(title ?? "").trim();
     if (!trimmed) return "";
-    const match = trimmed.match(/^AION2\\s*[|:-]\\s*(.+)$/i);
-    if (!match || !match[1]) return "";
-    return match[1].trim();
+    if (!trimmed.toLowerCase().startsWith("aion2")) return "";
+    const remainder = trimmed.slice(5).trim();
+    if (!remainder) return "";
+    return remainder.replace(/^[|l:-]+/i, "").trim();
   }
 
   checkAion2WindowTitle() {
