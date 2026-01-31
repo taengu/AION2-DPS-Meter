@@ -45,6 +45,10 @@
     "characterNamePlaceholder": "输入你的角色名称",
     "onlyMe": "仅显示我的角色",
     "debugLogging": "启用调试日志",
+    "debugActor": {
+      "label": "调试目标角色（实验性）",
+      "none": "不选择"
+    },
     "quit": "退出",
     "discord": "💬 在 Discord 获取支持",
     "language": {

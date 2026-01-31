@@ -15,6 +15,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
+      debugActorId: "dpsMeter.debugActorId",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -43,6 +44,8 @@ class DpsApp {
     this.targetSelection = "mostDamage";
     this.lastTargetMode = "";
     this.lastTargetName = "";
+    this.debugActorId = "";
+    this.lastActorMapObj = null;
 
     DpsApp.instance = this;
   }
@@ -155,6 +158,7 @@ class DpsApp {
       }
       this.refreshConnectionInfo();
       this.refreshBossLabel();
+      this.updateActorSelect(this.lastActorMapObj);
     });
     window.ReleaseChecker?.start?.();
 
@@ -279,10 +283,13 @@ class DpsApp {
 
     this.lastJson = raw;
 
-    const { rows, targetName, targetMode, battleTimeMs } = this.buildRowsFromPayload(raw);
+    const { rows, targetName, targetMode, battleTimeMs, actorMapObj } =
+      this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
     this.lastTargetName = targetName;
+    this.lastActorMapObj = actorMapObj;
+    this.updateActorSelect(actorMapObj);
 
 
     const showByServer = rows.length > 0;
@@ -346,7 +353,7 @@ class DpsApp {
     const battleTimeMsRaw = payload?.battleTime;
     const battleTimeMs = Number.isFinite(Number(battleTimeMsRaw)) ? Number(battleTimeMsRaw) : null;
 
-    return { rows, targetName, targetMode, battleTimeMs };
+    return { rows, targetName, targetMode, battleTimeMs, actorMapObj: mapObj };
   }
 
   buildRowsFromMapObject(mapObj) {
@@ -556,16 +563,19 @@ class DpsApp {
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
     this.targetSelect = document.querySelector(".targetSelect");
+    this.actorSelect = document.querySelector(".actorSelect");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
+    const storedDebugActor = this.safeGetSetting(this.storageKeys.debugActorId) || "";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
+    this.setDebugActorId(storedDebugActor, { persist: false, syncBackend: true });
     this.setTargetSelection(storedTargetSelection || this.targetSelection, {
       persist: false,
       syncBackend: true,
@@ -617,6 +627,14 @@ class DpsApp {
         if (value) {
           this.setTargetSelection(value, { persist: true, syncBackend: true });
         }
+      });
+    }
+
+    if (this.actorSelect) {
+      this.actorSelect.value = this.debugActorId;
+      this.actorSelect.addEventListener("change", (event) => {
+        const value = event.target?.value ?? "";
+        this.setDebugActorId(value, { persist: true, syncBackend: true });
       });
     }
 
@@ -776,6 +794,19 @@ class DpsApp {
     }
   }
 
+  setDebugActorId(actorId, { persist = false, syncBackend = false } = {}) {
+    const value = String(actorId ?? "").trim();
+    this.debugActorId = value;
+    if (this.actorSelect && document.activeElement !== this.actorSelect) {
+      this.actorSelect.value = value;
+    }
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.debugActorId, value);
+    } else if (syncBackend) {
+      window.javaBridge?.setSetting?.(this.storageKeys.debugActorId, value);
+    }
+  }
+
   setTargetSelection(mode, { persist = false, syncBackend = false } = {}) {
     this.targetSelection = mode || "mostDamage";
     if (persist) {
@@ -786,6 +817,44 @@ class DpsApp {
     }
     if (this.targetSelect && document.activeElement !== this.targetSelect) {
       this.targetSelect.value = this.targetSelection;
+    }
+  }
+
+  updateActorSelect(mapObj) {
+    if (!this.actorSelect) return;
+    if (!mapObj || typeof mapObj !== "object") mapObj = {};
+    const entries = Object.entries(mapObj)
+      .map(([id, value]) => {
+        const nickname = value && typeof value === "object" ? value.nickname ?? "" : "";
+        return { id: String(id), nickname: String(nickname ?? "").trim() };
+      })
+      .filter((entry) => entry.id !== "" && entry.id !== "0")
+      .sort((a, b) => Number(a.id) - Number(b.id));
+
+    const selected = this.debugActorId;
+    const noneLabel = this.i18n?.t("settings.debugActor.none", "No focus") ?? "No focus";
+
+    this.actorSelect.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = noneLabel;
+    this.actorSelect.appendChild(emptyOption);
+
+    for (const entry of entries) {
+      const option = document.createElement("option");
+      option.value = entry.id;
+      option.textContent = entry.nickname ? `${entry.id} [${entry.nickname}]` : entry.id;
+      this.actorSelect.appendChild(option);
+    }
+
+    if (selected && entries.some((entry) => entry.id === selected)) {
+      this.actorSelect.value = selected;
+    } else {
+      this.actorSelect.value = "";
+      if (selected) {
+        this.debugActorId = "";
+        this.safeSetSetting(this.storageKeys.debugActorId, "");
+      }
     }
   }
 

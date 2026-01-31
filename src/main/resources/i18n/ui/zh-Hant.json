@@ -45,6 +45,10 @@
     "characterNamePlaceholder": "輸入你的角色名稱",
     "onlyMe": "只顯示我的角色",
     "debugLogging": "啟用除錯記錄",
+    "debugActor": {
+      "label": "除錯目標角色（實驗性）",
+      "none": "不選擇"
+    },
     "quit": "結束",
     "discord": "💬 在 Discord 取得支援",
     "language": {
