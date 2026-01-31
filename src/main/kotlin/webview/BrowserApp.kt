@@ -97,6 +97,14 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
                 null
             }
         }
+
+        fun getSetting(key: String): String? {
+            return PropertyHandler.getProperty(key)
+        }
+
+        fun setSetting(key: String, value: String) {
+            PropertyHandler.setProperty(key, value)
+        }
         fun exitApp() {
           Platform.exit()     
           exitProcess(0)       

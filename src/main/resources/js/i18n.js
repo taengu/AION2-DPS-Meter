@@ -10,6 +10,14 @@ const createI18n = ({
 
   const safeGetStorage = (key) => {
     try {
+      const bridgeValue = window.javaBridge?.getSetting?.(key);
+      if (bridgeValue !== undefined && bridgeValue !== null) {
+        return bridgeValue;
+      }
+    } catch {
+      // ignore
+    }
+    try {
       return localStorage.getItem(key);
     } catch {
       return null;
@@ -17,6 +25,11 @@ const createI18n = ({
   };
 
   const safeSetStorage = (key, value) => {
+    try {
+      window.javaBridge?.setSetting?.(key, value);
+    } catch {
+      // ignore
+    }
     try {
       localStorage.setItem(key, value);
     } catch {
