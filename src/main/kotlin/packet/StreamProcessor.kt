@@ -80,22 +80,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     dotIdx > 0 -> dotIdx to ::parseDoTPacket
                     else -> -1 to null
                 }
-                if (idx > 0 && handler != null){
-                    val packetLengthInfo = readVarInt(packet, idx - 1)
-                    if (packetLengthInfo.length == 1) {
-                        val startIdx = idx - 1
-                        val endIdx = idx - 1 + packetLengthInfo.value - 3
-                        if (startIdx in 0..<endIdx && endIdx <= packet.size) {
-                            val extractedPacket = packet.copyOfRange(startIdx, endIdx)
-                            handler(extractedPacket)
-                            processed = true
-                            if (endIdx < packet.size) {
-                                val remainingPacket = packet.copyOfRange(endIdx, packet.size)
-                                parseBrokenLengthPacket(remainingPacket, false)
-                            }
-                        }
+                processed = processBrokenPacketSlice(packet, idx, handler)
+            }
+            if (!processed) {
+                val damageIdx = findArrayIndex(packet, byteArrayOf(0x04, 0x38))
+                val dotIdx = findArrayIndex(packet, byteArrayOf(0x05, 0x38))
+                val (idx, handler) = when {
+                    damageIdx > 0 && dotIdx > 0 -> {
+                        if (damageIdx < dotIdx) damageIdx to ::parsingDamage
+                        else dotIdx to ::parseDoTPacket
                     }
+                    damageIdx > 0 -> damageIdx to ::parsingDamage
+                    dotIdx > 0 -> dotIdx to ::parseDoTPacket
+                    else -> -1 to null
                 }
+                processed = processBrokenPacketSlice(packet, idx, handler)
             }
             if (flag && !processed) {
                 logger.debug("Remaining packet {}", toHex(packet))
@@ -105,6 +104,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val newPacket = packet.copyOfRange(10, packet.size)
         onPacketReceived(newPacket)
+    }
+
+    private fun processBrokenPacketSlice(
+        packet: ByteArray,
+        idx: Int,
+        handler: ((ByteArray) -> Unit)?
+    ): Boolean {
+        if (idx <= 0 || handler == null) return false
+        val packetLengthInfo = readVarInt(packet, idx - 1)
+        if (packetLengthInfo.length != 1) return false
+        val startIdx = idx - 1
+        val endIdx = idx - 1 + packetLengthInfo.value - 3
+        if (startIdx !in 0..<endIdx || endIdx > packet.size) return false
+        val extractedPacket = packet.copyOfRange(startIdx, endIdx)
+        handler(extractedPacket)
+        if (endIdx < packet.size) {
+            val remainingPacket = packet.copyOfRange(endIdx, packet.size)
+            parseBrokenLengthPacket(remainingPacket, false)
+        }
+        return true
     }
 
     private fun parseNicknameFromBrokenLengthPacket(packet: ByteArray) {
