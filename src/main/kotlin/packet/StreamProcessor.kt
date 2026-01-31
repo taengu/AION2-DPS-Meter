@@ -450,6 +450,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
         DebugLogWriter.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
         dataStorage.appendNickname(playerInfo.value, sanitizedName)
+        if (LocalPlayer.characterName != null && sanitizedName == LocalPlayer.characterName) {
+            LocalPlayer.playerId = playerInfo.value.toLong()
+        }
 
         return true
     }

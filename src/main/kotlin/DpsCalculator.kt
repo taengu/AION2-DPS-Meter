@@ -976,8 +976,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
             }
             TargetSelectionMode.LAST_HIT_BY_ME -> {
-                val fallbackTarget = if (currentTarget != 0) currentTarget else mostRecentTarget
-                val targetId = selectTargetLastHitByMe(fallbackTarget)
+                val targetId = selectTargetLastHitByMe(currentTarget)
                 TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
             }
             TargetSelectionMode.ALL_TARGETS -> {
@@ -1002,11 +1001,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         if (localName.isBlank()) return fallbackTarget
 
-        val nicknameData = dataStorage.getNickname()
-        val localActorIds = nicknameData
-            .filterValues { it == localName }
-            .keys
-            .toMutableSet()
+        val localActorIds = mutableSetOf<Int>()
+        val localPlayerId = LocalPlayer.playerId?.toInt()
+        if (localPlayerId != null) {
+            localActorIds.add(localPlayerId)
+        }
+        if (localActorIds.isEmpty()) {
+            val nicknameData = dataStorage.getNickname()
+            localActorIds.addAll(
+                nicknameData
+                    .filterValues { it == localName }
+                    .keys
+            )
+        }
         if (localActorIds.isEmpty()) return fallbackTarget
 
         val summonData = dataStorage.getSummonData()
