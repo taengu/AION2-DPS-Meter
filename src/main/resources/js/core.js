@@ -43,6 +43,9 @@ class DpsApp {
     this.targetSelection = "mostDamage";
     this.lastTargetMode = "";
     this.lastTargetName = "";
+    this._lastRenderedRowsSignature = "";
+    this._lastRenderedTargetLabel = "";
+    this._lastTargetSelection = this.targetSelection;
 
     DpsApp.instance = this;
   }
@@ -95,6 +98,7 @@ class DpsApp {
     this.elList = document.querySelector(".list");
     this.elBossName = document.querySelector(".bossName");
     this.elBossName.textContent = this.getDefaultTargetLabel();
+    this._lastRenderedTargetLabel = this.elBossName.textContent;
 
     this.resetBtn = document.querySelector(".resetBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
@@ -230,6 +234,8 @@ class DpsApp {
     this.lastJson = null;
     this.lastTargetMode = "";
     this.lastTargetName = "";
+    this._lastRenderedRowsSignature = "";
+    this._lastRenderedTargetLabel = "";
 
     this._battleTimeVisible = false;
     this._lastBattleTimeMs = null;
@@ -242,6 +248,8 @@ class DpsApp {
     if (this.elBossName) {
       this.elBossName.textContent = this.getDefaultTargetLabel();
     }
+    this.logDebug("Target label reset: resetAll invoked.");
+    this.logDebug("Meter list reset: resetAll invoked.");
     if (callBackend) {
       window.javaBridge?.resetDps?.();
     }
@@ -279,6 +287,8 @@ class DpsApp {
 
     this.lastJson = raw;
 
+    const previousTargetName = this.lastTargetName;
+    const previousTargetMode = this.lastTargetMode;
     const { rows, targetName, targetMode, battleTimeMs } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
@@ -300,6 +310,7 @@ class DpsApp {
     }
     // 빈값은 ui 안덮어씀
     let rowsToRender = rows;
+    const renderReasons = [];
     if (rows.length === 0) {
       if (this.lastSnapshot) rowsToRender = this.lastSnapshot;
       else {
@@ -307,8 +318,10 @@ class DpsApp {
         this.battleTime.setVisible(false);
         return;
       }
+      renderReasons.push("empty payload (kept last snapshot)");
     } else {
       this.lastSnapshot = rows;
+      renderReasons.push("payload rows updated");
     }
 
     // 타이머 표시 여부
@@ -328,10 +341,41 @@ class DpsApp {
 
     if (this.onlyShowUser && this.USER_NAME) {
       rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
+      renderReasons.push(`filtered to user ${this.USER_NAME}`);
     }
 
     // render
-    this.elBossName.textContent = targetName ? targetName : this.getDefaultTargetLabel(targetMode);
+    const nextTargetLabel = targetName ? targetName : this.getDefaultTargetLabel(targetMode);
+    if (this.elBossName) {
+      this.elBossName.textContent = nextTargetLabel;
+    }
+    if (
+      nextTargetLabel !== this._lastRenderedTargetLabel ||
+      previousTargetName !== targetName ||
+      previousTargetMode !== targetMode
+    ) {
+      const reasons = [];
+      if (previousTargetName !== targetName || previousTargetMode !== targetMode) {
+        reasons.push("payload target changed");
+      }
+      if (!targetName) {
+        reasons.push(`default label for mode ${targetMode || "unknown"}`);
+      }
+      this.logDebug(
+        `Target label changed: "${this._lastRenderedTargetLabel}" -> "${nextTargetLabel}" (reason: ${reasons.join(
+          "; "
+        )}).`
+      );
+      this._lastRenderedTargetLabel = nextTargetLabel;
+    }
+    const rowsSignature = this.getRowsSignature(rowsToRender);
+    if (rowsSignature !== this._lastRenderedRowsSignature) {
+      const reasonText = renderReasons.length ? renderReasons.join("; ") : "payload update";
+      this.logDebug(
+        `Meter list changed (${rowsToRender.length} rows). reason: ${reasonText}.`
+      );
+      this._lastRenderedRowsSignature = rowsSignature;
+    }
     this.meterUI.updateFromRows(rowsToRender);
   }
 
@@ -569,6 +613,7 @@ class DpsApp {
     this.setTargetSelection(storedTargetSelection || this.targetSelection, {
       persist: false,
       syncBackend: true,
+      reason: storedTargetSelection ? "restore from storage" : "default selection",
     });
     if (storedLanguage) {
       this.i18n?.setLanguage?.(storedLanguage, { persist: false });
@@ -615,7 +660,11 @@ class DpsApp {
       this.targetSelect.addEventListener("change", (event) => {
         const value = event.target?.value;
         if (value) {
-          this.setTargetSelection(value, { persist: true, syncBackend: true });
+          this.setTargetSelection(value, {
+            persist: true,
+            syncBackend: true,
+            reason: "user selection",
+          });
         }
       });
     }
@@ -776,7 +825,8 @@ class DpsApp {
     }
   }
 
-  setTargetSelection(mode, { persist = false, syncBackend = false } = {}) {
+  setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
+    const previousSelection = this.targetSelection;
     this.targetSelection = mode || "mostDamage";
     if (persist) {
       localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
@@ -786,6 +836,12 @@ class DpsApp {
     }
     if (this.targetSelect && document.activeElement !== this.targetSelect) {
       this.targetSelect.value = this.targetSelection;
+    }
+    if (previousSelection !== this.targetSelection) {
+      this.logDebug(
+        `Target selection changed: "${previousSelection}" -> "${this.targetSelection}" (reason: ${reason}).`
+      );
+      this._lastTargetSelection = this.targetSelection;
     }
   }
 
@@ -852,6 +908,22 @@ class DpsApp {
     if (this.onlyShowUser && this.USER_NAME) {
       rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
     }
+    const rowsSignature = this.getRowsSignature(rowsToRender);
+    if (rowsSignature !== this._lastRenderedRowsSignature) {
+      const reasons = [];
+      if (!Array.isArray(this.lastSnapshot) || this.lastSnapshot.length === 0) {
+        reasons.push("no snapshot available");
+      } else {
+        reasons.push("renderCurrentRows refresh");
+      }
+      if (this.onlyShowUser && this.USER_NAME) {
+        reasons.push(`filtered to user ${this.USER_NAME}`);
+      }
+      this.logDebug(
+        `Meter list changed (${rowsToRender.length} rows). reason: ${reasons.join("; ")}.`
+      );
+      this._lastRenderedRowsSignature = rowsSignature;
+    }
     this.meterUI?.updateFromRows?.(rowsToRender);
   }
 
@@ -876,6 +948,30 @@ class DpsApp {
       : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+  }
+
+  getRowsSignature(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return "";
+    return rows
+      .map((row) => {
+        const id = row?.id ?? "";
+        const name = row?.name ?? "";
+        const job = row?.job ?? "";
+        const dps = Number(row?.dps ?? 0);
+        const totalDamage = Number(row?.totalDamage ?? 0);
+        const contrib = Number(row?.damageContribution ?? 0);
+        return `${id}:${name}:${job}:${dps}:${totalDamage}:${contrib}`;
+      })
+      .join("|");
+  }
+
+  logDebug(message) {
+    if (!message) return;
+    try {
+      window.javaBridge?.logDebug?.(String(message));
+    } catch (e) {
+      globalThis.uiDebug?.log?.("logDebug blocked", { message: String(message), error: String(e) });
+    }
   }
 
   getDefaultTargetLabel(targetMode = "") {

@@ -44,6 +44,8 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         private val dpsCalculator: DpsCalculator,
         private val hostServices: HostServices,
     ) {
+        private val logger = LoggerFactory.getLogger(JSBridge::class.java)
+
         fun moveWindow(x: Double, y: Double) {
             stage.x = x
             stage.y = y
@@ -114,6 +116,11 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         fun setDebugLoggingEnabled(enabled: Boolean) {
             DebugLogWriter.setEnabled(enabled)
             PropertyHandler.setProperty(DebugLogWriter.SETTING_KEY, enabled.toString())
+        }
+
+        fun logDebug(message: String?) {
+            if (message.isNullOrBlank()) return
+            DebugLogWriter.debug(logger, "UI {}", message.trim())
         }
         fun exitApp() {
           Platform.exit()     
