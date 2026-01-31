@@ -43,7 +43,7 @@ class DpsApp {
     this.targetSelection = "mostDamage";
     this.lastTargetMode = "";
     this.lastTargetName = "";
-    this._lastRenderedRowsSignature = "";
+    this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastTargetSelection = this.targetSelection;
     this._lastRenderedRowsSummary = null;
@@ -235,7 +235,7 @@ class DpsApp {
     this.lastJson = null;
     this.lastTargetMode = "";
     this.lastTargetName = "";
-    this._lastRenderedRowsSignature = "";
+    this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastRenderedRowsSummary = null;
 
@@ -312,7 +312,7 @@ class DpsApp {
     }
     // 빈값은 ui 안덮어씀
     let rowsToRender = rows;
-    const renderReasons = [];
+    const listReasons = [];
     if (rows.length === 0) {
       if (this.lastSnapshot) rowsToRender = this.lastSnapshot;
       else {
@@ -320,10 +320,8 @@ class DpsApp {
         this.battleTime.setVisible(false);
         return;
       }
-      renderReasons.push("empty payload (kept last snapshot)");
     } else {
       this.lastSnapshot = rows;
-      renderReasons.push("payload rows updated");
     }
 
     // 타이머 표시 여부
@@ -343,7 +341,7 @@ class DpsApp {
 
     if (this.onlyShowUser && this.USER_NAME) {
       rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
-      renderReasons.push(`filtered to user ${this.USER_NAME}`);
+      listReasons.push(`filtered to user ${this.USER_NAME}`);
     }
 
     // render
@@ -371,15 +369,15 @@ class DpsApp {
       this._lastRenderedTargetLabel = nextTargetLabel;
     }
     const rowsSummary = this.getRowsSummary(rowsToRender);
-    if (rowsSummary.signature !== this._lastRenderedRowsSignature) {
+    if (rowsSummary.listSignature !== this._lastRenderedListSignature) {
       const changeReasons = this.describeRowsChange(rowsSummary, this._lastRenderedRowsSummary);
-      const reasonText = [...changeReasons, ...renderReasons].filter(Boolean).join("; ");
+      const reasonText = [...changeReasons, ...listReasons].filter(Boolean).join("; ");
       this.logDebug(
         `Meter list changed (${rowsToRender.length} rows). reason: ${
-          reasonText || "rows signature changed"
+          reasonText || "list membership changed"
         }.`
       );
-      this._lastRenderedRowsSignature = rowsSummary.signature;
+      this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.meterUI.updateFromRows(rowsToRender);
@@ -915,7 +913,7 @@ class DpsApp {
       rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
     }
     const rowsSummary = this.getRowsSummary(rowsToRender);
-    if (rowsSummary.signature !== this._lastRenderedRowsSignature) {
+    if (rowsSummary.listSignature !== this._lastRenderedListSignature) {
       const reasons = this.describeRowsChange(rowsSummary, this._lastRenderedRowsSummary);
       if (!Array.isArray(this.lastSnapshot) || this.lastSnapshot.length === 0) {
         reasons.push("no snapshot available");
@@ -927,10 +925,10 @@ class DpsApp {
       }
       this.logDebug(
         `Meter list changed (${rowsToRender.length} rows). reason: ${
-          reasons.join("; ") || "rows signature changed"
+          reasons.join("; ") || "list membership changed"
         }.`
       );
-      this._lastRenderedRowsSignature = rowsSummary.signature;
+      this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.meterUI?.updateFromRows?.(rowsToRender);
@@ -959,21 +957,6 @@ class DpsApp {
     this.lockedPort.textContent = port;
   }
 
-  getRowsSignature(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) return "";
-    return rows
-      .map((row) => {
-        const id = row?.id ?? "";
-        const name = row?.name ?? "";
-        const job = row?.job ?? "";
-        const dps = Number(row?.dps ?? 0);
-        const totalDamage = Number(row?.totalDamage ?? 0);
-        const contrib = Number(row?.damageContribution ?? 0);
-        return `${id}:${name}:${job}:${dps}:${totalDamage}:${contrib}`;
-      })
-      .join("|");
-  }
-
   getRowsSummary(rows) {
     const safeRows = Array.isArray(rows) ? rows : [];
     const ids = safeRows.map((row) => String(row?.id ?? "")).sort();
@@ -982,7 +965,7 @@ class DpsApp {
       count: safeRows.length,
       ids,
       names,
-      signature: this.getRowsSignature(safeRows),
+      listSignature: ids.join("|"),
     };
   }
 
@@ -1006,14 +989,6 @@ class DpsApp {
       previousSummary.names.some((name, index) => name !== nextSummary.names[index]);
     if (namesChanged && !idsChanged) {
       reasons.push("row names changed");
-    }
-    if (
-      nextSummary.signature !== previousSummary.signature &&
-      !idsChanged &&
-      !namesChanged &&
-      previousSummary.count === nextSummary.count
-    ) {
-      reasons.push("row metrics updated");
     }
     return reasons;
   }
