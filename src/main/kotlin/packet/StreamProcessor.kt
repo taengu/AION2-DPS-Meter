@@ -262,6 +262,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val matchesKnownActor = knownActorId != null && actorInfo.value == knownActorId
             val matchesKnownNickname = knownNickname != null && sanitizedName == knownNickname
             if (!matchesKnownActor && !matchesKnownNickname) continue
+            val contextSlice = sliceAround(packet, offset)
+            if (findArrayIndex(contextSlice, 0x04, 0x38) >= 0 || findArrayIndex(contextSlice, 0x05, 0x38) >= 0) {
+                continue
+            }
             candidates.add(offset to sanitizedName)
 
             logger.debug(
@@ -269,7 +273,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 actorInfo.value,
                 sanitizedName,
                 offset,
-                toHex(sliceAround(packet, offset))
+                toHex(contextSlice)
             )
             DebugLogWriter.debug(
                 logger,
@@ -277,7 +281,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 actorInfo.value,
                 sanitizedName,
                 offset,
-                toHex(sliceAround(packet, offset))
+                toHex(contextSlice)
             )
             dataStorage.appendNickname(actorInfo.value, sanitizedName)
             logger.info(
@@ -285,7 +289,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 actorInfo.value,
                 sanitizedName,
                 offset,
-                toHex(sliceAround(packet, offset))
+                toHex(contextSlice)
             )
             DebugLogWriter.info(
                 logger,
@@ -293,7 +297,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 actorInfo.value,
                 sanitizedName,
                 offset,
-                toHex(sliceAround(packet, offset))
+                toHex(contextSlice)
             )
         }
 
