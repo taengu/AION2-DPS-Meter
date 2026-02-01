@@ -728,6 +728,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val maxBacktrack = min(5, markerOffset)
         for (backtrack in 1..maxBacktrack) {
             val start = markerOffset - backtrack
+            if (start > 0 && (bytes[start - 1].toInt() and 0x80) != 0) {
+                continue
+            }
             val info = readVarInt(bytes, start)
             if (info.length > 0 && start + info.length == markerOffset) {
                 return info
