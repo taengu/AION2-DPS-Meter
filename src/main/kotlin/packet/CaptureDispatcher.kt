@@ -20,6 +20,8 @@ class CaptureDispatcher(
 
     suspend fun run() {
         for (cap in channel) {
+            CombatPortDetector.observeLocalConnection(cap.srcPort, cap.dstPort, cap.deviceName)
+
             val a = minOf(cap.srcPort, cap.dstPort)
             val b = maxOf(cap.srcPort, cap.dstPort)
             val key = a to b
@@ -28,8 +30,8 @@ class CaptureDispatcher(
 
             // "Lock" is informational for now; don't filter until parsing confirmed stable
             if (CombatPortDetector.currentPort() == null && contains(cap.data, MAGIC)) {
-                // Choose srcPort for now (since magic typically comes from the sender)
-                CombatPortDetector.lock(cap.srcPort, cap.deviceName)
+                val preferredPort = CombatPortDetector.bestLocalPort() ?: cap.srcPort
+                CombatPortDetector.lock(preferredPort, cap.deviceName)
                 logger.info(
                     "Magic seen on flow {}-{} (src={}, dst={}, device={})",
                     a,
