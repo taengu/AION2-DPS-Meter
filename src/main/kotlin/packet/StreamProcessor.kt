@@ -691,6 +691,49 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             markerOffset++
         }
+        if (scanTaggedNicknamePattern(packet)) {
+            found = true
+        }
+        return found
+    }
+
+    private fun scanTaggedNicknamePattern(packet: ByteArray): Boolean {
+        var found = false
+        var offset = 2
+        while (offset + 6 < packet.size) {
+            if (packet[offset] == 0x03.toByte() &&
+                packet[offset + 1] == 0x20.toByte() &&
+                packet[offset + 2] == 0xA0.toByte() &&
+                packet[offset + 3] == 0x01.toByte() &&
+                packet[offset + 4] == 0x07.toByte()
+            ) {
+                val nameLength = packet[offset + 5].toInt() and 0xff
+                val nameStart = offset + 6
+                val nameEnd = nameStart + nameLength
+                if (nameLength > 0 && nameEnd <= packet.size) {
+                    val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
+                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                    val sanitizedName = sanitizeNickname(possibleName)
+                    if (sanitizedName != null && offset >= 2) {
+                        val actorId = parseUInt16le(packet, offset - 2)
+                        logger.info(
+                            "Potential nickname found in tagged pattern: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        DebugLogWriter.info(
+                            logger,
+                            "Potential nickname found in tagged pattern: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        dataStorage.appendNickname(actorId, sanitizedName)
+                        found = true
+                    }
+                }
+            }
+            offset++
+        }
         return found
     }
 
