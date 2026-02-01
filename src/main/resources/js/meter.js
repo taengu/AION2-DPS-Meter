@@ -70,6 +70,11 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
     return view;
   };
 
+  const hasCjkCharacters = (value) => {
+    if (!value) return false;
+    return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]/.test(value);
+  };
+
   const getRowView = (id) => {
     let view = rowViewById.get(id);
     if (!view) {
@@ -151,7 +156,9 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
       view.rowEl.style.display = "";
       view.rowEl.classList.toggle("isUser", !!row.isUser);
 
-      view.nameEl.textContent = row.name ?? "";
+      const rowName = row.name ?? "";
+      view.nameEl.textContent = rowName;
+      view.nameEl.classList.toggle("name-cjk", hasCjkCharacters(rowName));
       if (row.job && !!row.job) {
         const src = `./assets/${row.job}.png`;
         view.classIconImg.src = src;
