@@ -9,8 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 
 fun main() = runBlocking {
+    val logger = LoggerFactory.getLogger("Startup")
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")
         e.printStackTrace()
@@ -26,6 +28,11 @@ fun main() = runBlocking {
     if (knownIdentity.actorId != null && knownIdentity.nickname != null) {
         dataStorage.appendNickname(knownIdentity.actorId, knownIdentity.nickname)
     }
+    logger.info(
+        "Deep inspection identity actorId={} nickname={}",
+        knownIdentity.actorId,
+        knownIdentity.nickname
+    )
     val calculator = DpsCalculator(dataStorage)
 
     val capturer = PcapCapturer(config, channel)

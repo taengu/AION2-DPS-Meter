@@ -258,46 +258,44 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val possibleNameBytes = packet.copyOfRange(offset + 1, offset + 1 + length)
             val possibleName = String(possibleNameBytes, Charsets.UTF_8)
             val sanitizedName = sanitizeNickname(possibleName) ?: continue
-            val actorInfo = findVarIntEndingAtOffset(packet, offset)
-            if (knownActorId != null && actorInfo?.value != knownActorId) continue
+            val actorInfo = findVarIntEndingAtOffset(packet, offset) ?: continue
+            if (knownActorId != null && actorInfo.value != knownActorId) continue
             candidates.add(offset to sanitizedName)
 
-            if (actorInfo != null) {
-                logger.debug(
-                    "Deep inspect candidate actor {} name {} offset {} context {}",
+            logger.debug(
+                "Deep inspect candidate actor {} name {} offset {} context {}",
+                actorInfo.value,
+                sanitizedName,
+                offset,
+                toHex(sliceAround(packet, offset))
+            )
+            DebugLogWriter.debug(
+                logger,
+                "Deep inspect candidate actor {} name {} offset {} context {}",
+                actorInfo.value,
+                sanitizedName,
+                offset,
+                toHex(sliceAround(packet, offset))
+            )
+            val matchesKnownActor = knownActorId != null && actorInfo.value == knownActorId
+            val matchesKnownNickname = knownNickname != null && sanitizedName == knownNickname
+            if (matchesKnownActor || matchesKnownNickname) {
+                dataStorage.appendNickname(actorInfo.value, sanitizedName)
+                logger.info(
+                    "Deep inspect nickname match actor {} name {} offset {} context {}",
                     actorInfo.value,
                     sanitizedName,
                     offset,
                     toHex(sliceAround(packet, offset))
                 )
-                DebugLogWriter.debug(
+                DebugLogWriter.info(
                     logger,
-                    "Deep inspect candidate actor {} name {} offset {} context {}",
+                    "Deep inspect nickname match actor {} name {} offset {} context {}",
                     actorInfo.value,
                     sanitizedName,
                     offset,
                     toHex(sliceAround(packet, offset))
                 )
-                val matchesKnownActor = knownActorId != null && actorInfo.value == knownActorId
-                val matchesKnownNickname = knownNickname != null && sanitizedName == knownNickname
-                if (matchesKnownActor || matchesKnownNickname) {
-                    dataStorage.appendNickname(actorInfo.value, sanitizedName)
-                    logger.info(
-                        "Deep inspect nickname match actor {} name {} offset {} context {}",
-                        actorInfo.value,
-                        sanitizedName,
-                        offset,
-                        toHex(sliceAround(packet, offset))
-                    )
-                    DebugLogWriter.info(
-                        logger,
-                        "Deep inspect nickname match actor {} name {} offset {} context {}",
-                        actorInfo.value,
-                        sanitizedName,
-                        offset,
-                        toHex(sliceAround(packet, offset))
-                    )
-                }
             }
         }
 
