@@ -652,18 +652,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var markerOffset = 0
         while (markerOffset + 2 < packet.size) {
             if (packet[markerOffset] == 0xF8.toByte() &&
-                packet[markerOffset + 1] == 0x03.toByte()
+                packet[markerOffset + 1] == 0x03.toByte() &&
+                packet[markerOffset + 2] == 0x05.toByte()
             ) {
-                val nicknameLength = packet[markerOffset + 2].toInt() and 0xff
                 val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
                 val actorId = actorInfo.value
                 val nicknameStart = markerOffset + 3
-                val nicknameEnd = nicknameStart + nicknameLength
-                if (actorInfo.length > 0 &&
-                    nicknameLength > 0 &&
-                    nicknameStart < packet.size &&
-                    nicknameEnd <= packet.size
-                ) {
+                if (actorInfo.length == 2 && nicknameStart < packet.size) {
+                    var nicknameEnd = nicknameStart
+                    while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
+                        nicknameEnd++
+                    }
+                    if (nicknameEnd <= nicknameStart) {
+                        markerOffset++
+                        continue
+                    }
                     val possibleNameBytes = packet.copyOfRange(nicknameStart, nicknameEnd)
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
                     val sanitizedName = sanitizeNickname(possibleName)
@@ -696,20 +699,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun decodeVarIntBeforeMarker(bytes: ByteArray, markerOffset: Int): VarIntOutput {
         if (markerOffset <= 0) return VarIntOutput(-1, -1)
-        val maxBacktrack = min(5, markerOffset)
-        var best = VarIntOutput(-1, -1)
-        for (backtrack in 1..maxBacktrack) {
-            val start = markerOffset - backtrack
-            val info = readVarInt(bytes, start)
-            if (info.length > 0 && start + info.length == markerOffset) {
-                val prefer = info.length > best.length ||
-                    (info.length == best.length && info.value > best.value)
-                if (prefer) {
-                    best = info
-                }
-            }
+        val expectedLength = 2
+        if (markerOffset < expectedLength) return VarIntOutput(-1, -1)
+        val start = markerOffset - expectedLength
+        val info = readVarInt(bytes, start)
+        return if (info.length == expectedLength && start + info.length == markerOffset) {
+            info
+        } else {
+            VarIntOutput(-1, -1)
         }
-        return best
     }
 
     private fun computePacketSize(info: VarIntOutput): Int {
