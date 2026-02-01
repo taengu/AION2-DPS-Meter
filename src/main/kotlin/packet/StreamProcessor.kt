@@ -761,7 +761,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun computePacketSize(info: VarIntOutput): Int {
-        return info.value + info.length
+        return info.value + info.length - 4
     }
 
     private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
