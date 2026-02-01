@@ -1,4 +1,6 @@
+import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 
 plugins {
     kotlin("jvm")
@@ -65,5 +67,22 @@ compose.desktop {
         }
 
 
+    }
+}
+
+tasks.withType<AbstractJPackageTask>().configureEach {
+    if (OperatingSystem.current().isWindows && targetFormat == TargetFormat.AppImage) {
+        doLast {
+            val appImageDir = destinationDir.get().asFile.resolve(packageName.get())
+            val manifestFile = project.layout.projectDirectory.file(
+                "appResources/windows/aion2meter-tw.exe.manifest"
+            ).asFile
+            if (manifestFile.exists()) {
+                manifestFile.copyTo(
+                    target = appImageDir.resolve(manifestFile.name),
+                    overwrite = true
+                )
+            }
+        }
     }
 }
