@@ -660,7 +660,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val actorInfo = findActorIdBeforeOpcode(packet, offset)
         val actorId = actorInfo.value
         val nicknameStart = offset + 3
-        if (actorInfo.length == 2 && nicknameStart < packet.size) {
+        if (actorInfo.length == 2 && actorId >= 1000 && nicknameStart < packet.size) {
             var nicknameEnd = nicknameStart
             while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
                 nicknameEnd++
@@ -718,7 +718,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
                 val actorId = actorInfo.value
                 val nicknameStart = markerOffset + 3
-                if (actorInfo.length == 2 && nicknameStart < packet.size) {
+                if (actorInfo.length == 2 && actorId >= 1000 && nicknameStart < packet.size) {
                     var nicknameEnd = nicknameStart
                     while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
                         nicknameEnd++
