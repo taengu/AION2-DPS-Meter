@@ -676,20 +676,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
                                 nicknameEnd++
                             }
-                            if (nicknameEnd > nicknameStart) {
-                                packet.copyOfRange(nicknameStart, nicknameEnd)
-                            } else {
-                                null
-                            }
+                            extractNicknameBytes(packet, nicknameStart, nicknameEnd - nicknameStart)
                         }
                         0x00 -> null
                         else -> {
-                            val nicknameEnd = nicknameStart + markerType
-                            if (nicknameEnd <= packet.size) {
-                                packet.copyOfRange(nicknameStart, nicknameEnd)
-                            } else {
-                                null
-                            }
+                            extractNicknameBytes(packet, nicknameStart, markerType)
                         }
                     }
                     if (possibleNameBytes != null) {
@@ -721,6 +712,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             markerOffset++
         }
         return found
+    }
+
+    private fun extractNicknameBytes(packet: ByteArray, start: Int, length: Int): ByteArray? {
+        if (length <= 0 || length > 72) return null
+        val end = start + length
+        if (start < 0 || end > packet.size) return null
+        return packet.copyOfRange(start, end)
     }
 
     private fun decodeVarIntBeforeMarker(bytes: ByteArray, markerOffset: Int): VarIntOutput {
