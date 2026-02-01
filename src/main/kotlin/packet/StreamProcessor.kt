@@ -80,6 +80,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             logger.debug("Skipping oversized marker packet: {}", toHex(packet))
             return
         }
+        if (packet.size < 4) {
+            logger.debug("Skipping short broken packet buffer: {}", toHex(packet))
+            return
+        }
         logger.warn("Broken packet buffer detected: {}", toHex(packet))
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
@@ -129,7 +133,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun isOversizedMarkerPacket(packet: ByteArray): Boolean {
-        if (packet.size != 8) return false
+        if (packet.size < 8) return false
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) return false
         return packet[6] == 0x00.toByte() && packet[7] == 0x00.toByte()
     }
