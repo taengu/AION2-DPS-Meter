@@ -244,13 +244,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun deepInspectPacket(packet: ByteArray) {
         val knownActorId = LocalPlayer.knownActorId
-            ?: PropertyHandler.getProperty("player.knownActorId")?.toIntOrNull()?.also {
-                LocalPlayer.knownActorId = it
-            }
         val knownNickname = LocalPlayer.knownNickname
-            ?: PropertyHandler.getProperty("player.knownNickname")?.trim()?.takeIf { it.isNotEmpty() }?.also {
-                LocalPlayer.knownNickname = it
-            }
         if (knownActorId == null && knownNickname == null) return
 
         val candidates = mutableSetOf<Pair<Int, String>>()
