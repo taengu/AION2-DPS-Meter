@@ -6,6 +6,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.DebugLogWriter
+import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import kotlin.math.roundToInt
@@ -947,8 +948,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {
-            val (_, data) = iterator.next()
+            val (uid, data) = iterator.next()
             if (data.job == "") {
+                logger.debug("Dropping actor {} from output (no job mapping)", uid)
+                DebugLogWriter.debug(logger, "Dropping actor {} from output (no job mapping)", uid)
                 iterator.remove()
             } else {
                 data.dps = data.amount / battleTime * 1000

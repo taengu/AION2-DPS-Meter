@@ -15,6 +15,7 @@ object DebugLogWriter {
     private val lock = Any()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
     private val logFile = File("debug.log")
+    private val ffPayloadLogFile = File("ff_ff.log")
 
     @Volatile
     private var enabled = false
@@ -38,6 +39,10 @@ object DebugLogWriter {
         write("INFO", logger.name, message, args)
     }
 
+    fun ffPayload(logger: Logger, message: String, vararg args: Any?) {
+        writePayload("FFFF", logger.name, message, args)
+    }
+
     private fun write(level: String, loggerName: String, message: String, args: Array<out Any?>) {
         if (!enabled) return
         val result = MessageFormatter.arrayFormat(message, args)
@@ -48,6 +53,24 @@ object DebugLogWriter {
         synchronized(lock) {
             logFile.parentFile?.mkdirs()
             FileWriter(logFile, true).use { writer ->
+                writer.append(line).append('\n')
+                result.throwable?.let { throwable ->
+                    writer.append(throwable.stackTraceToString()).append('\n')
+                }
+            }
+        }
+    }
+
+    private fun writePayload(level: String, loggerName: String, message: String, args: Array<out Any?>) {
+        if (!enabled) return
+        val result = MessageFormatter.arrayFormat(message, args)
+        val formattedMessage = truncate(result.message ?: "")
+        val timestamp = LocalTime.now().format(timeFormatter)
+        val shortLoggerName = loggerName.substringAfterLast('.')
+        val line = "$timestamp $level $shortLoggerName - $formattedMessage"
+        synchronized(lock) {
+            ffPayloadLogFile.parentFile?.mkdirs()
+            FileWriter(ffPayloadLogFile, true).use { writer ->
                 writer.append(line).append('\n')
                 result.throwable?.let { throwable ->
                     writer.append(throwable.stackTraceToString()).append('\n')

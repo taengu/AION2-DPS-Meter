@@ -133,11 +133,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (targetInfo.length < 0) return false
         offset += targetInfo.length
         if (offset + 1 >= packet.size) return false
-        if (!isRecentTarget(targetInfo.value)) return false
         val markerSearchEnd = if (packet.size < offset + 8) packet.size else offset + 8
         val markerRelativeIdx = findArrayIndex(packet.copyOfRange(offset, markerSearchEnd), 0xff, 0xff)
         if (markerRelativeIdx == -1) return false
         val markerOffset = offset + markerRelativeIdx
+        DebugLogWriter.ffPayload(
+            logger,
+            "FF FF packet target {} markerOffset {} payload {}",
+            targetInfo.value,
+            markerOffset,
+            toHex(packet)
+        )
+        if (!isRecentTarget(targetInfo.value)) return false
         val baseOffset = markerOffset + 2
         if (baseOffset >= packet.size) return false
 
