@@ -5,6 +5,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.logging.DebugLogWriter
 import org.slf4j.LoggerFactory
+import kotlin.math.max
 import kotlin.math.min
 
 class StreamProcessor(private val dataStorage: DataStorage) {
@@ -750,7 +751,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val nameStart = offset + 3
                     val nameEnd = nameStart + nameLength
                     if (nameEnd <= packet.size) {
-                        val actorInfo = findVarIntBeforeOffset(packet, offset, maxBacktrack = 8, maxGap = 4)
+                        val actorInfo = selectActorVarInt(packet, offset, maxBacktrack = 8, maxGap = 4)
                         if (actorInfo != null) {
                             val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
                             val possibleName = String(possibleNameBytes, Charsets.UTF_8)
@@ -779,12 +780,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return found
     }
 
-    private fun findVarIntBeforeOffset(
+    private fun selectActorVarInt(
         packet: ByteArray,
         offset: Int,
         maxBacktrack: Int,
         maxGap: Int
     ): VarIntOutput? {
+        val candidates = collectVarIntCandidates(packet, offset, maxBacktrack, maxGap)
+        if (candidates.isEmpty()) return null
+        val unresolved = candidates.firstOrNull { hasKnownActorWithoutNickname(it.value) }
+        if (unresolved != null) return unresolved
+        val knownActor = candidates.firstOrNull { dataStorage.getActorData().containsKey(it.value) }
+        return knownActor ?: candidates.first()
+    }
+
+    private fun collectVarIntCandidates(
+        packet: ByteArray,
+        offset: Int,
+        maxBacktrack: Int,
+        maxGap: Int
+    ): List<VarIntOutput> {
+        val candidates = mutableListOf<VarIntOutput>()
         val startLimit = max(0, offset - maxBacktrack)
         for (start in offset - 1 downTo startLimit) {
             if (start >= packet.size) continue
@@ -792,11 +808,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (info.length > 0) {
                 val end = start + info.length
                 if (end <= offset && offset - end <= maxGap) {
-                    return info
+                    candidates.add(info)
                 }
             }
         }
-        return null
+        return candidates
+    }
+
+    private fun hasKnownActorWithoutNickname(actorId: Int): Boolean {
+        val nicknames = dataStorage.getNickname()
+        val actorData = dataStorage.getActorData()
+        return actorData.containsKey(actorId) && !nicknames.containsKey(actorId)
     }
 
     private fun decodeVarIntBeforeMarker(bytes: ByteArray, markerOffset: Int): VarIntOutput {
