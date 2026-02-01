@@ -5,6 +5,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.logging.DebugLogWriter
 import org.slf4j.LoggerFactory
+import kotlin.math.min
 
 class StreamProcessor(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
@@ -566,6 +567,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (loopInfo.length < 0) return false
         pdp.setLoop(loopInfo)
         offset += loopInfo.length
+
+        if (offset <= packet.size) {
+            val endOffset = min(offset + 10, packet.size)
+            logger.info(
+                "Remaining damage packet bytes (next {}): {}",
+                endOffset - offset,
+                toHex(packet.copyOfRange(offset, endOffset))
+            )
+        } else {
+            logger.info("Remaining damage packet bytes: <out of bounds>")
+        }
 
 //        if (loopInfo.value != 0 && offset >= packet.size) return false
 //
