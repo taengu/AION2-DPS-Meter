@@ -665,19 +665,34 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var found = false
         var markerOffset = 0
         while (markerOffset + 2 < packet.size) {
-            if (packet[markerOffset] == 0xF8.toByte() &&
-                packet[markerOffset + 1] == 0x03.toByte() &&
-                packet[markerOffset + 2] == 0x06.toByte()
-            ) {
+            if (packet[markerOffset] == 0xF8.toByte() && packet[markerOffset + 1] == 0x03.toByte()) {
+                val markerType = packet[markerOffset + 2].toInt() and 0xFF
                 val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
                 val nicknameStart = markerOffset + 3
                 if (actorInfo.length > 0 && nicknameStart < packet.size) {
-                    var nicknameEnd = nicknameStart
-                    while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
-                        nicknameEnd++
+                    val possibleNameBytes = when (markerType) {
+                        0x06 -> {
+                            var nicknameEnd = nicknameStart
+                            while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
+                                nicknameEnd++
+                            }
+                            if (nicknameEnd > nicknameStart) {
+                                packet.copyOfRange(nicknameStart, nicknameEnd)
+                            } else {
+                                null
+                            }
+                        }
+                        0x00 -> null
+                        else -> {
+                            val nicknameEnd = nicknameStart + markerType
+                            if (nicknameEnd <= packet.size) {
+                                packet.copyOfRange(nicknameStart, nicknameEnd)
+                            } else {
+                                null
+                            }
+                        }
                     }
-                    if (nicknameEnd > nicknameStart) {
-                        val possibleNameBytes = packet.copyOfRange(nicknameStart, nicknameEnd)
+                    if (possibleNameBytes != null) {
                         val possibleName = String(possibleNameBytes, Charsets.UTF_8)
                         val sanitizedName = sanitizeNickname(possibleName)
                         if (sanitizedName != null) {
