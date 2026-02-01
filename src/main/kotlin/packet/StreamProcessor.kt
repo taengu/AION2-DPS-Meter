@@ -659,6 +659,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val possibleName = String(possibleNameBytes, Charsets.UTF_8)
             val sanitizedName = sanitizeNickname(possibleName)
             if (sanitizedName != null) {
+                val sanitizedBytes = sanitizedName.toByteArray(Charsets.UTF_8)
+                if (sanitizedBytes.size != possibleNameBytes.size) {
+                    offset++
+                    continue
+                }
                 logger.info(
                     "Length nickname mapped: actor={} nickname={}",
                     actorInfo.value,
