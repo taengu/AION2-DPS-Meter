@@ -639,20 +639,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var found = false
         var offset = 0
         while (offset + 2 < packet.size) {
-            if (packet[offset] == 0x00.toByte() &&
-                packet[offset + 1] == 0x07.toByte() &&
-                packet[offset + 2] == 0x05.toByte()
-            ) {
-                found = scanOpcodeNicknameAtOffset(packet, offset) || found
-            } else if (packet[offset] == 0x01.toByte() &&
-                packet[offset + 1] == 0x07.toByte() &&
-                packet[offset + 2] == 0x05.toByte()
-            ) {
+            if (isOpcodeNicknameMarker(packet, offset)) {
                 found = scanOpcodeNicknameAtOffset(packet, offset) || found
             }
             offset++
         }
         return found
+    }
+
+    private fun isOpcodeNicknameMarker(packet: ByteArray, offset: Int): Boolean {
+        if (packet[offset + 2] != 0x05.toByte()) return false
+        val b0 = packet[offset]
+        val b1 = packet[offset + 1]
+        return (b0 == 0x00.toByte() && b1 == 0x07.toByte()) ||
+            (b0 == 0x01.toByte() && b1 == 0x07.toByte()) ||
+            (b0 == 0x02.toByte() && b1 == 0x0d.toByte())
     }
 
     private fun scanOpcodeNicknameAtOffset(packet: ByteArray, offset: Int): Boolean {
