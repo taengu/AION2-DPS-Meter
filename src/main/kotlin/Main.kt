@@ -23,16 +23,13 @@ fun main() = runBlocking {
     val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
     val config = PcapCapturerConfig.loadFromProperties()
 
-    val dataStorage = DataStorage()
     val knownIdentity = LocalPlayer.loadKnownIdentity()
-    if (knownIdentity.actorId != null && knownIdentity.nickname != null) {
-        dataStorage.appendNickname(knownIdentity.actorId, knownIdentity.nickname)
-    }
     logger.info(
         "Deep inspection identity actorId={} nickname={}",
         knownIdentity.actorId,
         knownIdentity.nickname
     )
+    val dataStorage = DataStorage()
     val calculator = DpsCalculator(dataStorage)
 
     val capturer = PcapCapturer(config, channel)

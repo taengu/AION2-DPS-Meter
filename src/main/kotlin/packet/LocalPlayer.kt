@@ -39,15 +39,9 @@ object LocalPlayer {
 
         if (actorId != null) {
             knownActorId = actorId
-            if (playerId == null) {
-                playerId = actorId.toLong()
-            }
         }
         if (nickname != null) {
             knownNickname = nickname
-            if (characterName == null) {
-                characterName = nickname
-            }
         }
 
         return KnownIdentity(actorId, nickname)
