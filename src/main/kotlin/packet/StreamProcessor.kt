@@ -249,6 +249,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         ) {
             return null
         }
+        if (trimmedNickname.length <= 3 &&
+            trimmedNickname.all { it in 'a'..'z' }
+        ) {
+            return null
+        }
         return trimmedNickname
     }
 
