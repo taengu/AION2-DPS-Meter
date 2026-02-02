@@ -653,39 +653,35 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var markerOffset = 0
         while (markerOffset + 2 < packet.size) {
             if (packet[markerOffset] == 0xF8.toByte() &&
-                packet[markerOffset + 1] == 0x03.toByte() &&
-                packet[markerOffset + 2] == 0x06.toByte()
+                packet[markerOffset + 1] == 0x03.toByte()
             ) {
                 val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
-                val nicknameStart = markerOffset + 3
-                if (actorInfo.length > 0 && nicknameStart < packet.size) {
-                    var nicknameEnd = nicknameStart
-                    while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
-                        nicknameEnd++
-                    }
-                    if (nicknameEnd > nicknameStart) {
-                        val possibleNameBytes = packet.copyOfRange(nicknameStart, nicknameEnd)
-                        val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                        val sanitizedName = sanitizeNickname(possibleName)
-                        if (sanitizedName != null) {
-                            logger.info(
-                                "Marker nickname mapped: actor={} nickname={}",
+                if (actorInfo.length > 0) {
+                    if (packet[markerOffset + 2] == 0x06.toByte()) {
+                        val nicknameStart = markerOffset + 3
+                        if (nicknameStart < packet.size) {
+                            var nicknameEnd = nicknameStart
+                            while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
+                                nicknameEnd++
+                            }
+                            if (nicknameEnd > nicknameStart) {
+                                found = mapMarkerNickname(
+                                    actorInfo.value,
+                                    packet.copyOfRange(nicknameStart, nicknameEnd),
+                                    "marker"
+                                ) || found
+                            }
+                        }
+                    } else {
+                        val nameLength = packet[markerOffset + 2].toInt() and 0xff
+                        val nameStart = markerOffset + 3
+                        val nameEnd = nameStart + nameLength
+                        if (nameLength in 1..72 && nameEnd <= packet.size) {
+                            found = mapMarkerNickname(
                                 actorInfo.value,
-                                sanitizedName
-                            )
-                            logger.info(
-                                "Potential nickname found in marker pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            DebugLogWriter.info(
-                                logger,
-                                "Potential nickname found in marker pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            dataStorage.appendNickname(actorInfo.value, sanitizedName)
-                            found = true
+                                packet.copyOfRange(nameStart, nameEnd),
+                                "marker-length"
+                            ) || found
                         }
                     }
                 }
@@ -699,6 +695,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             found = true
         }
         return found
+    }
+
+    private fun mapMarkerNickname(actorId: Int, nameBytes: ByteArray, label: String): Boolean {
+        val possibleName = String(nameBytes, Charsets.UTF_8)
+        val sanitizedName = sanitizeNickname(possibleName) ?: return false
+        logger.info("Marker nickname mapped: actor={} nickname={}", actorId, sanitizedName)
+        logger.info(
+            "Potential nickname found in {} pattern: {} (hex={})",
+            label,
+            sanitizedName,
+            toHex(nameBytes)
+        )
+        DebugLogWriter.info(
+            logger,
+            "Potential nickname found in {} pattern: {} (hex={})",
+            label,
+            sanitizedName,
+            toHex(nameBytes)
+        )
+        dataStorage.appendNickname(actorId, sanitizedName)
+        return true
     }
 
     private fun scanTaggedNicknamePattern(packet: ByteArray): Boolean {
