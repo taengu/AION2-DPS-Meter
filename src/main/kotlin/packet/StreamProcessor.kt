@@ -652,7 +652,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var found = false
         var markerOffset = 0
         while (markerOffset + 2 < packet.size) {
-            if (packet[markerOffset] == 0xF8.toByte() &&
+            if ((packet[markerOffset] == 0xF8.toByte() ||
+                packet[markerOffset] == 0xF7.toByte() ||
+                packet[markerOffset] == 0xF1.toByte()) &&
                 packet[markerOffset + 1] == 0x03.toByte()
             ) {
                 val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
