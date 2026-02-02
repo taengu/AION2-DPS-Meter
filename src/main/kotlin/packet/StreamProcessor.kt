@@ -738,7 +738,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
                     val sanitizedName = sanitizeNickname(possibleName)
                     if (sanitizedName != null && offset >= 2) {
-                        val actorId = parseUInt16le(packet, offset - 2)
+                        val actorInfo = selectActorVarInt(packet, offset, maxBacktrack = 8, maxGap = 4)
+                        val actorId = actorInfo?.value ?: parseUInt16le(packet, offset - 2)
                         logger.info(
                             "Potential nickname found in tagged pattern: {} (hex={})",
                             sanitizedName,
