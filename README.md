@@ -44,8 +44,12 @@ A combat analysis (DPS meter) tool for **AION 2**. Lovingly forked from [Aion2-D
 
 ## UI Explanation
 
+<img width="439" height="288" alt="image" src="https://github.com/user-attachments/assets/eae5dfd9-25c1-4e38-821f-6af0012acc93" />
+
+
 - **Blue box** – Monster name display (planned)
 - **Brown box** – Reset current combat data
+- **Yellow box** - Toggle between showing DPS or total DMG
 - **Pink box** – Expand / collapse DPS meter
 - **Red box** – Class icon (shown when detected)
 - **Orange box** – Player nickname (click for details)
@@ -55,6 +59,7 @@ A combat analysis (DPS meter) tool for **AION 2**. Lovingly forked from [Aion2-D
   - Green: in combat  
   - Yellow: no damage detected (paused)  
   - Grey: combat ended
+- **Black box** - ID placeholder, when player name is still being searched for
 
 Clicking a player row opens detailed statistics.
 
