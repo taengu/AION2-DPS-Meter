@@ -654,11 +654,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (markerOffset + 2 < packet.size) {
             if ((packet[markerOffset] == 0xF8.toByte() ||
                 packet[markerOffset] == 0xF7.toByte() ||
+                packet[markerOffset] == 0xF3.toByte() ||
+                packet[markerOffset] == 0xF2.toByte() ||
                 packet[markerOffset] == 0xF1.toByte()) &&
                 packet[markerOffset + 1] == 0x03.toByte()
             ) {
-                val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
-                if (actorInfo.length > 0) {
+                val actorId = resolveMarkerActorId(packet, markerOffset)
+                if (actorId != null) {
                     if (packet[markerOffset + 2] == 0x06.toByte()) {
                         val nicknameStart = markerOffset + 3
                         if (nicknameStart < packet.size) {
@@ -668,7 +670,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             }
                             if (nicknameEnd > nicknameStart) {
                                 found = mapMarkerNickname(
-                                    actorInfo.value,
+                                    actorId,
                                     packet.copyOfRange(nicknameStart, nicknameEnd),
                                     "marker"
                                 ) || found
@@ -680,7 +682,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         val nameEnd = nameStart + nameLength
                         if (nameLength in 1..72 && nameEnd <= packet.size) {
                             found = mapMarkerNickname(
-                                actorInfo.value,
+                                actorId,
                                 packet.copyOfRange(nameStart, nameEnd),
                                 "marker-length"
                             ) || found
@@ -697,6 +699,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             found = true
         }
         return found
+    }
+
+    private fun resolveMarkerActorId(packet: ByteArray, markerOffset: Int): Int? {
+        val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
+        if (actorInfo.length > 0) {
+            return actorInfo.value
+        }
+        return selectActorVarInt(packet, markerOffset, maxBacktrack = 24, maxGap = 12)?.value
     }
 
     private fun mapMarkerNickname(actorId: Int, nameBytes: ByteArray, label: String): Boolean {
