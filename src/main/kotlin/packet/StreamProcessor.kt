@@ -5,6 +5,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.logging.DebugLogWriter
 import org.slf4j.LoggerFactory
+import kotlin.math.max
 import kotlin.math.min
 
 class StreamProcessor(private val dataStorage: DataStorage) {
@@ -242,7 +243,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val trimmedNickname = nicknameBuilder.toString()
         if (trimmedNickname.isEmpty()) return null
         if (trimmedNickname.length < 3 && !hasHan) return null
+        if (trimmedNickname.length > 12) return null
         if (onlyNumbers) return null
+        if (trimmedNickname[0] in '0'..'9') return null
         if (trimmedNickname.length == 1 &&
             (trimmedNickname[0] in 'A'..'Z' || trimmedNickname[0] in 'a'..'z')
         ) {
@@ -651,60 +654,259 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var found = false
         var markerOffset = 0
         while (markerOffset + 2 < packet.size) {
-            if (packet[markerOffset] == 0xF8.toByte() &&
-                packet[markerOffset + 1] == 0x03.toByte() &&
-                packet[markerOffset + 2] == 0x06.toByte()
+            if ((packet[markerOffset] == 0xF8.toByte() ||
+                packet[markerOffset] == 0xF7.toByte() ||
+                packet[markerOffset] == 0xF3.toByte() ||
+                packet[markerOffset] == 0xF2.toByte() ||
+                packet[markerOffset] == 0xF1.toByte()) &&
+                packet[markerOffset + 1] == 0x03.toByte()
             ) {
-                val actorInfo = decodeVarIntBeforeMarker(packet, markerOffset)
-                val nicknameStart = markerOffset + 3
-                if (actorInfo.length > 0 && nicknameStart < packet.size) {
-                    var nicknameEnd = nicknameStart
-                    while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
-                        nicknameEnd++
-                    }
-                    if (nicknameEnd > nicknameStart) {
-                        val possibleNameBytes = packet.copyOfRange(nicknameStart, nicknameEnd)
-                        val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                        val sanitizedName = sanitizeNickname(possibleName)
-                        if (sanitizedName != null) {
-                            logger.info(
-                                "Marker nickname mapped: actor={} nickname={}",
-                                actorInfo.value,
-                                sanitizedName
-                            )
-                            logger.info(
-                                "Potential nickname found in marker pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            DebugLogWriter.info(
-                                logger,
-                                "Potential nickname found in marker pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            dataStorage.appendNickname(actorInfo.value, sanitizedName)
-                            found = true
+                val actorId = resolveMarkerActorId(packet, markerOffset)
+                if (actorId != null) {
+                    val nameLength = packet[markerOffset + 2].toInt() and 0xff
+                    val nameStart = markerOffset + 3
+                    val nameEnd = nameStart + nameLength
+                    val shouldTreatAsLength =
+                        nameLength in 1..12 &&
+                            nameEnd <= packet.size &&
+                            (packet[markerOffset + 2] != 0x06.toByte() || packet[nameEnd] != 0x00.toByte())
+                    if (shouldTreatAsLength) {
+                        found = mapMarkerNickname(
+                            actorId,
+                            packet.copyOfRange(nameStart, nameEnd),
+                            "marker-length",
+                            packet,
+                            nameEnd
+                        ) || found
+                    } else {
+                        if (nameStart < packet.size) {
+                            var nicknameEnd = nameStart
+                            while (nicknameEnd < packet.size && packet[nicknameEnd] != 0x00.toByte()) {
+                                nicknameEnd++
+                            }
+                            if (nicknameEnd > nameStart) {
+                                found = mapMarkerNickname(
+                                    actorId,
+                                    packet.copyOfRange(nameStart, nicknameEnd),
+                                    "marker",
+                                    packet,
+                                    nicknameEnd
+                                ) || found
+                            }
                         }
                     }
                 }
             }
             markerOffset++
         }
+        if (scanTaggedNicknamePattern(packet)) {
+            found = true
+        }
+        if (scanLengthTaggedNicknamePattern(packet)) {
+            found = true
+        }
         return found
     }
 
-    private fun decodeVarIntBeforeMarker(bytes: ByteArray, markerOffset: Int): VarIntOutput {
-        if (markerOffset <= 0) return VarIntOutput(-1, -1)
-        val maxBacktrack = min(5, markerOffset)
-        for (backtrack in 1..maxBacktrack) {
-            val start = markerOffset - backtrack
-            val info = readVarInt(bytes, start)
-            if (info.length > 0 && start + info.length == markerOffset) {
-                return info
+    private fun resolveMarkerActorId(packet: ByteArray, markerOffset: Int): Int? {
+        val immediate = selectActorVarInt(packet, markerOffset, maxBacktrack = 5, maxGap = 0)
+        if (immediate != null) {
+            return immediate.value
+        }
+        return selectActorVarInt(packet, markerOffset, maxBacktrack = 24, maxGap = 12)?.value
+    }
+
+    private fun mapMarkerNickname(
+        actorId: Int,
+        nameBytes: ByteArray,
+        label: String,
+        packet: ByteArray,
+        nameEnd: Int
+    ): Boolean {
+        val possibleName = String(nameBytes, Charsets.UTF_8)
+        val sanitizedName = sanitizeNickname(possibleName) ?: return false
+        if (actorId == 0) {
+            logger.debug("Skipped nickname candidate with actorId=0 in {} pattern: {}", label, sanitizedName)
+            return false
+        }
+        if (!isValidNicknameBoundary(packet, nameEnd)) {
+            logger.debug("Skipped nickname candidate with invalid boundary in {} pattern: {}", label, sanitizedName)
+            return false
+        }
+        if (isGuildNameContext(packet, nameEnd)) {
+            logger.debug("Skipped guild name candidate in {} pattern: {}", label, sanitizedName)
+            return false
+        }
+        logger.info("Marker nickname mapped: actor={} nickname={}", actorId, sanitizedName)
+        logger.info(
+            "Potential nickname found in {} pattern: {} (hex={})",
+            label,
+            sanitizedName,
+            toHex(nameBytes)
+        )
+        DebugLogWriter.info(
+            logger,
+            "Potential nickname found in {} pattern: {} (hex={})",
+            label,
+            sanitizedName,
+            toHex(nameBytes)
+        )
+        dataStorage.appendNickname(actorId, sanitizedName)
+        return true
+    }
+
+    private fun isGuildNameContext(packet: ByteArray, nameEnd: Int): Boolean {
+        if (nameEnd >= packet.size) return false
+        val lookahead = min(packet.size, nameEnd + 96)
+        val slice = packet.copyOfRange(nameEnd, lookahead)
+        val text = String(slice, Charsets.UTF_8)
+        return text.contains("boss_group_id")
+    }
+
+    private fun isValidNicknameBoundary(packet: ByteArray, nameEnd: Int): Boolean {
+        if (nameEnd >= packet.size) return true
+        val boundary = packet[nameEnd].toInt() and 0xff
+        return !isAsciiLetterOrDigit(boundary)
+    }
+
+    private fun isAsciiLetterOrDigit(value: Int): Boolean {
+        return (value in 'a'.code..'z'.code) ||
+            (value in 'A'.code..'Z'.code) ||
+            (value in '0'.code..'9'.code)
+    }
+
+    private fun scanTaggedNicknamePattern(packet: ByteArray): Boolean {
+        var found = false
+        var offset = 2
+        while (offset + 6 < packet.size) {
+            val hasTaggedPrefix =
+                (packet[offset] == 0x03.toByte() && packet[offset + 1] == 0x20.toByte()) ||
+                    (packet[offset] == 0x1D.toByte() && packet[offset + 1] == 0x30.toByte())
+            if (hasTaggedPrefix &&
+                packet[offset + 2] == 0xA0.toByte() &&
+                packet[offset + 3] == 0x01.toByte() &&
+                packet[offset + 4] == 0x07.toByte()
+            ) {
+                val nameLength = packet[offset + 5].toInt() and 0xff
+                val nameStart = offset + 6
+                val nameEnd = nameStart + nameLength
+                if (nameLength > 0 && nameEnd <= packet.size) {
+                    val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
+                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                    val sanitizedName = sanitizeNickname(possibleName)
+                    if (sanitizedName != null && offset >= 2) {
+                        val actorInfo = selectActorVarInt(packet, offset, maxBacktrack = 8, maxGap = 4)
+                        val actorId = actorInfo?.value ?: parseUInt16le(packet, offset - 2)
+                        if (actorId == 0) continue
+                        if (!isValidNicknameBoundary(packet, nameEnd)) continue
+                        logger.info(
+                            "Potential nickname found in tagged pattern: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        DebugLogWriter.info(
+                            logger,
+                            "Potential nickname found in tagged pattern: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        dataStorage.appendNickname(actorId, sanitizedName)
+                        found = true
+                    }
+                }
+            }
+            offset++
+        }
+        return found
+    }
+
+    private fun scanLengthTaggedNicknamePattern(packet: ByteArray): Boolean {
+        var found = false
+        var offset = 0
+        while (offset + 3 < packet.size) {
+            if ((packet[offset] == 0x01.toByte() || packet[offset] == 0x00.toByte()) &&
+                packet[offset + 1] == 0x07.toByte()
+            ) {
+                val nameLength = packet[offset + 2].toInt() and 0xff
+                if (nameLength in 1..12) {
+                    val nameStart = offset + 3
+                    val nameEnd = nameStart + nameLength
+                    if (nameEnd <= packet.size) {
+                        val actorInfo = selectActorVarInt(packet, offset, maxBacktrack = 8, maxGap = 4)
+                        if (actorInfo != null) {
+                            val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
+                            val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                            val sanitizedName = sanitizeNickname(possibleName)
+                            if (sanitizedName != null) {
+                                if (actorInfo.value == 0) continue
+                                if (!isValidNicknameBoundary(packet, nameEnd)) continue
+                                logger.info(
+                                    "Potential nickname found in length-tag pattern: {} (hex={})",
+                                    sanitizedName,
+                                    toHex(possibleNameBytes)
+                                )
+                                DebugLogWriter.info(
+                                    logger,
+                                    "Potential nickname found in length-tag pattern: {} (hex={})",
+                                    sanitizedName,
+                                    toHex(possibleNameBytes)
+                                )
+                                dataStorage.appendNickname(actorInfo.value, sanitizedName)
+                                found = true
+                            }
+                        }
+                    }
+                }
+            }
+            offset++
+        }
+        return found
+    }
+
+    private fun selectActorVarInt(
+        packet: ByteArray,
+        offset: Int,
+        maxBacktrack: Int,
+        maxGap: Int
+    ): VarIntOutput? {
+        val candidates = collectVarIntCandidates(packet, offset, maxBacktrack, maxGap)
+        if (candidates.isEmpty()) return null
+        val actorData = dataStorage.getActorData()
+        return candidates.maxWithOrNull(
+            compareBy<VarIntOutput>(
+                { hasKnownActorWithoutNickname(it.value) },
+                { actorData.containsKey(it.value) },
+                { it.length },
+                { it.value }
+            )
+        )
+    }
+
+    private fun collectVarIntCandidates(
+        packet: ByteArray,
+        offset: Int,
+        maxBacktrack: Int,
+        maxGap: Int
+    ): List<VarIntOutput> {
+        val candidates = mutableListOf<VarIntOutput>()
+        val startLimit = max(0, offset - maxBacktrack)
+        for (start in offset - 1 downTo startLimit) {
+            if (start >= packet.size) continue
+            val info = readVarInt(packet, start)
+            if (info.length > 0) {
+                val end = start + info.length
+                if (end <= offset && offset - end <= maxGap) {
+                    candidates.add(info)
+                }
             }
         }
-        return VarIntOutput(-1, -1)
+        return candidates
+    }
+
+    private fun hasKnownActorWithoutNickname(actorId: Int): Boolean {
+        val nicknames = dataStorage.getNickname()
+        val actorData = dataStorage.getActorData()
+        return actorData.containsKey(actorId) && !nicknames.containsKey(actorId)
     }
 
     private fun computePacketSize(info: VarIntOutput): Int {
