@@ -876,7 +876,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     skillValue
                 }
             }
-            val rawSkillCode = if (extendedSkill) 0 else rawSkillValue
+            val rawSkillCode = rawSkillValue
             var effectMarker: ByteArray? = null
             if (hasRemaining(2) && packet[offset] == 0x01.toByte() &&
                 (packet[offset + 1] == 0x03.toByte() || packet[offset + 1] == 0x10.toByte())
@@ -911,6 +911,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             var hitMax: Int? = null
             var hitEndOffset: Int? = null
             var hitNumbersSum: Int? = null
+            var hitFinalDamage: Int? = null
             if (hitCountCandidate in 1..32) {
                 var probeOffset = tailOffset + hitCandidate.length
                 var totalDamage = 0
@@ -918,6 +919,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 var numbersSum = hitCountCandidate
                 var hitsRead = 0
                 var ok = true
+                var lastHit = 0
                 while (hitsRead < hitCountCandidate && ok) {
                     val hitInfo = readVarInt(packet, probeOffset)
                     if (hitInfo.length < 0) {
@@ -927,6 +929,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         totalDamage += hitInfo.value
                         numbersSum += hitInfo.value
                         if (hitInfo.value > maxHit) maxHit = hitInfo.value
+                        lastHit = hitInfo.value
                         if (switchValue >= 6 && probeOffset < packet.size && packet[probeOffset].toInt() and 0xff < 0x20) {
                             val extraInfo = readVarInt(packet, probeOffset)
                             if (extraInfo.length < 0) {
@@ -944,6 +947,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     hitMax = maxHit
                     hitEndOffset = probeOffset
                     hitNumbersSum = numbersSum
+                    hitFinalDamage = lastHit
+                    if (probeOffset < packet.size) {
+                        val tailDamage = readVarInt(packet, probeOffset)
+                        if (tailDamage.length > 0 && tailDamage.value >= maxHit) {
+                            hitFinalDamage = tailDamage.value
+                            hitEndOffset = probeOffset + tailDamage.length
+                        }
+                    }
                 }
             }
 
@@ -953,7 +964,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val tripleEndOffset = if (tripleLoop.length > 0) tailOffset + tripleUnknown.length + tripleDamage.length + tripleLoop.length else null
 
             val hitCandidateValid = hitDamageSum != null && hitMax != null && hitNumbersSum != null &&
-                hitDamageSum!! >= hitMax!! && hitDamageSum!! <= hitNumbersSum!!
+                hitFinalDamage != null && hitDamageSum!! >= hitMax!! && hitDamageSum!! <= hitNumbersSum!!
             val tripleCandidateValid = tripleUnknown.length > 0 &&
                 tripleDamage.length > 0 &&
                 tripleLoop.length > 0 &&
@@ -965,7 +976,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val loopInfo: VarIntOutput
             if (hitCandidateValid) {
                 unknownInfo = VarIntOutput(hitCountCandidate, hitCandidate.length)
-                damageInfo = VarIntOutput(hitDamageSum!!, 0)
+                damageInfo = VarIntOutput(hitFinalDamage!!, 0)
                 loopInfo = VarIntOutput(hitCountCandidate, hitCandidate.length)
                 offset = hitEndOffset ?: tailOffset
             } else if (tripleCandidateValid) {
@@ -987,8 +998,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 offset = tailOffset + fallbackDamage.length
             }
 
-            val normalizedSkillCode = if (rawSkillCode >= 10_000_000) rawSkillCode / 100 else rawSkillCode
-            val skillCode = if (effectMarker != null || extendedSkill) 0 else normalizedSkillCode
+            val skillCode = rawSkillCode
 
             val pdp = ParsedDamagePacket()
             pdp.setTargetId(targetInfo)
