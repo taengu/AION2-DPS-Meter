@@ -919,7 +919,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     hitDamages.add(hitInfo.value)
                     hitsRead++
                 }
-                resolvedDamage = totalDamage
+                resolvedDamage = if (hitsRead == hitCount) {
+                    totalDamage
+                } else {
+                    logger.debug(
+                        "Hit-count mismatch expected={} read={} using base damage {}",
+                        hitCount,
+                        hitsRead,
+                        damageInfo.value
+                    )
+                    damageInfo.value
+                }
             }
 
             val skillCode = rawSkillCode
