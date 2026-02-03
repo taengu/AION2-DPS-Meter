@@ -294,6 +294,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         nameStart: Int,
         tag: String
     ): Boolean {
+        if (entityId <= 32) return false
         if (nameStart >= packet.size) return false
         val possibleNameLength = packet[nameStart - 1].toInt() and 0xff
         if (possibleNameLength <= 0) return false
