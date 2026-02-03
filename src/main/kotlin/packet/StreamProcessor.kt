@@ -190,6 +190,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     dataStorage.appendNickname(info.value, sanitizedName)
                 }
             }
+            val rule36Offset = innerOffset + 1
+            if (rule36Offset + 3 < packet.size &&
+                packet[rule36Offset] == 0x01.toByte() &&
+                packet[rule36Offset + 1] == 0x20.toByte()
+            ) {
+                val typeInfo = readVarInt(packet, rule36Offset + 2)
+                if (typeInfo.length > 0) {
+                    val opcodeOffset = rule36Offset + 2 + typeInfo.length
+                    val lengthOffset = opcodeOffset + 1
+                    if (lengthOffset < packet.size && packet[opcodeOffset] == 0x07.toByte()) {
+                        val possibleNameLength = packet[lengthOffset].toInt() and 0xff
+                        val nameStart = lengthOffset + 1
+                        val nameEnd = nameStart + possibleNameLength
+                        if (possibleNameLength > 0 && nameEnd <= packet.size) {
+                            val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
+                            val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                            val sanitizedName = sanitizeNickname(possibleName)
+                            if (sanitizedName != null) {
+                                logger.info(
+                                    "Potential nickname found in rule 36: {} (hex={})",
+                                    sanitizedName,
+                                    toHex(possibleNameBytes)
+                                )
+                                DebugLogWriter.info(
+                                    logger,
+                                    "Potential nickname found in rule 36: {} (hex={})",
+                                    sanitizedName,
+                                    toHex(possibleNameBytes)
+                                )
+                                dataStorage.appendNickname(info.value, sanitizedName)
+                            }
+                        }
+                    }
+                }
+            }
             originOffset++
         }
     }
