@@ -221,7 +221,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     dataStorage.appendNickname(info.value, sanitizedName)
                 }
             }
-            parseRule36Nickname(packet)
+            parseEntityNameBindingRules(packet)
             originOffset++
         }
     }
@@ -269,7 +269,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (flag) return
         flag = parsingNickname(packet)
         if (flag) return
-        flag = parseRule36Nickname(packet)
+        flag = parseEntityNameBindingRules(packet)
         if (flag) return
         flag = parseSummonPacket(packet)
         if (flag) return
@@ -277,75 +277,62 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     }
 
-    private fun parseRule36Nickname(packet: ByteArray): Boolean {
+    private fun parseEntityNameBindingRules(packet: ByteArray): Boolean {
         var i = 0
+        var lastAnchor: EntityAnchor? = null
+        val namedEntities = mutableSetOf<Int>()
         while (i < packet.size) {
-            if (packet[i] != 0x36.toByte()) {
+            if (packet[i] == 0x36.toByte()) {
+                val entityInfo = readVarInt(packet, i + 1)
+                lastAnchor = if (entityInfo.length > 0 && entityInfo.value >= 1000) {
+                    EntityAnchor(entityInfo.value, i, i + 1 + entityInfo.length)
+                } else {
+                    null
+                }
                 i++
                 continue
             }
-            if (i + 1 >= packet.size) {
-                i++
-                continue
-            }
-            val entityInfo = readVarInt(packet, i + 1)
-            if (entityInfo.length <= 0 || entityInfo.value < 1000) {
-                i++
-                continue
-            }
-            val scanStart = i + 1 + entityInfo.length
-            if (scanStart >= packet.size) {
-                i++
-                continue
-            }
-            val scanEnd = minOf(packet.size, scanStart + 128)
-            val guardIdx = findGuardSequence(packet, scanStart, scanEnd)
-            if (guardIdx == -1) {
-                i++
-                continue
-            }
-            var pos = scanStart
-            if (guardIdx + 2 < scanEnd) {
-                pos = guardIdx + 2
-            }
-            while (pos < scanEnd) {
-                if (packet[pos] != 0x07.toByte()) {
-                    pos++
+
+            if (packet[i] == 0x07.toByte()) {
+                val nameInfo = readAsciiName(packet, i) ?: run {
+                    i++
                     continue
                 }
-                if (pos + 1 >= packet.size) {
-                    pos++
-                    continue
+                if (lastAnchor != null && lastAnchor.entityId !in namedEntities) {
+                    val distance = i - lastAnchor.endIndex
+                    if (distance >= 0) {
+                        val canBind = registerAsciiNickname(
+                            packet,
+                            lastAnchor.entityId,
+                            nameInfo.first,
+                            nameInfo.second
+                        )
+                        if (canBind) {
+                            namedEntities.add(lastAnchor.entityId)
+                            lastAnchor = null
+                            return true
+                        }
+                    }
                 }
-                val nameLengthInfo = readVarInt(packet, pos + 1)
-                if (nameLengthInfo.length <= 0) {
-                    pos++
-                    continue
-                }
-                val nameStart = pos + 1 + nameLengthInfo.length
-                if (registerAsciiNickname(packet, entityInfo.value, nameStart, nameLengthInfo.value)) {
-                    return true
-                }
-                pos++
             }
             i++
         }
         return false
     }
 
-    private fun findGuardSequence(packet: ByteArray, start: Int, end: Int): Int {
-        var idx = start
-        val limit = end - 1
-        while (idx < limit) {
-            val first = packet[idx]
-            if ((first == 0x01.toByte() || first == 0x03.toByte()) &&
-                packet[idx + 1] == 0x20.toByte()
-            ) {
-                return idx
-            }
-            idx++
-        }
-        return -1
+    private data class EntityAnchor(val entityId: Int, val startIndex: Int, val endIndex: Int)
+
+    private fun readAsciiName(packet: ByteArray, anchorIndex: Int): Pair<Int, Int>? {
+        val lengthIndex = anchorIndex + 1
+        if (lengthIndex >= packet.size) return null
+        val nameLength = packet[lengthIndex].toInt() and 0xff
+        if (nameLength !in 1..16) return null
+        val nameStart = lengthIndex + 1
+        val nameEnd = nameStart + nameLength
+        if (nameEnd > packet.size) return null
+        val nameBytes = packet.copyOfRange(nameStart, nameEnd)
+        if (!isPrintableAscii(nameBytes)) return null
+        return nameStart to nameLength
     }
 
     private fun registerAsciiNickname(
@@ -354,7 +341,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         nameStart: Int,
         nameLength: Int
     ): Boolean {
-        if (nameLength <= 0 || nameLength > 32) return false
+        if (nameLength <= 0 || nameLength > 16) return false
         val nameEnd = nameStart + nameLength
         if (nameStart < 0 || nameEnd > packet.size) return false
         val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
@@ -363,14 +350,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val existingNickname = dataStorage.getNickname()[entityId]
         if (existingNickname != possibleName) {
             logger.info(
-                "Rule 36 nickname found {} -> {} (hex={})",
+                "Entity name binding found {} -> {} (hex={})",
                 entityId,
                 possibleName,
                 toHex(possibleNameBytes)
             )
             DebugLogWriter.info(
                 logger,
-                "Rule 36 nickname found {} -> {} (hex={})",
+                "Entity name binding found {} -> {} (hex={})",
                 entityId,
                 possibleName,
                 toHex(possibleNameBytes)
