@@ -409,7 +409,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 continue
             }
             val entityInfo = readVarInt(packet, scanOffset)
-            if (entityInfo.length in 1..2 && entityInfo.value in 100..99999) {
+            if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
                 if (dataStorage.getNickname()[entityInfo.value] == null) {
                     logger.info(
                         "Pattern C entity name found {} -> {} (hex={})",
