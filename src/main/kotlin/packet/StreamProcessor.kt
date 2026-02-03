@@ -834,18 +834,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (actorInfo.value <= 0) return null
 
             if (!hasRemaining()) return null
-            val skillEncoding = packet[offset].toInt() and 0xff
-            offset += 1
+            val skillIndicator = packet[offset].toInt() and 0xff
             var effectInstanceId: Int? = null
-            var skillCode = when (skillEncoding) {
+            var skillCode = when (skillIndicator) {
                 0x00 -> {
+                    offset += 1
                     if (!hasRemaining(4)) return null
                     val skillValue = parseUInt32le(packet, offset)
                     offset += 4
                     effectInstanceId = skillValue
                     skillValue
                 }
-                else -> {
+                0x01 -> {
+                    offset += 1
                     val variantHeader = readVarIntAt() ?: return null
                     if (!hasRemaining(4)) return null
                     val effectId = parseUInt32le(packet, offset)
@@ -854,7 +855,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
                         targetInfo.value,
                         actorInfo.value,
-                        skillEncoding,
+                        skillIndicator,
                         variantHeader.value,
                         effectId
                     )
@@ -863,12 +864,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
                         targetInfo.value,
                         actorInfo.value,
-                        skillEncoding,
+                        skillIndicator,
                         variantHeader.value,
                         effectId
                     )
                     effectInstanceId = effectId
                     effectId
+                }
+                else -> {
+                    if (!hasRemaining(4)) return null
+                    val skillValue = parseUInt32le(packet, offset)
+                    offset += 4
+                    effectInstanceId = skillValue
+                    skillValue
                 }
             }
             val markerOffset = offset
