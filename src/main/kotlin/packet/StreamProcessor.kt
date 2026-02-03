@@ -10,6 +10,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
 
     data class VarIntOutput(val value: Int, val length: Int)
+    private data class ParsedSkill(
+        val skillId: Int,
+        val nextOffset: Int
+    )
 
     private val mask = 0x0f
     private val packetStartMarker = byteArrayOf(0x06, 0x00, 0x36)
@@ -942,11 +946,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.setLoop(loopInfo)
             return DamagePacketParseResult(pdp, damageType, flagsOffset, flagsLength, effectMarker, effectInstanceId)
         }
-
-        private data class ParsedSkill(
-            val skillId: Int,
-            val nextOffset: Int
-        )
 
         private fun parseSkillId(actorId: Int, startOffset: Int): ParsedSkill? {
             val candidates = listOf(0, 1, -1)
