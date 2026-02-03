@@ -400,6 +400,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         nameStart: Int,
         nameLength: Int
     ): Boolean {
+        if (!entityExists(entityId) || dataStorage.getNickname()[entityId] != null) return false
         if (nameLength <= 0 || nameLength > 16) return false
         val nameEnd = nameStart + nameLength
         if (nameStart < 0 || nameEnd > packet.size) return false

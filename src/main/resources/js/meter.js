@@ -152,7 +152,10 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
       view.rowEl.classList.toggle("isUser", !!row.isUser);
       view.rowEl.classList.toggle("isIdentifying", !!row.isIdentifying);
 
-      view.nameEl.textContent = row.name ?? "";
+      const rowId = row.id ?? row.name ?? "";
+      view.nameEl.textContent = row.isIdentifying
+        ? `Identifying player (${rowId})...`
+        : row.name ?? "";
       if (row.job && !!row.job) {
         const src = `./assets/${row.job}.png`;
         view.classIconImg.src = src;
