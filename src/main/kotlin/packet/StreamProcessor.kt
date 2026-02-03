@@ -194,7 +194,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     dataStorage.appendNickname(info.value, sanitizedName)
                 }
             }
-            parseRule36Nickname(packet, innerOffset, info.value)
+            parseRule36Nickname(packet)
             originOffset++
         }
     }
