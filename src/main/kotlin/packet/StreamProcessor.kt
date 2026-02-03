@@ -830,17 +830,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (actorInfo.value <= 0) return null
 
             if (!hasRemaining()) return null
+            val skillOffset = offset
             val skillIndicator = packet[offset].toInt() and 0xff
             var effectInstanceId: Int? = null
             var skillCode: Int
-            when (skillIndicator) {
+            val extendedSkill = skillIndicator == 0x01
+            val parsedSkillCode = when (skillIndicator) {
                 0x00 -> {
                     offset += 1
                     if (!hasRemaining(4)) return null
                     val skillValue = parseUInt32le(packet, offset)
                     offset += 4
                     effectInstanceId = skillValue
-                    skillCode = skillValue
+                    skillValue
                 }
                 0x01 -> {
                     offset += 1
@@ -866,15 +868,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         effectId
                     )
                     effectInstanceId = effectId
-                    skillCode = effectId
+                    effectId
                 }
                 else -> {
                     if (!hasRemaining(4)) return null
                     val skillValue = parseUInt32le(packet, offset)
                     offset += 4
                     effectInstanceId = skillValue
-                    skillCode = skillValue
+                    skillValue
                 }
+            }
+            skillCode = if (extendedSkill) 0 else parsedSkillCode
+            if (!extendedSkill && !isValidSkillId(skillCode)) {
+                offset = skillOffset
+                if (!hasRemaining(4)) return null
+                val skillValue = parseUInt32le(packet, offset)
+                offset += 4
+                effectInstanceId = skillValue
+                skillCode = if (isValidSkillId(skillValue)) skillValue else 0
             }
             var effectMarker: ByteArray? = null
             if (hasRemaining(2) && packet[offset] == 0x01.toByte() &&
@@ -906,9 +917,32 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
-            val unknownInfo = readVarIntAt() ?: return null
-            val damageInfo = readVarIntAt() ?: return null
-            val loopInfo = readVarIntAt() ?: return null
+            val unknownInfo: VarIntOutput
+            val damageInfo: VarIntOutput
+            val loopInfo: VarIntOutput
+            if (switchValue >= 6) {
+                val tailOffset = offset
+                val unknownCandidate = readVarIntAt() ?: return null
+                val damageCandidate = readVarIntAt() ?: return null
+                val loopCandidate = readVarIntAt() ?: return null
+                if (unknownCandidate.value <= 200 &&
+                    damageCandidate.value >= 1 &&
+                    loopCandidate.value in 1..32
+                ) {
+                    unknownInfo = unknownCandidate
+                    damageInfo = damageCandidate
+                    loopInfo = loopCandidate
+                } else {
+                    offset = tailOffset
+                    unknownInfo = VarIntOutput(0, 0)
+                    damageInfo = readVarIntAt() ?: return null
+                    loopInfo = if (hasRemaining()) readVarIntAt() ?: VarIntOutput(0, 0) else VarIntOutput(0, 0)
+                }
+            } else {
+                unknownInfo = readVarIntAt() ?: return null
+                damageInfo = readVarIntAt() ?: return null
+                loopInfo = readVarIntAt() ?: return null
+            }
 
             val pdp = ParsedDamagePacket()
             pdp.setTargetId(targetInfo)
@@ -943,6 +977,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         private fun hasRemaining(count: Int = 1): Boolean {
             return offset + count <= packet.size
+        }
+
+        private fun isValidSkillId(skillId: Int): Boolean {
+            return skillId in 1_000..300_000_000
         }
 
         private fun getSpecialBlockSize(switchValue: Int): Int {
