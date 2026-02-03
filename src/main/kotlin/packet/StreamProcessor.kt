@@ -273,23 +273,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var foundAny = false
         var idx = 0
         while (idx + 2 < packet.size) {
-            val patternCFound = parsePatternCName(packet, idx)
-            if (patternCFound != null) {
-                foundAny = true
-                idx = patternCFound
-                continue
-            }
             val marker = packet[idx].toInt() and 0xff
             val markerNext = packet[idx + 1].toInt() and 0xff
             val isMarker = marker == 0xF8 && markerNext == 0x03
             if (isMarker) {
-                val actorOffset = idx + 2
-                if (actorOffset >= packet.size || !canReadVarInt(packet, actorOffset)) {
+                val actorOffset = idx - 2
+                if (actorOffset < 0 || !canReadVarInt(packet, actorOffset)) {
                     idx++
                     continue
                 }
                 val actorInfo = readVarInt(packet, actorOffset)
-                if (actorInfo.length != 2 || actorInfo.value !in 100..99999) {
+                if (actorInfo.length != 2 || actorOffset + actorInfo.length != idx) {
+                    idx++
+                    continue
+                }
+                if (actorInfo.value !in 100..99999) {
                     idx++
                     continue
                 }
@@ -297,7 +295,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     idx++
                     continue
                 }
-                val lengthIdx = actorOffset + actorInfo.length
+                val lengthIdx = idx + 2
                 if (lengthIdx >= packet.size) {
                     idx++
                     continue
@@ -341,65 +339,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     dataStorage.appendNickname(actorInfo.value, sanitizedName)
                     foundAny = true
                 }
-                idx = nameEnd
+                idx = skipGuildName(packet, nameEnd)
                 continue
             }
             idx++
         }
         return foundAny
-    }
-
-    private fun parsePatternCName(packet: ByteArray, idx: Int): Int? {
-        val nameLength = packet[idx].toInt() and 0xff
-        if (nameLength !in 3..16) return null
-        val nameStart = idx + 1
-        val nameEnd = nameStart + nameLength
-        if (nameEnd > packet.size) return null
-        val u32Start = nameEnd
-        if (u32Start + 4 > packet.size) return null
-        if (packet[u32Start + 1] != 0x00.toByte() ||
-            packet[u32Start + 2] != 0x00.toByte() ||
-            packet[u32Start + 3] != 0x00.toByte()
-        ) {
-            return null
-        }
-        val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-        val possibleName = decodeUtf8Strict(nameBytes) ?: return null
-        val sanitizedName = sanitizeNickname(possibleName) ?: return null
-        val scanStart = maxOf(0, idx - 32)
-        var scanOffset = idx - 1
-        while (scanOffset >= scanStart) {
-            if (!canReadVarInt(packet, scanOffset)) {
-                scanOffset--
-                continue
-            }
-            val actorInfo = readVarInt(packet, scanOffset)
-            if (actorInfo.length == 2 &&
-                actorInfo.value in 100..99999 &&
-                actorInfo.value != 0 &&
-                actorAppearsInCombat(actorInfo.value)
-            ) {
-                if (dataStorage.getNickname()[actorInfo.value] == null) {
-                    logger.info(
-                        "Pattern C actor name found {} -> {} (hex={})",
-                        actorInfo.value,
-                        sanitizedName,
-                        toHex(nameBytes)
-                    )
-                    DebugLogWriter.info(
-                        logger,
-                        "Pattern C actor name found {} -> {} (hex={})",
-                        actorInfo.value,
-                        sanitizedName,
-                        toHex(nameBytes)
-                    )
-                    dataStorage.appendNickname(actorInfo.value, sanitizedName)
-                    return idx + 1 + nameLength + 4
-                }
-            }
-            scanOffset--
-        }
-        return null
     }
 
     private fun actorExists(actorId: Int): Boolean {
@@ -424,6 +369,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         } catch (ex: java.nio.charset.CharacterCodingException) {
             null
         }
+    }
+
+    private fun skipGuildName(packet: ByteArray, startIndex: Int): Int {
+        if (startIndex >= packet.size) return startIndex
+        val length = packet[startIndex].toInt() and 0xff
+        if (length !in 1..32) return startIndex
+        val nameStart = startIndex + 1
+        val nameEnd = nameStart + length
+        if (nameEnd > packet.size) return startIndex
+        val nameBytes = packet.copyOfRange(nameStart, nameEnd)
+        val possibleName = decodeUtf8Strict(nameBytes) ?: return startIndex
+        return nameEnd
     }
 
     private data class ActorAnchor(val actorId: Int, val startIndex: Int, val endIndex: Int)
