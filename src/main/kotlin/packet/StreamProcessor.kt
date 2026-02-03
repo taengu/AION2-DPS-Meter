@@ -272,8 +272,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size < 3) return
         var flag = parsingDamage(packet)
         if (flag) return
-        flag = parsingNickname(packet)
-        if (flag) return
         flag = parseEntityNameBindingRules(packet)
         if (flag) return
         flag = parseLootAttributionEntityName(packet)
@@ -329,51 +327,55 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseLootAttributionEntityName(packet: ByteArray): Boolean {
-        if (packet.any { it == 0x36.toByte() }) return false
-        var offset = 0
-        while (offset < packet.size) {
-            if (!canReadVarInt(packet, offset)) {
-                offset++
-                continue
+        var foundAny = false
+        var idx = 0
+        while (idx + 2 < packet.size) {
+            if (packet[idx] == 0xF8.toByte() && packet[idx + 1] == 0x03.toByte()) {
+                val actorOffset = idx - 2
+                if (actorOffset >= 0 && canReadVarInt(packet, actorOffset)) {
+                    val entityInfo = readVarInt(packet, actorOffset)
+                    if (entityInfo.length == 2 && entityInfo.value in 1000..99999) {
+                        val lengthIdx = idx + 2
+                        if (lengthIdx < packet.size) {
+                            val nameLength = packet[lengthIdx].toInt() and 0xff
+                            if (nameLength in 3..16) {
+                                val nameStart = lengthIdx + 1
+                                val nameEnd = nameStart + nameLength
+                                if (nameEnd <= packet.size) {
+                                    val nameBytes = packet.copyOfRange(nameStart, nameEnd)
+                                    val possibleName = String(nameBytes, Charsets.UTF_8)
+                                    val sanitizedName = sanitizeNickname(possibleName)
+                                    if (sanitizedName != null &&
+                                        entityExists(entityInfo.value) &&
+                                        dataStorage.getNickname()[entityInfo.value] == null
+                                    ) {
+                                        logger.info(
+                                            "Loot attribution entity name found {} -> {} (hex={})",
+                                            entityInfo.value,
+                                            sanitizedName,
+                                            toHex(nameBytes)
+                                        )
+                                        DebugLogWriter.info(
+                                            logger,
+                                            "Loot attribution entity name found {} -> {} (hex={})",
+                                            entityInfo.value,
+                                            sanitizedName,
+                                            toHex(nameBytes)
+                                        )
+                                        dataStorage.appendNickname(entityInfo.value, sanitizedName)
+                                        foundAny = true
+                                        idx += 3 + nameLength
+                                        continue
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            val entityInfo = readVarInt(packet, offset)
-            if (entityInfo.length <= 0 || entityInfo.value < 1000) {
-                offset++
-                continue
-            }
-            val opcodeIdx = offset + entityInfo.length
-            if (opcodeIdx + 2 >= packet.size) {
-                offset++
-                continue
-            }
-            if (packet[opcodeIdx] != 0xF8.toByte() || packet[opcodeIdx + 1] != 0x03.toByte()) {
-                offset++
-                continue
-            }
-            val lengthIdx = opcodeIdx + 2
-            val nameLength = packet[lengthIdx].toInt() and 0xff
-            if (nameLength !in 1..16) {
-                offset++
-                continue
-            }
-            val nameStart = lengthIdx + 1
-            val nameEnd = nameStart + nameLength
-            if (nameEnd > packet.size) {
-                offset++
-                continue
-            }
-            if (!entityExists(entityInfo.value) || dataStorage.getNickname()[entityInfo.value] != null) {
-                offset++
-                continue
-            }
-            val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-            if (!isPrintableAscii(nameBytes)) {
-                offset++
-                continue
-            }
-            return registerAsciiNickname(packet, entityInfo.value, nameStart, nameLength)
+            idx++
         }
-        return false
+        return foundAny
     }
 
     private fun entityExists(entityId: Int): Boolean {
@@ -633,43 +635,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return false
     }
 
-    private fun parsingNickname(packet: ByteArray): Boolean {
-        var offset = 0
-        val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return false
-        offset += packetLengthInfo.length
-//        if (packetLengthInfo.value < 32) return
-        //좀더 검증필요 대부분이 0x20,0x23 정도였음
-
-        if (packet[offset] != 0x04.toByte()) return false
-        if (packet[offset + 1] != 0x8d.toByte()) return false
-
-        val searchStart = packetLengthInfo.length + 2
-        val searchEnd = minOf(packet.size - 2, searchStart + 24)
-        for (candidateOffset in searchStart..searchEnd) {
-            val playerInfo = readVarInt(packet, candidateOffset)
-            if (playerInfo.length <= 0) continue
-            val nameLengthOffset = candidateOffset + playerInfo.length
-            if (nameLengthOffset >= packet.size) continue
-            val nicknameLength = packet[nameLengthOffset].toInt() and 0xff
-            if (nicknameLength == 0 || nicknameLength > 72) continue
-            val nameEnd = nameLengthOffset + 1 + nicknameLength
-            if (nameEnd > packet.size) continue
-
-            val np = packet.copyOfRange(nameLengthOffset + 1, nameEnd)
-            val possibleName = String(np, Charsets.UTF_8)
-            val sanitizedName = sanitizeNickname(possibleName) ?: continue
-            logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
-            DebugLogWriter.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
-            dataStorage.appendNickname(playerInfo.value, sanitizedName)
-            if (LocalPlayer.characterName != null && sanitizedName == LocalPlayer.characterName) {
-                LocalPlayer.playerId = playerInfo.value.toLong()
-            }
-            return true
-        }
-
-        return false
-    }
 
     private fun parsingDamage(packet: ByteArray): Boolean {
         if (packet[0] == 0x20.toByte()) return false
