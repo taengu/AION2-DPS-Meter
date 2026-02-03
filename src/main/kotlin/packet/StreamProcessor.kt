@@ -931,9 +931,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
-            val unknownInfo = readVarIntAt() ?: return null
-            val damageInfo = readVarIntAt() ?: return null
-            val loopInfo = readVarIntAt() ?: return null
+            val firstInfo = readVarIntAt() ?: return null
+            val offsetAfterFirst = offset
+            val secondInfo = readVarIntAt() ?: return null
+            val thirdInfo = readVarIntAt() ?: return null
+
+            val (unknownInfo, damageInfo, loopInfo) = if (isSaneLoopValue(thirdInfo.value)) {
+                Triple(firstInfo, secondInfo, thirdInfo)
+            } else {
+                offset = offsetAfterFirst
+                val damageFallback = readVarIntAt() ?: return null
+                val loopFallback = readVarIntAt() ?: return null
+                Triple(VarIntOutput(0, 0), damageFallback, loopFallback)
+            }
 
             val pdp = ParsedDamagePacket()
             pdp.setTargetId(targetInfo)
@@ -978,6 +988,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 7 -> 14
                 else -> 0
             }
+        }
+
+        private fun isSaneLoopValue(value: Int): Boolean {
+            return value in 0..32
         }
     }
 
