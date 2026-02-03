@@ -836,11 +836,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (!hasRemaining()) return null
             val skillEncoding = packet[offset].toInt() and 0xff
             offset += 1
-            val skillCode = when (skillEncoding) {
+            var effectInstanceId: Int? = null
+            var skillCode = when (skillEncoding) {
                 0x00 -> {
                     if (!hasRemaining(4)) return null
                     val skillValue = parseUInt32le(packet, offset)
                     offset += 4
+                    effectInstanceId = skillValue
                     skillValue
                 }
                 else -> {
@@ -865,8 +867,31 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         variantHeader.value,
                         effectId
                     )
+                    effectInstanceId = effectId
                     effectId
                 }
+            }
+            if (hasRemaining(2) && packet[offset] == 0x01.toByte() &&
+                (packet[offset + 1] == 0x03.toByte() || packet[offset + 1] == 0x10.toByte())
+            ) {
+                val marker = packet.copyOfRange(offset, offset + 2)
+                offset += 2
+                logger.info(
+                    "Effect damage detected target {} actor {} effectUid {} marker {}",
+                    targetInfo.value,
+                    actorInfo.value,
+                    effectInstanceId ?: 0,
+                    toHex(marker)
+                )
+                DebugLogWriter.info(
+                    logger,
+                    "Effect damage detected target {} actor {} effectUid {} marker {}",
+                    targetInfo.value,
+                    actorInfo.value,
+                    effectInstanceId ?: 0,
+                    toHex(marker)
+                )
+                skillCode = 0
             }
 
             val typeInfo = readVarIntAt() ?: return null
