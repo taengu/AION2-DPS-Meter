@@ -946,47 +946,31 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
-            val hitBlockEnd = run {
-                val markerIdx = findArrayIndex(packet.copyOfRange(offset, packet.size), 0x14, 0x00, 0x8d)
-                if (markerIdx >= 0) offset + markerIdx else packet.size
-            }
-            val firstInfo = readVarIntAtWithin(hitBlockEnd) ?: return null
+            val hitCountInfo = readVarIntAt() ?: return null
+            val unknownInfo = hitCountInfo
             var damageInfo: VarIntOutput? = null
             var loopInfo: VarIntOutput? = null
-            var unknownInfo = firstInfo
-            var hitCountInfo: VarIntOutput? = null
-            if (firstInfo.value == 13212 && offset < hitBlockEnd) {
-                val secondInfo = readVarIntAtWithin(hitBlockEnd) ?: return null
-                if (secondInfo.value in 1..32) {
-                    hitCountInfo = secondInfo
-                } else {
-                    damageInfo = secondInfo
-                    loopInfo = if (offset < hitBlockEnd) readVarIntAtWithin(hitBlockEnd) ?: VarIntOutput(0, 0)
-                    else VarIntOutput(0, 0)
-                    hitCountInfo = null
-                }
-            } else {
-                hitCountInfo = firstInfo
-            }
-            if (hitCountInfo != null && hitCountInfo.value in 1..32) {
+            if (hitCountInfo.value in 1..32) {
                 var totalDamage = 0
                 var hitsRead = 0
                 logger.debug("HitCount={} switch={}", hitCountInfo.value, switchValue)
-                while (hitsRead < hitCountInfo.value && offset < hitBlockEnd) {
-                    val hitDamageInfo = readVarIntAtWithin(hitBlockEnd) ?: return null
+                while (hitsRead < hitCountInfo.value && hasRemaining()) {
+                    val hitDamageInfo = readVarIntAt() ?: return null
                     totalDamage += hitDamageInfo.value
                     logger.debug("Hit {} damage {}", hitsRead + 1, hitDamageInfo.value)
-                    if (switchValue >= 6) {
-                        readVarIntAtWithin(hitBlockEnd) ?: return null
+                    if (switchValue >= 6 && hasRemaining()) {
+                        val peek = packet[offset].toInt() and 0xff
+                        if (peek < 0x20) {
+                            readVarIntAt() ?: return null
+                        }
                     }
                     hitsRead++
                 }
                 damageInfo = VarIntOutput(totalDamage, 0)
                 loopInfo = hitCountInfo
-            } else if (hitCountInfo != null) {
+            } else {
                 damageInfo = hitCountInfo
-                loopInfo = if (offset < hitBlockEnd) readVarIntAtWithin(hitBlockEnd) ?: VarIntOutput(0, 0)
-                else VarIntOutput(0, 0)
+                loopInfo = if (hasRemaining()) readVarIntAt() ?: VarIntOutput(0, 0) else VarIntOutput(0, 0)
             }
             val finalDamageInfo = damageInfo ?: return null
             val finalLoopInfo = loopInfo ?: return null
@@ -1018,14 +1002,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         private fun readVarIntAt(): VarIntOutput? {
             val info = readVarInt(packet, offset)
             if (info.length < 0) return null
-            offset += info.length
-            return info
-        }
-
-        private fun readVarIntAtWithin(endOffset: Int): VarIntOutput? {
-            val info = readVarInt(packet, offset)
-            if (info.length < 0) return null
-            if (offset + info.length > endOffset) return null
             offset += info.length
             return info
         }
