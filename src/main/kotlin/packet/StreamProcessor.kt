@@ -298,9 +298,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             }
                             val entityInfo = readVarInt(packet, scanOffset)
                             if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
-                                if (entityExists(entityInfo.value) &&
-                                    dataStorage.getNickname()[entityInfo.value] == null
-                                ) {
+                                if (dataStorage.getNickname()[entityInfo.value] == null) {
                                     logger.info(
                                         "Loot attribution entity name found {} -> {} (hex={})",
                                         entityInfo.value,
@@ -346,7 +344,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                     val possibleName = String(nameBytes, Charsets.UTF_8)
                                     val sanitizedName = sanitizeNickname(possibleName)
                                     if (sanitizedName != null &&
-                                        entityExists(entityInfo.value) &&
                                         dataStorage.getNickname()[entityInfo.value] == null
                                     ) {
                                         logger.info(
