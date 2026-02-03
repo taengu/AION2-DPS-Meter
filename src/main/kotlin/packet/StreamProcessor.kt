@@ -684,6 +684,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage(),
             pdp.getSpecials()
         )
+        if (parsed.effectMarker != null) {
+            logger.info(
+                "Effect damage detected target {} actor {} effectUid {} marker {} damage {} payload {}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                parsed.effectInstanceId ?: 0,
+                toHex(parsed.effectMarker),
+                pdp.getDamage(),
+                pdp.getHexPayload()
+            )
+            DebugLogWriter.info(
+                logger,
+                "Effect damage detected target {} actor {} effectUid {} marker {} damage {} payload {}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                parsed.effectInstanceId ?: 0,
+                toHex(parsed.effectMarker),
+                pdp.getDamage(),
+                pdp.getHexPayload()
+            )
+        }
 
         val isAccepted = pdp.getActorId() != pdp.getTargetId()
         if (isAccepted) {
@@ -812,7 +833,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val pdp: ParsedDamagePacket,
         val damageType: Byte,
         val flagsOffset: Int,
-        val flagsLength: Int
+        val flagsLength: Int,
+        val effectMarker: ByteArray?,
+        val effectInstanceId: Int?
     )
 
     private inner class DamagePacketReader(private val packet: ByteArray) {
@@ -897,21 +920,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (typeInfo == null) return null
 
             if (effectMarker != null) {
-                logger.info(
-                    "Effect damage detected target {} actor {} effectUid {} marker {}",
-                    targetInfo.value,
-                    actorInfo.value,
-                    effectInstanceId ?: 0,
-                    toHex(effectMarker)
-                )
-                DebugLogWriter.info(
-                    logger,
-                    "Effect damage detected target {} actor {} effectUid {} marker {}",
-                    targetInfo.value,
-                    actorInfo.value,
-                    effectInstanceId ?: 0,
-                    toHex(effectMarker)
-                )
                 skillCode = 0
             }
             if (!hasRemaining()) return null
@@ -938,7 +946,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.setUnknown(unknownInfo)
             pdp.setDamage(damageInfo)
             pdp.setLoop(loopInfo)
-            return DamagePacketParseResult(pdp, damageType, flagsOffset, flagsLength)
+            return DamagePacketParseResult(pdp, damageType, flagsOffset, flagsLength, effectMarker, effectInstanceId)
         }
 
         private fun readAndValidateHeader(): Boolean {
