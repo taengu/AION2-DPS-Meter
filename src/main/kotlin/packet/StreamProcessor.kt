@@ -329,7 +329,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val allowPrepopulate = candidates.size > 1
         var foundAny = false
         for (candidate in candidates) {
-            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId)) continue
+            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId)) {
+                dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
+                continue
+            }
             if (dataStorage.getNickname()[candidate.actorId] != null) continue
             logger.info(
                 "Loot attribution actor name found {} -> {} (hex={})",
