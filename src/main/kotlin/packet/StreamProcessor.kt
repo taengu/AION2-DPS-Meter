@@ -278,7 +278,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 idx = patternCFound
                 continue
             }
-            if (packet[idx] == 0xF8.toByte() && packet[idx + 1] == 0x03.toByte()) {
+            val marker = packet[idx].toInt() and 0xff
+            val markerNext = packet[idx + 1].toInt() and 0xff
+            val isMarker = markerNext == 0x03 && (marker == 0xF8 || marker == 0xF5)
+            if (isMarker) {
                 val nameBeforeStart = idx - 1
                 if (nameBeforeStart >= 0) {
                     val nameBeforeEnd = idx
