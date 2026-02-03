@@ -70,8 +70,8 @@ class DataStorage {
 
     fun cachePendingNickname(uid: Int, nickname: String) {
         if (nicknameStorage[uid] != null) return
-        logger.info("Pending nickname stored {} -> {}", uid, nickname)
-        DebugLogWriter.info(logger, "Pending nickname stored {} -> {}", uid, nickname)
+        logger.debug("Pending nickname stored {} -> {}", uid, nickname)
+        DebugLogWriter.debug(logger, "Pending nickname stored {} -> {}", uid, nickname)
         pendingNicknameStorage[uid] = nickname
     }
 

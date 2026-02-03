@@ -17,7 +17,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     fun onPacketReceived(packet: ByteArray) {
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) {
-            logger.warn("Broken packet: failed to read varint length {}", toHex(packet))
+            logger.warn("Broken packet: failed to read varint length {}", toHexLimited(packet))
             return
         }
         val packetSize = computePacketSize(packetLengthInfo)
@@ -49,7 +49,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size <= 3) return
         // 매직패킷 단일로 올때 무시
         if (packetSize > packet.size) {
-            logger.warn("Broken packet: current byte length is shorter than expected: {}", toHex(packet))
+            logger.warn("Broken packet: current byte length is shorter than expected: {}", toHexLimited(packet))
             val resyncIdx = findArrayIndex(packet, packetStartMarker)
             if (resyncIdx > 0) {
                 onPacketReceived(packet.copyOfRange(resyncIdx, packet.size))
@@ -102,7 +102,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
-        logger.warn("Broken packet buffer detected: {}", toHex(packet))
+        logger.warn("Broken packet buffer detected: {}", toHexLimited(packet))
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
             val target = dataStorage.getCurrentTarget()
@@ -334,13 +334,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 continue
             }
             if (dataStorage.getNickname()[candidate.actorId] != null) continue
-            logger.info(
+            logger.debug(
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
                 candidate.name,
                 toHex(candidate.nameBytes)
             )
-            DebugLogWriter.info(
+            DebugLogWriter.debug(
                 logger,
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
@@ -427,13 +427,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val existingNickname = dataStorage.getNickname()[actorId]
         if (existingNickname != sanitizedName) {
-            logger.info(
+            logger.debug(
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
                 sanitizedName,
                 toHex(possibleNameBytes)
             )
-            DebugLogWriter.info(
+            DebugLogWriter.debug(
                 logger,
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
@@ -700,6 +700,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return bytes.joinToString(" ") { "%02X".format(it) }
     }
 
+    private fun toHexLimited(bytes: ByteArray, limit: Int = 20): String {
+        if (limit <= 0) return ""
+        if (bytes.size <= limit) {
+            return toHex(bytes)
+        }
+        val prefix = bytes.copyOfRange(0, limit)
+        return "${toHex(prefix)} …(+${bytes.size - limit} bytes)"
+    }
+
     private fun computePacketSize(info: VarIntOutput): Int {
         return info.value + info.length - 4
     }
@@ -824,11 +833,79 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val actorInfo = readVarIntAt() ?: return null
             if (actorInfo.value <= 0) return null
 
-            if (!hasRemaining(5)) return null
-            val skillCode = parseUInt32le(packet, offset)
-            offset += 5
+            if (!hasRemaining()) return null
+            val skillEncoding = packet[offset].toInt() and 0xff
+            offset += 1
+            var effectInstanceId: Int? = null
+            var skillCode = when (skillEncoding) {
+                0x00 -> {
+                    if (!hasRemaining(4)) return null
+                    val skillValue = parseUInt32le(packet, offset)
+                    offset += 4
+                    effectInstanceId = skillValue
+                    skillValue
+                }
+                else -> {
+                    val variantHeader = readVarIntAt() ?: return null
+                    if (!hasRemaining(4)) return null
+                    val effectId = parseUInt32le(packet, offset)
+                    offset += 4
+                    logger.info(
+                        "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
+                        targetInfo.value,
+                        actorInfo.value,
+                        skillEncoding,
+                        variantHeader.value,
+                        effectId
+                    )
+                    DebugLogWriter.info(
+                        logger,
+                        "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
+                        targetInfo.value,
+                        actorInfo.value,
+                        skillEncoding,
+                        variantHeader.value,
+                        effectId
+                    )
+                    effectInstanceId = effectId
+                    effectId
+                }
+            }
+            val markerOffset = offset
+            var effectMarker: ByteArray? = null
+            if (hasRemaining(2) && packet[offset] == 0x01.toByte() &&
+                (packet[offset + 1] == 0x03.toByte() || packet[offset + 1] == 0x10.toByte())
+            ) {
+                effectMarker = packet.copyOfRange(offset, offset + 2)
+                offset += 2
+            }
 
-            val typeInfo = readVarIntAt() ?: return null
+            var typeInfo = readVarIntAt()
+            if (typeInfo == null && effectMarker != null) {
+                offset = markerOffset
+                effectMarker = null
+                typeInfo = readVarIntAt()
+            }
+            if (typeInfo == null) return null
+
+            if (effectMarker != null) {
+                logger.info(
+                    "Effect damage detected target {} actor {} effectUid {} marker {}",
+                    targetInfo.value,
+                    actorInfo.value,
+                    effectInstanceId ?: 0,
+                    toHex(effectMarker)
+                )
+                DebugLogWriter.info(
+                    logger,
+                    "Effect damage detected target {} actor {} effectUid {} marker {}",
+                    targetInfo.value,
+                    actorInfo.value,
+                    effectInstanceId ?: 0,
+                    toHex(effectMarker)
+                )
+                skillCode = 0
+            }
             if (!hasRemaining()) return null
             val damageType = packet[offset]
 
