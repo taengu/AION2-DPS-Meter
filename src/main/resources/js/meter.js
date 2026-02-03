@@ -154,7 +154,7 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
 
       const rowId = row.id ?? row.name ?? "";
       view.nameEl.textContent = row.isIdentifying
-        ? window.i18n?.t?.("meter.identifyingPlayer", { id: rowId }, `Player #${rowId}`) ??
+        ? window.i18n?.format?.("meter.identifyingPlayer", { id: rowId }, `Player #${rowId}`) ??
           `Player #${rowId}`
         : row.name ?? "";
       if (row.job && !!row.job) {
