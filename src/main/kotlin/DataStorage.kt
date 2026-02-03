@@ -11,6 +11,7 @@ class DataStorage {
     private val byTargetStorage = ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>>()
     private val byActorStorage = ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>>()
     private val nicknameStorage = ConcurrentHashMap<Int, String>()
+    private val pendingNicknameStorage = ConcurrentHashMap<Int, String>()
     private val summonStorage = HashMap<Int, Int>()
     private val skillCodeData = HashMap<Int, String>()
     private val mobCodeData = HashMap<Int, String>()
@@ -23,6 +24,7 @@ class DataStorage {
             .add(pdp)
         byTargetStorage.getOrPut(pdp.getTargetId()) { ConcurrentSkipListSet(compareBy<ParsedDamagePacket> { it.getTimeStamp() }.thenBy { it.getUuid() }) }
             .add(pdp)
+        applyPendingNickname(pdp.getActorId())
     }
 
     fun setCurrentTarget(targetId:Int){
@@ -64,6 +66,19 @@ class DataStorage {
         logger.debug("Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         DebugLogWriter.debug(logger, "Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         nicknameStorage[uid] = nickname
+    }
+
+    fun cachePendingNickname(uid: Int, nickname: String) {
+        if (nicknameStorage[uid] != null) return
+        logger.info("Pending nickname stored {} -> {}", uid, nickname)
+        DebugLogWriter.info(logger, "Pending nickname stored {} -> {}", uid, nickname)
+        pendingNicknameStorage[uid] = nickname
+    }
+
+    private fun applyPendingNickname(uid: Int) {
+        if (nicknameStorage[uid] != null) return
+        val pending = pendingNicknameStorage.remove(uid) ?: return
+        appendNickname(uid, pending)
     }
 
     @Synchronized
