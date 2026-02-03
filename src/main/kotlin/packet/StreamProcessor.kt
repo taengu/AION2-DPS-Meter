@@ -271,33 +271,50 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseRule36Nickname(packet: ByteArray, innerOffset: Int, entityId: Int): Boolean {
         val rule36Offset = innerOffset + 1
         if (rule36Offset + 3 >= packet.size) return false
-        if (packet[rule36Offset] != 0x01.toByte() || packet[rule36Offset + 1] != 0x20.toByte()) {
-            return false
+        if (packet[rule36Offset] == 0x01.toByte() && packet[rule36Offset + 1] == 0x20.toByte()) {
+            if (!canReadVarInt(packet, rule36Offset + 2)) return false
+            val typeInfo = readVarInt(packet, rule36Offset + 2)
+            if (typeInfo.length <= 0) return false
+            val opcodeOffset = rule36Offset + 2 + typeInfo.length
+            val lengthOffset = opcodeOffset + 1
+            if (lengthOffset >= packet.size || packet[opcodeOffset] != 0x07.toByte()) return false
+            return registerNicknameFromOffsets(packet, entityId, lengthOffset + 1, "Rule 36")
         }
-        if (!canReadVarInt(packet, rule36Offset + 2)) return false
-        val typeInfo = readVarInt(packet, rule36Offset + 2)
-        if (typeInfo.length <= 0) return false
-        val opcodeOffset = rule36Offset + 2 + typeInfo.length
-        val lengthOffset = opcodeOffset + 1
-        if (lengthOffset >= packet.size || packet[opcodeOffset] != 0x07.toByte()) return false
-        val possibleNameLength = packet[lengthOffset].toInt() and 0xff
-        val nameStart = lengthOffset + 1
+        if (packet[rule36Offset] == 0x01.toByte() && packet[rule36Offset + 1] == 0x07.toByte()) {
+            val lengthOffset = rule36Offset + 2
+            if (lengthOffset >= packet.size) return false
+            return registerNicknameFromOffsets(packet, entityId, lengthOffset + 1, "Rule 36 simple")
+        }
+        return false
+    }
+
+    private fun registerNicknameFromOffsets(
+        packet: ByteArray,
+        entityId: Int,
+        nameStart: Int,
+        tag: String
+    ): Boolean {
+        if (nameStart >= packet.size) return false
+        val possibleNameLength = packet[nameStart - 1].toInt() and 0xff
+        if (possibleNameLength <= 0) return false
         val nameEnd = nameStart + possibleNameLength
-        if (possibleNameLength <= 0 || nameEnd > packet.size) return false
+        if (nameEnd > packet.size) return false
         val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
         val possibleName = String(possibleNameBytes, Charsets.UTF_8)
         val sanitizedName = sanitizeNickname(possibleName) ?: return false
         val existingNickname = dataStorage.getNickname()[entityId]
         if (existingNickname != sanitizedName) {
             logger.info(
-                "Rule 36 nickname found {} -> {} (hex={})",
+                "{} nickname found {} -> {} (hex={})",
+                tag,
                 entityId,
                 sanitizedName,
                 toHex(possibleNameBytes)
             )
             DebugLogWriter.info(
                 logger,
-                "Rule 36 nickname found {} -> {} (hex={})",
+                "{} nickname found {} -> {} (hex={})",
+                tag,
                 entityId,
                 sanitizedName,
                 toHex(possibleNameBytes)
