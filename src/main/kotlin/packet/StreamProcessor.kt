@@ -17,7 +17,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     fun onPacketReceived(packet: ByteArray) {
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) {
-            logger.warn("Broken packet: failed to read varint length {}", toHex(packet))
+            logger.warn("Broken packet: failed to read varint length {}", toHexLimited(packet))
             return
         }
         val packetSize = computePacketSize(packetLengthInfo)
@@ -49,7 +49,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size <= 3) return
         // 매직패킷 단일로 올때 무시
         if (packetSize > packet.size) {
-            logger.warn("Broken packet: current byte length is shorter than expected: {}", toHex(packet))
+            logger.warn("Broken packet: current byte length is shorter than expected: {}", toHexLimited(packet))
             val resyncIdx = findArrayIndex(packet, packetStartMarker)
             if (resyncIdx > 0) {
                 onPacketReceived(packet.copyOfRange(resyncIdx, packet.size))
@@ -102,7 +102,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
-        logger.warn("Broken packet buffer detected: {}", toHex(packet))
+        logger.warn("Broken packet buffer detected: {}", toHexLimited(packet))
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
             val target = dataStorage.getCurrentTarget()
@@ -698,6 +698,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun toHex(bytes: ByteArray): String {
         //출력테스트용
         return bytes.joinToString(" ") { "%02X".format(it) }
+    }
+
+    private fun toHexLimited(bytes: ByteArray, limit: Int = 20): String {
+        if (limit <= 0) return ""
+        if (bytes.size <= limit) {
+            return toHex(bytes)
+        }
+        val prefix = bytes.copyOfRange(0, limit)
+        return "${toHex(prefix)} …(+${bytes.size - limit} bytes)"
     }
 
     private fun computePacketSize(info: VarIntOutput): Int {

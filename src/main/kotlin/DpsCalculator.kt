@@ -941,7 +941,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     pdp.getTargetId(),
                     pdp.getActorId(),
                     pdp.getDamage(),
-                    pdp.getHexPayload(20)
+                    pdp.getHexPayload()
                 ) ?: pdp.getSkillCode1()
             )
             dpsData.map[uid]!!.processPdp(pdp)
@@ -951,7 +951,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     pdp.getTargetId(),
                     pdp.getActorId(),
                     pdp.getDamage(),
-                    pdp.getHexPayload(20)
+                    pdp.getHexPayload()
                 ) ?: -1
                 val job = JobClass.convertFromSkill(origSkillCode)
                 if (job != null) {
