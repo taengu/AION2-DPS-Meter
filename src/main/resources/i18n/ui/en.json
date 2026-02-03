@@ -61,7 +61,7 @@
     }
   },
   "battleTime": {
-    "analysing": "Ready -monitoring combat...",
+    "analysing": "Ready - monitoring combat...",
     "idle": "Idle"
   },
   "meter": {

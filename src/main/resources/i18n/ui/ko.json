@@ -61,7 +61,7 @@
     }
   },
   "battleTime": {
-    "analysing": "준비됨 -전투 모니터링 중...",
+    "analysing": "준비됨 - 전투 모니터링 중...",
     "idle": "대기 중"
   },
   "meter": {

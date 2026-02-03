@@ -120,8 +120,8 @@ class DpsApp {
       if (this.battleTime?.getState?.() === "state-idle") {
         return this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
       }
-      return this.i18n?.t("battleTime.analysing", "Ready -monitoring combat...") ??
-        "Ready -monitoring combat...";
+      return this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
+        "Ready - monitoring combat...";
     };
 
     this.battleTime = createBattleTimeUI({

@@ -61,7 +61,7 @@
     }
   },
   "battleTime": {
-    "analysing": "準備就緒 -監控戰鬥中...",
+    "analysing": "準備就緒 - 監控戰鬥中...",
     "idle": "閒置"
   },
   "meter": {
