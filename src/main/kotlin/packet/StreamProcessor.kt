@@ -845,6 +845,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         private val skillMax = 99_999_999
         private val skillMin = 10_000
         private val skillVarintMax = 20_000_000
+        private val validSkillPrefixes = setOf(1, 14, 16, 17)
 
         fun parse(): DamagePacketParseResult? {
             if (!readAndValidateHeader()) return null
@@ -863,28 +864,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             if (!hasRemaining()) return null
             var effectInstanceId: Int? = null
-            var skillCode: Int? = null
-            val initialOffset = offset
-            val primarySkillInfo = readVarInt(packet, offset)
-            if (primarySkillInfo.length > 0) {
-                val primarySkill = primarySkillInfo.value
-                if (primarySkill in skillMin..skillVarintMax) {
-                    skillCode = primarySkill
-                    offset += primarySkillInfo.length
-                } else {
-                    val shiftedSkillInfo = readVarInt(packet, offset + 1)
-                    if (shiftedSkillInfo.length > 0 &&
-                        shiftedSkillInfo.value in skillMin..skillVarintMax
-                    ) {
-                        skillCode = shiftedSkillInfo.value
-                        offset += 1 + shiftedSkillInfo.length
-                    }
-                }
-            }
-            if (skillCode == null) {
-                offset = initialOffset
-                return null
-            }
+            val skillParse = parseSkillId(actorInfo.value, offset) ?: return null
+            var skillCode = skillParse.skillId
+            offset = skillParse.nextOffset
             if (!hasRemaining(4)) return null
             val attackUid = parseUInt32le(packet, offset)
             offset += 4
@@ -923,35 +905,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
+            val tailValues = collectTailValues(offset)
+            val selectedDamage = selectFinalDamage(tailValues, specialFlags)
             val hitCountInfo = readVarIntAt() ?: return null
             var damageInfo: VarIntOutput
             var loopInfo: VarIntOutput
             val unknownInfo = hitCountInfo
 
             if (hitCountInfo.value in 1..32) {
-                val damageCandidates = mutableListOf<Int>()
                 var hitsRead = 0
                 while (hitsRead < hitCountInfo.value && hasRemaining()) {
                     val hitDamageInfo = readVarIntAt() ?: return null
-                    damageCandidates.add(hitDamageInfo.value)
                     if (switchValue >= 6 && hasRemaining() && (packet[offset].toInt() and 0xff) < 0x20) {
                         readVarIntAt()
                     }
                     hitsRead++
                 }
-                val filteredCandidates = damageCandidates.filterNot {
-                    it < 100 && specialFlags.any { flag ->
-                        flag == SpecialDamage.PERFECT ||
-                            flag == SpecialDamage.BACK ||
-                            flag == SpecialDamage.DOUBLE ||
-                            flag == SpecialDamage.POWER_SHARD
-                    }
-                }
-                val selectedDamage = (filteredCandidates.ifEmpty { damageCandidates }).maxOrNull() ?: 0
                 damageInfo = VarIntOutput(selectedDamage, 0)
                 loopInfo = hitCountInfo
             } else {
-                damageInfo = hitCountInfo
+                damageInfo = VarIntOutput(selectedDamage, 0)
                 loopInfo = if (hasRemaining()) readVarIntAt() ?: VarIntOutput(0, 0) else VarIntOutput(0, 0)
             }
 
@@ -968,6 +941,81 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.setDamage(damageInfo)
             pdp.setLoop(loopInfo)
             return DamagePacketParseResult(pdp, damageType, flagsOffset, flagsLength, effectMarker, effectInstanceId)
+        }
+
+        private data class ParsedSkill(
+            val skillId: Int,
+            val nextOffset: Int
+        )
+
+        private fun parseSkillId(actorId: Int, startOffset: Int): ParsedSkill? {
+            val candidates = listOf(0, 1, -1)
+            for (shift in candidates) {
+                val candidateOffset = startOffset + shift
+                if (candidateOffset < 0 || candidateOffset >= packet.size) continue
+                val info = readVarInt(packet, candidateOffset)
+                if (info.length !in 2..4) continue
+                val skillId = info.value
+                if (!isValidSkillId(skillId, actorId)) continue
+                return ParsedSkill(skillId, candidateOffset + info.length)
+            }
+            return null
+        }
+
+        private fun isValidSkillId(skillId: Int, actorId: Int): Boolean {
+            if (skillId > skillVarintMax) return false
+            if (skillId < skillMin && !isSummonActor(actorId)) return false
+            if (skillId >= 1_000_000) {
+                val prefix = skillId / 1_000_000
+                if (prefix !in validSkillPrefixes) return false
+            }
+            return true
+        }
+
+        private fun isSummonActor(actorId: Int): Boolean {
+            return dataStorage.getSummonData().containsKey(actorId)
+        }
+
+        private fun collectTailValues(startOffset: Int): List<Int> {
+            val values = mutableListOf<Int>()
+            var idx = startOffset
+            while (canReadVarInt(packet, idx)) {
+                val info = readVarInt(packet, idx)
+                if (info.length < 0) break
+                values.add(info.value)
+                idx += info.length
+                if (idx >= packet.size) break
+            }
+            return values
+        }
+
+        private fun selectFinalDamage(values: List<Int>, flags: List<SpecialDamage>): Int {
+            if (values.isEmpty()) return 0
+            val counts = values.groupingBy { it }.eachCount()
+            val smallHits = values.filter { it <= 200 }
+            val largeCandidates = values.filter { it >= 300 }
+            val uniqueLarge = largeCandidates.filter { counts[it] == 1 }
+            val smallSum = smallHits.sum()
+            val perfectFlags = flags.any { flag ->
+                flag == SpecialDamage.PERFECT ||
+                    flag == SpecialDamage.BACK ||
+                    flag == SpecialDamage.DOUBLE ||
+                    flag == SpecialDamage.POWER_SHARD
+            }
+
+            val sumMatch = uniqueLarge.minByOrNull { kotlin.math.abs(it - smallSum) }
+                ?.takeIf { kotlin.math.abs(it - smallSum) <= 50 }
+
+            val fallbackLarge = (uniqueLarge.ifEmpty { largeCandidates }).maxOrNull()
+            var selected = sumMatch ?: fallbackLarge ?: values.maxOrNull() ?: 0
+
+            if (perfectFlags && selected < 200) {
+                selected = fallbackLarge ?: selected
+            }
+            if (selected < 200 && values.any { it >= 200 }) {
+                selected = values.filter { it >= 200 }.maxOrNull() ?: selected
+            }
+            return selected
         }
 
         private fun readAndValidateHeader(): Boolean {

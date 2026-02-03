@@ -4,6 +4,7 @@ import com.tbread.entity.DpsData
 import com.tbread.entity.JobClass
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
+import com.tbread.entity.SpecialDamage
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.LocalPlayer
@@ -494,6 +495,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val attackUid: Int
     )
 
+    private data class AttackDamageKey(
+        val actorId: Int,
+        val targetId: Int,
+        val skillId: Int
+    )
+
     private var mode: Mode = Mode.BOSS_ONLY
     private var currentTarget: Int = 0
     @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.MOST_DAMAGE
@@ -549,8 +556,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             TargetSelectionMode.ALL_TARGETS -> collectAllPdp(pdpMap, targetDecision.targetIds)
             else -> pdpMap[currentTarget]?.toList() ?: return dpsData
         }
+        val recentDamage = mutableMapOf<AttackDamageKey, Pair<Long, Int>>()
         pdps.forEach { pdp ->
-            totalDamage += pdp.getDamage()
             val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
             val nickname:String = nicknameData[uid]
                 ?: nicknameData[dataStorage.getSummonData()[uid]?:uid]
@@ -559,6 +566,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 dpsData.map[uid] = PersonalData(nickname = nickname)
             }
             val resolvedSkillCode = resolveSkillCode(pdp)
+            if (shouldSkipDamage(pdp, resolvedSkillCode, recentDamage)) {
+                return@forEach
+            }
+            totalDamage += pdp.getDamage()
             pdp.setSkillCode(resolvedSkillCode)
             dpsData.map[uid]!!.processPdp(pdp)
             if (dpsData.map[uid]!!.job == "") {
@@ -813,6 +824,42 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun isUidLooking(skillCode: Int): Boolean {
         return skillCode in 2_500_000..4_000_000
+    }
+
+    private fun shouldSkipDamage(
+        pdp: ParsedDamagePacket,
+        skillCode: Int,
+        recentDamage: MutableMap<AttackDamageKey, Pair<Long, Int>>
+    ): Boolean {
+        if (skillCode == 0) return true
+        val key = AttackDamageKey(pdp.getActorId(), pdp.getTargetId(), skillCode)
+        val timestamp = pdp.getTimeStamp()
+        val damage = pdp.getDamage()
+        val flags = pdp.getSpecials()
+        val hasFinalFlags = flags.any {
+            it == SpecialDamage.PERFECT ||
+                it == SpecialDamage.BACK ||
+                it == SpecialDamage.DOUBLE ||
+                it == SpecialDamage.POWER_SHARD
+        }
+
+        val existing = recentDamage[key]
+        if (existing != null) {
+            val (lastTime, lastDamage) = existing
+            if (timestamp - lastTime <= 50 && damage < lastDamage) {
+                return true
+            }
+            if (timestamp - lastTime <= 50 && damage < 200) {
+                return true
+            }
+        }
+
+        if (hasFinalFlags && damage in 1 until 200) {
+            return true
+        }
+
+        recentDamage[key] = timestamp to damage
+        return false
     }
 
     fun resetDataStorage() {
