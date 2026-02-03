@@ -842,6 +842,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         private var offset = 0
         private val attackUidMin = 2_500_000
         private val attackUidMax = 4_000_000
+        private val skillMax = 99_999_999
 
         fun parse(): DamagePacketParseResult? {
             if (!readAndValidateHeader()) return null
@@ -939,6 +940,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (typeInfo == null) return null
 
             if (effectMarker != null) {
+                skillCode = 0
+            }
+            if (skillCode != null &&
+                (skillCode in attackUidMin..attackUidMax || skillCode > skillMax)
+            ) {
                 skillCode = 0
             }
             if (!hasRemaining()) return null

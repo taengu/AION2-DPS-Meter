@@ -790,6 +790,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return cachedSkill
         }
 
+        if (rawSkillCode == 0 || isUidLooking(rawSkillCode)) {
+            return 0
+        }
+
         val inferred = inferOriginalSkillCode(
             rawSkillCode,
             pdp.getTargetId(),
@@ -804,7 +808,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     private fun isPlausibleSkillId(skillCode: Int): Boolean {
-        return skillCode >= 1_000_000 || SMALL_SKILL_CODES.contains(skillCode)
+        return (skillCode in 1_000_000..99_999_999) || SMALL_SKILL_CODES.contains(skillCode)
+    }
+
+    private fun isUidLooking(skillCode: Int): Boolean {
+        return skillCode in 2_500_000..4_000_000
     }
 
     fun resetDataStorage() {
