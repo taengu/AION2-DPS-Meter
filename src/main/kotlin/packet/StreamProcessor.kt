@@ -930,12 +930,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
-            val firstInfo = readVarIntAt() ?: return null
-            val secondInfo = if (hasRemaining()) readVarIntAt() ?: return null else null
+            val unknownInfo = readVarIntAt() ?: return null
+            val damageCandidate = readVarIntAt() ?: return null
+            val hitCountInfo = if (hasRemaining()) readVarIntAt() else null
             var damageInfo: VarIntOutput
             var loopInfo: VarIntOutput
-            val unknownInfo = firstInfo
-            val hitCount = secondInfo?.value ?: 0
+            val hitCount = hitCountInfo?.value ?: 0
             val canParseHitLoop = if (hitCount in 1..32) {
                 var probeOffset = offset
                 var hitsChecked = 0
@@ -982,10 +982,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     hitsRead++
                 }
                 damageInfo = VarIntOutput(totalDamage, 0)
-                loopInfo = secondInfo ?: VarIntOutput(0, 0)
+                loopInfo = hitCountInfo ?: VarIntOutput(0, 0)
             } else {
-                damageInfo = firstInfo
-                loopInfo = secondInfo ?: VarIntOutput(0, 0)
+                damageInfo = damageCandidate
+                loopInfo = hitCountInfo ?: VarIntOutput(0, 0)
             }
 
             val pdp = ParsedDamagePacket()
