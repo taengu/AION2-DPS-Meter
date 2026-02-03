@@ -314,7 +314,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     continue
                 }
                 val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-                val possibleName = decodeUtf8Strict(nameBytes) ?: run {
+                val possibleName = decodeUtf8Strict(nameBytes)
+                if (possibleName == null) {
                     idx = nameEnd
                     continue
                 }
