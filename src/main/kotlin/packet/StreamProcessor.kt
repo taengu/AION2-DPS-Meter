@@ -309,14 +309,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
                                 if (dataStorage.getNickname()[entityInfo.value] == null) {
                                     logger.info(
-                                        "Loot attribution entity name found {} -> {} (hex={})",
+                                        "Loot attribution actor name found {} -> {} (hex={})",
                                         entityInfo.value,
                                         sanitizedName,
                                         toHex(nameBytes)
                                     )
                                     DebugLogWriter.info(
                                         logger,
-                                        "Loot attribution entity name found {} -> {} (hex={})",
+                                        "Loot attribution actor name found {} -> {} (hex={})",
                                         entityInfo.value,
                                         sanitizedName,
                                         toHex(nameBytes)
@@ -356,14 +356,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                         dataStorage.getNickname()[entityInfo.value] == null
                                     ) {
                                         logger.info(
-                                            "Loot attribution entity name found {} -> {} (hex={})",
+                                            "Loot attribution actor name found {} -> {} (hex={})",
                                             entityInfo.value,
                                             sanitizedName,
                                             toHex(nameBytes)
                                         )
                                         DebugLogWriter.info(
                                             logger,
-                                            "Loot attribution entity name found {} -> {} (hex={})",
+                                            "Loot attribution actor name found {} -> {} (hex={})",
                                             entityInfo.value,
                                             sanitizedName,
                                             toHex(nameBytes)
@@ -412,14 +412,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
                 if (dataStorage.getNickname()[entityInfo.value] == null) {
                     logger.info(
-                        "Pattern C entity name found {} -> {} (hex={})",
+                        "Pattern C actor name found {} -> {} (hex={})",
                         entityInfo.value,
                         sanitizedName,
                         toHex(nameBytes)
                     )
                     DebugLogWriter.info(
                         logger,
-                        "Pattern C entity name found {} -> {} (hex={})",
+                        "Pattern C actor name found {} -> {} (hex={})",
                         entityInfo.value,
                         sanitizedName,
                         toHex(nameBytes)
