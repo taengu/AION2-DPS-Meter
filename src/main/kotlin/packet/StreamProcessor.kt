@@ -273,10 +273,68 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var idx = 0
         while (idx + 2 < packet.size) {
             if (packet[idx] == 0xF8.toByte() && packet[idx + 1] == 0x03.toByte()) {
+                val nameBeforeStart = idx - 1
+                if (nameBeforeStart >= 0) {
+                    val nameBeforeEnd = idx
+                    var matchedBefore = false
+                    for (nameLength in 3..16) {
+                        val nameLenIndex = nameBeforeEnd - nameLength - 1
+                        if (nameLenIndex < 0) break
+                        val possibleLength = packet[nameLenIndex].toInt() and 0xff
+                        if (possibleLength != nameLength) continue
+                        val nameStart = nameLenIndex + 1
+                        val nameEnd = nameStart + nameLength
+                        if (nameEnd != nameBeforeEnd) continue
+                        val nameBytes = packet.copyOfRange(nameStart, nameEnd)
+                        val possibleName = String(nameBytes, Charsets.UTF_8)
+                        val sanitizedName = sanitizeNickname(possibleName)
+                        if (sanitizedName == null) continue
+                        val scanStart = maxOf(0, nameLenIndex - 32)
+                        var scanOffset = nameLenIndex - 1
+                        while (scanOffset >= scanStart) {
+                            if (!canReadVarInt(packet, scanOffset)) {
+                                scanOffset--
+                                continue
+                            }
+                            val entityInfo = readVarInt(packet, scanOffset)
+                            if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
+                                if (entityExists(entityInfo.value) &&
+                                    dataStorage.getNickname()[entityInfo.value] == null
+                                ) {
+                                    logger.info(
+                                        "Loot attribution entity name found {} -> {} (hex={})",
+                                        entityInfo.value,
+                                        sanitizedName,
+                                        toHex(nameBytes)
+                                    )
+                                    DebugLogWriter.info(
+                                        logger,
+                                        "Loot attribution entity name found {} -> {} (hex={})",
+                                        entityInfo.value,
+                                        sanitizedName,
+                                        toHex(nameBytes)
+                                    )
+                                    dataStorage.appendNickname(entityInfo.value, sanitizedName)
+                                    foundAny = true
+                                    matchedBefore = true
+                                    idx += 3 + nameLength
+                                    break
+                                }
+                            }
+                            scanOffset--
+                        }
+                        if (matchedBefore) {
+                            break
+                        }
+                    }
+                    if (matchedBefore) {
+                        continue
+                    }
+                }
                 val actorOffset = idx - 2
                 if (actorOffset >= 0 && canReadVarInt(packet, actorOffset)) {
                     val entityInfo = readVarInt(packet, actorOffset)
-                    if (entityInfo.length == 2 && entityInfo.value in 1000..99999) {
+                    if (entityInfo.length == 2 && entityInfo.value in 100..99999) {
                         val lengthIdx = idx + 2
                         if (lengthIdx < packet.size) {
                             val nameLength = packet[lengthIdx].toInt() and 0xff
