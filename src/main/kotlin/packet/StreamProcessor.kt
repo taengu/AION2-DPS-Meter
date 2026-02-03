@@ -946,62 +946,28 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val specialFlags = parseSpecialDamageFlags(packet, flagsOffset, flagsLength)
             offset += flagsLength
 
-            val unknownInfo = readVarIntAt() ?: return null
-            val damageCandidate = readVarIntAt() ?: return null
-            val loopOrTailInfo = if (hasRemaining()) readVarIntAt() else null
+            val hitCountInfo = readVarIntAt() ?: return null
             var damageInfo: VarIntOutput
             var loopInfo: VarIntOutput
-            val hitCount = loopOrTailInfo?.value ?: 0
-            val canParseHitLoop = if (hitCount in 1..32) {
-                var probeOffset = offset
-                var hitsChecked = 0
-                var ok = true
-                while (hitsChecked < hitCount && ok) {
-                    val dmgProbe = readVarInt(packet, probeOffset)
-                    if (dmgProbe.length < 0) {
-                        ok = false
-                    } else {
-                        probeOffset += dmgProbe.length
-                        if (switchValue >= 6 && probeOffset < packet.size) {
-                            val peek = packet[probeOffset].toInt() and 0xff
-                            if (peek <= 0x1f) {
-                                val ctrlProbe = readVarInt(packet, probeOffset)
-                                if (ctrlProbe.length < 0) {
-                                    ok = false
-                                } else {
-                                    probeOffset += ctrlProbe.length
-                                }
-                            }
-                        }
-                    }
-                    hitsChecked++
-                }
-                ok
-            } else {
-                false
-            }
-
-            if (canParseHitLoop) {
+            val unknownInfo = hitCountInfo
+            if (hitCountInfo.value in 1..32) {
                 var totalDamage = 0
                 var hitsRead = 0
-                logger.debug("HitCount={} switch={}", hitCount, switchValue)
-                while (hitsRead < hitCount && hasRemaining()) {
+                logger.debug("HitCount={} switch={}", hitCountInfo.value, switchValue)
+                while (hitsRead < hitCountInfo.value && hasRemaining()) {
                     val hitDamageInfo = readVarIntAt() ?: return null
                     totalDamage += hitDamageInfo.value
                     logger.debug("Hit {} damage {}", hitsRead + 1, hitDamageInfo.value)
-                    if (switchValue >= 6 && hasRemaining()) {
-                        val peek = packet[offset].toInt() and 0xff
-                        if (peek <= 0x1f) {
-                            readVarIntAt()
-                        }
+                    if (switchValue >= 6) {
+                        readVarIntAt() ?: return null
                     }
                     hitsRead++
                 }
                 damageInfo = VarIntOutput(totalDamage, 0)
-                loopInfo = loopOrTailInfo ?: VarIntOutput(0, 0)
+                loopInfo = hitCountInfo
             } else {
-                damageInfo = damageCandidate
-                loopInfo = loopOrTailInfo ?: VarIntOutput(0, 0)
+                damageInfo = hitCountInfo
+                loopInfo = if (hasRemaining()) readVarIntAt() ?: VarIntOutput(0, 0) else VarIntOutput(0, 0)
             }
 
             val pdp = ParsedDamagePacket()
