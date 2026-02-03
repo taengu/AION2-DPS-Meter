@@ -287,17 +287,22 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
         val possibleName = String(possibleNameBytes, Charsets.UTF_8)
         val sanitizedName = sanitizeNickname(possibleName) ?: return false
-        logger.info(
-            "Potential nickname found in rule 36: {} (hex={})",
-            sanitizedName,
-            toHex(possibleNameBytes)
-        )
-        DebugLogWriter.info(
-            logger,
-            "Potential nickname found in rule 36: {} (hex={})",
-            sanitizedName,
-            toHex(possibleNameBytes)
-        )
+        val existingNickname = dataStorage.getNickname()[entityId]
+        if (existingNickname != sanitizedName) {
+            logger.info(
+                "Rule 36 nickname found {} -> {} (hex={})",
+                entityId,
+                sanitizedName,
+                toHex(possibleNameBytes)
+            )
+            DebugLogWriter.info(
+                logger,
+                "Rule 36 nickname found {} -> {} (hex={})",
+                entityId,
+                sanitizedName,
+                toHex(possibleNameBytes)
+            )
+        }
         dataStorage.appendNickname(entityId, sanitizedName)
         return true
     }
