@@ -833,7 +833,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val skillIndicator = packet[offset].toInt() and 0xff
             var effectInstanceId: Int? = null
             var skillCode: Int
-            val extendedAccepted = when (skillIndicator) {
+            var extendedProbeOffset: Int? = null
+            val extendedCandidate = when (skillIndicator) {
                 0x00, 0x01 -> {
                     var probeOffset = offset + 1
                     val variantProbe = if (skillIndicator == 0x01) {
@@ -853,19 +854,34 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         false
                     } else {
                         probeOffset += 4
-                        if (probeOffset + 1 < packet.size &&
-                            packet[probeOffset] == 0x01.toByte() &&
-                            (packet[probeOffset + 1] == 0x03.toByte() || packet[probeOffset + 1] == 0x10.toByte())
-                        ) {
-                            probeOffset += 2
-                        }
-                        val typeProbe = readVarInt(packet, probeOffset)
-                        typeProbe.length > 0 && typeProbe.value in 0..80
+                        extendedProbeOffset = probeOffset
+                        true
                     }
                 }
                 else -> false
             }
-            if (extendedAccepted) {
+            val normalProbeOffset = offset + 4
+            val isSaneParseStart: (Int) -> Boolean = { probeOffset ->
+                var checkOffset = probeOffset
+                if (checkOffset + 1 < packet.size &&
+                    packet[checkOffset] == 0x01.toByte() &&
+                    (packet[checkOffset + 1] == 0x03.toByte() || packet[checkOffset + 1] == 0x10.toByte())
+                ) {
+                    checkOffset += 2
+                }
+                val typeProbe = readVarInt(packet, checkOffset)
+                if (typeProbe.length <= 0 || typeProbe.value !in 0..80) {
+                    false
+                } else {
+                    checkOffset += typeProbe.length
+                    checkOffset < packet.size
+                }
+            }
+            val normalSane = normalProbeOffset <= packet.size && isSaneParseStart(normalProbeOffset)
+            val extendedSane = extendedCandidate && extendedProbeOffset != null &&
+                extendedProbeOffset!! <= packet.size && isSaneParseStart(extendedProbeOffset!!)
+            val useExtended = extendedSane || (extendedCandidate && !normalSane)
+            if (useExtended) {
                 if (skillIndicator == 0x00) {
                     offset += 1
                     if (!hasRemaining(4)) return null
@@ -932,10 +948,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             val unknownInfo = readVarIntAt() ?: return null
             val damageCandidate = readVarIntAt() ?: return null
-            val hitCountInfo = if (hasRemaining()) readVarIntAt() else null
+            val loopOrTailInfo = if (hasRemaining()) readVarIntAt() else null
             var damageInfo: VarIntOutput
             var loopInfo: VarIntOutput
-            val hitCount = hitCountInfo?.value ?: 0
+            val hitCount = loopOrTailInfo?.value ?: 0
             val canParseHitLoop = if (hitCount in 1..32) {
                 var probeOffset = offset
                 var hitsChecked = 0
@@ -982,10 +998,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     hitsRead++
                 }
                 damageInfo = VarIntOutput(totalDamage, 0)
-                loopInfo = hitCountInfo ?: VarIntOutput(0, 0)
+                loopInfo = loopOrTailInfo ?: VarIntOutput(0, 0)
             } else {
                 damageInfo = damageCandidate
-                loopInfo = hitCountInfo ?: VarIntOutput(0, 0)
+                loopInfo = loopOrTailInfo ?: VarIntOutput(0, 0)
             }
 
             val pdp = ParsedDamagePacket()
