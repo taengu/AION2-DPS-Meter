@@ -198,18 +198,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val trimmedNickname = nicknameBuilder.toString()
         if (trimmedNickname.isEmpty()) return null
-        if (trimmedNickname.length < 3 && !hasHan) {
-            val hasLetter = trimmedNickname.any { it.isLetter() }
-            val hasDigit = trimmedNickname.any { it.isDigit() }
-            if (!(trimmedNickname.length == 2 && hasLetter && hasDigit)) return null
+        val hasDigit = trimmedNickname.any { it.isDigit() }
+        if (onlyNumbers || (trimmedNickname.firstOrNull()?.isDigit() == true)) return null
+        if (trimmedNickname.length == 1) {
+            return if (hasHan) trimmedNickname else null
         }
-        if (onlyNumbers) return null
-        if (trimmedNickname.length == 1 &&
-            (trimmedNickname[0] in 'A'..'Z' || trimmedNickname[0] in 'a'..'z')
-        ) {
-            return null
+        val hasLetter = trimmedNickname.any { it.isLetter() }
+        if (trimmedNickname.length == 2) {
+            return if (hasLetter && hasDigit) trimmedNickname else null
         }
-        return trimmedNickname
+        return if (hasLetter) trimmedNickname else null
     }
 
     private fun parsePerfectPacket(packet: ByteArray) {
