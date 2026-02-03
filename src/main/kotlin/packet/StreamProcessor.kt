@@ -257,6 +257,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 i++
                 continue
             }
+            if (i + 1 >= packet.size) {
+                i++
+                continue
+            }
             val entityInfo = readVarInt(packet, i + 1)
             if (entityInfo.length <= 0) {
                 i++
@@ -271,6 +275,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             var pos = scanStart
             while (pos < scanEnd) {
                 if (packet[pos] != 0x07.toByte()) {
+                    pos++
+                    continue
+                }
+                if (pos + 1 >= packet.size) {
                     pos++
                     continue
                 }
