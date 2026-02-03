@@ -843,6 +843,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         private val attackUidMin = 2_500_000
         private val attackUidMax = 4_000_000
         private val skillMax = 99_999_999
+        private val skillMin = 10_000
+        private val skillVarintMax = 20_000_000
 
         fun parse(): DamagePacketParseResult? {
             if (!readAndValidateHeader()) return null
@@ -859,69 +861,34 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val actorInfo = readVarIntAt() ?: return null
             if (actorInfo.value <= 0) return null
 
+            if (!hasRemaining()) return null
+            var effectInstanceId: Int? = null
+            var skillCode: Int? = null
+            val initialOffset = offset
+            val primarySkillInfo = readVarInt(packet, offset)
+            if (primarySkillInfo.length > 0) {
+                val primarySkill = primarySkillInfo.value
+                if (primarySkill in skillMin..skillVarintMax) {
+                    skillCode = primarySkill
+                    offset += primarySkillInfo.length
+                } else {
+                    val shiftedSkillInfo = readVarInt(packet, offset + 1)
+                    if (shiftedSkillInfo.length > 0 &&
+                        shiftedSkillInfo.value in skillMin..skillVarintMax
+                    ) {
+                        skillCode = shiftedSkillInfo.value
+                        offset += 1 + shiftedSkillInfo.length
+                    }
+                }
+            }
+            if (skillCode == null) {
+                offset = initialOffset
+                return null
+            }
             if (!hasRemaining(4)) return null
             val attackUid = parseUInt32le(packet, offset)
             offset += 4
-
-            if (!hasRemaining()) return null
-            var effectInstanceId: Int? = null
-            val indicatorOffset = offset
-            val skillIndicator = packet[offset].toInt() and 0xff
-            var skillCode: Int? = null
-
-            if (skillIndicator == 0x00 || skillIndicator == 0x01) {
-                val tempOffset = offset
-                if (skillIndicator == 0x00) {
-                    if (hasRemaining(1 + 4)) {
-                        offset += 1
-                        val skillValue = parseUInt32le(packet, offset)
-                        offset += 4
-                        effectInstanceId = skillValue
-                        skillCode = skillValue
-                    }
-                } else {
-                    if (hasRemaining(2)) {
-                        val variantInfo = readVarInt(packet, offset + 1)
-                        val afterVariant = offset + 1 + variantInfo.length
-                        if (variantInfo.length > 0 && afterVariant + 4 <= packet.size) {
-                            offset = afterVariant
-                            val effectId = parseUInt32le(packet, offset)
-                            offset += 4
-                            logger.info(
-                                "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
-                                targetInfo.value,
-                                actorInfo.value,
-                                skillIndicator,
-                                variantInfo.value,
-                                effectId
-                            )
-                            DebugLogWriter.info(
-                                logger,
-                                "Extended skill encoding parsed target {} actor {} discriminator {} variant {} effectId {}",
-                                targetInfo.value,
-                                actorInfo.value,
-                                skillIndicator,
-                                variantInfo.value,
-                                effectId
-                            )
-                            effectInstanceId = effectId
-                            skillCode = effectId
-                        }
-                    }
-                }
-                if (skillCode == null) {
-                    offset = tempOffset
-                }
-            }
-
-            if (skillCode == null) {
-                offset = indicatorOffset
-                if (!hasRemaining(4)) return null
-                val skillValue = parseUInt32le(packet, offset)
-                offset += 4
-                effectInstanceId = skillValue
-                skillCode = skillValue
-            }
+            effectInstanceId = attackUid
             val markerOffset = offset
             var effectMarker: ByteArray? = null
             if (hasRemaining(2) && packet[offset] == 0x01.toByte() &&
@@ -962,17 +929,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val unknownInfo = hitCountInfo
 
             if (hitCountInfo.value in 1..32) {
-                var totalDamage = 0
+                val damageCandidates = mutableListOf<Int>()
                 var hitsRead = 0
                 while (hitsRead < hitCountInfo.value && hasRemaining()) {
                     val hitDamageInfo = readVarIntAt() ?: return null
-                    totalDamage += hitDamageInfo.value
+                    damageCandidates.add(hitDamageInfo.value)
                     if (switchValue >= 6 && hasRemaining() && (packet[offset].toInt() and 0xff) < 0x20) {
                         readVarIntAt()
                     }
                     hitsRead++
                 }
-                damageInfo = VarIntOutput(totalDamage, 0)
+                val filteredCandidates = damageCandidates.filterNot {
+                    it < 100 && specialFlags.any { flag ->
+                        flag == SpecialDamage.PERFECT ||
+                            flag == SpecialDamage.BACK ||
+                            flag == SpecialDamage.DOUBLE ||
+                            flag == SpecialDamage.POWER_SHARD
+                    }
+                }
+                val selectedDamage = (filteredCandidates.ifEmpty { damageCandidates }).maxOrNull() ?: 0
+                damageInfo = VarIntOutput(selectedDamage, 0)
                 loopInfo = hitCountInfo
             } else {
                 damageInfo = hitCountInfo
