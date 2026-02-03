@@ -159,52 +159,35 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 continue
             }
 
-            if (packet[innerOffset + 3] == 0x01.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
-                val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
-                if (innerOffset + 6 + possibleNameLength <= packet.size) {
-                    val possibleNameBytes = packet.copyOfRange(innerOffset + 6, innerOffset + 6 + possibleNameLength)
-                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                    val sanitizedName = sanitizeNickname(possibleName)
-                    if (sanitizedName != null) {
-                        logger.info(
-                            "Potential nickname found in pattern 1: {} (hex={})",
-                            sanitizedName,
-                            toHex(possibleNameBytes)
-                        )
-                        DebugLogWriter.info(
-                            logger,
-                            "Potential nickname found in pattern 1: {} (hex={})",
-                            sanitizedName,
-                            toHex(possibleNameBytes)
-                        )
-                        dataStorage.appendNickname(info.value, sanitizedName)
-                    }
-                }
-            }
-            // Pattern 2 disabled temporarily due to unreliable results.
-            if (packet.size > innerOffset + 5) {
-                if (packet[innerOffset + 3] == 0x00.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
-                    val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
-                    if (packet.size > innerOffset + possibleNameLength + 6) {
-                        val possibleNameBytes =
-                            packet.copyOfRange(innerOffset + 6, innerOffset + possibleNameLength + 6)
-                        val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                        val sanitizedName = sanitizeNickname(possibleName)
-                        if (sanitizedName != null) {
-                            logger.info(
-                                "Potential nickname found in new pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            DebugLogWriter.info(
-                                logger,
-                                "Potential nickname found in new pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            dataStorage.appendNickname(info.value, sanitizedName)
-                        }
-                    }
+            val candidateOffsets = listOf(
+                innerOffset + 3 to 0x07,
+                innerOffset + 2 to 0x07
+            )
+            for ((flagOffset, opcode) in candidateOffsets) {
+                val opcodeOffset = flagOffset + 1
+                val lengthOffset = flagOffset + 2
+                if (opcodeOffset >= packet.size || lengthOffset >= packet.size) continue
+                if (packet[flagOffset + 1] != opcode.toByte()) continue
+                val possibleNameLength = packet[lengthOffset].toInt() and 0xff
+                val nameStart = lengthOffset + 1
+                val nameEnd = nameStart + possibleNameLength
+                if (nameEnd > packet.size || possibleNameLength <= 0) continue
+                val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
+                val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                val sanitizedName = sanitizeNickname(possibleName)
+                if (sanitizedName != null) {
+                    logger.info(
+                        "Potential nickname found in broken packet: {} (hex={})",
+                        sanitizedName,
+                        toHex(possibleNameBytes)
+                    )
+                    DebugLogWriter.info(
+                        logger,
+                        "Potential nickname found in broken packet: {} (hex={})",
+                        sanitizedName,
+                        toHex(possibleNameBytes)
+                    )
+                    dataStorage.appendNickname(info.value, sanitizedName)
                 }
             }
             originOffset++
@@ -448,32 +431,32 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         if (packet[offset] != 0x04.toByte()) return false
         if (packet[offset + 1] != 0x8d.toByte()) return false
-        offset = 10
 
-        if (offset >= packet.size) return false
+        val searchStart = packetLengthInfo.length + 2
+        val searchEnd = minOf(packet.size - 2, searchStart + 24)
+        for (candidateOffset in searchStart..searchEnd) {
+            val playerInfo = readVarInt(packet, candidateOffset)
+            if (playerInfo.length <= 0) continue
+            val nameLengthOffset = candidateOffset + playerInfo.length
+            if (nameLengthOffset >= packet.size) continue
+            val nicknameLength = packet[nameLengthOffset].toInt() and 0xff
+            if (nicknameLength == 0 || nicknameLength > 72) continue
+            val nameEnd = nameLengthOffset + 1 + nicknameLength
+            if (nameEnd > packet.size) continue
 
-        val playerInfo = readVarInt(packet, offset)
-        if (playerInfo.length <= 0) return false
-        offset += playerInfo.length
-
-        if (offset >= packet.size) return false
-
-        val nicknameLength = packet[offset]
-        if (nicknameLength < 0 || nicknameLength > 72) return false
-        if (nicknameLength + offset > packet.size) return false
-
-        val np = packet.copyOfRange(offset + 1, offset + nicknameLength + 1)
-
-        val possibleName = String(np, Charsets.UTF_8)
-        val sanitizedName = sanitizeNickname(possibleName) ?: return false
-        logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
-        DebugLogWriter.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
-        dataStorage.appendNickname(playerInfo.value, sanitizedName)
-        if (LocalPlayer.characterName != null && sanitizedName == LocalPlayer.characterName) {
-            LocalPlayer.playerId = playerInfo.value.toLong()
+            val np = packet.copyOfRange(nameLengthOffset + 1, nameEnd)
+            val possibleName = String(np, Charsets.UTF_8)
+            val sanitizedName = sanitizeNickname(possibleName) ?: continue
+            logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
+            DebugLogWriter.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
+            dataStorage.appendNickname(playerInfo.value, sanitizedName)
+            if (LocalPlayer.characterName != null && sanitizedName == LocalPlayer.characterName) {
+                LocalPlayer.playerId = playerInfo.value.toLong()
+            }
+            return true
         }
 
-        return true
+        return false
     }
 
     private fun parsingDamage(packet: ByteArray): Boolean {
