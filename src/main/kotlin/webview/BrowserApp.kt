@@ -123,8 +123,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             DebugLogWriter.debug(logger, "UI {}", message.trim())
         }
 
-        fun isRunningAsRoot(): Boolean {
-            return System.getProperty("user.name") == "root"
+        fun isRunningViaGradle(): Boolean {
+            val gradleAppName = System.getProperty("org.gradle.appname")
+            val javaCommand = System.getProperty("sun.java.command").orEmpty()
+            return gradleAppName != null || javaCommand.contains("org.gradle", ignoreCase = true)
         }
 
         fun exitApp() {

@@ -44,7 +44,7 @@
       if (!(window.dpsData?.getVersion && window.javaBridge?.openBrowser)) {
         return;
       }
-      if (window.javaBridge?.isRunningAsRoot?.()) {
+      if (window.javaBridge?.isRunningViaGradle?.()) {
         return;
       }
 
