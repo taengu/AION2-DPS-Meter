@@ -15,6 +15,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
+      actorIdFilter: "dpsMeter.actorIdFilter",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -615,12 +616,14 @@ class DpsApp {
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
     this.targetSelect = document.querySelector(".targetSelect");
+    this.actorIdFilterInput = document.querySelector(".actorIdFilterInput");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
+    const storedActorFilter = this.safeGetSetting(this.storageKeys.actorIdFilter) || "";
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
@@ -630,6 +633,7 @@ class DpsApp {
       syncBackend: true,
       reason: storedTargetSelection ? "restore from storage" : "default selection",
     });
+    this.setActorIdFilter(storedActorFilter, { persist: false, syncBackend: false });
     if (storedLanguage) {
       this.i18n?.setLanguage?.(storedLanguage, { persist: false });
     }
@@ -647,6 +651,14 @@ class DpsApp {
       this.onlyMeCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setOnlyShowUser(isChecked, { persist: true });
+      });
+    }
+
+    if (this.actorIdFilterInput) {
+      this.actorIdFilterInput.value = storedActorFilter;
+      this.actorIdFilterInput.addEventListener("input", (event) => {
+        const value = event.target?.value ?? "";
+        this.setActorIdFilter(value, { persist: true, syncBackend: true });
       });
     }
 
@@ -837,6 +849,20 @@ class DpsApp {
     }
     if (syncBackend) {
       window.javaBridge?.setDebugLoggingEnabled?.(this.debugLoggingEnabled);
+    }
+  }
+
+  setActorIdFilter(value, { persist = false, syncBackend = false } = {}) {
+    const nextValue = String(value ?? "").trim();
+    if (this.actorIdFilterInput && document.activeElement !== this.actorIdFilterInput) {
+      this.actorIdFilterInput.value = nextValue;
+    }
+    if (persist) {
+      if (syncBackend) {
+        this.safeSetSetting(this.storageKeys.actorIdFilter, nextValue);
+      } else {
+        this.safeSetStorage(this.storageKeys.actorIdFilter, nextValue);
+      }
     }
   }
 

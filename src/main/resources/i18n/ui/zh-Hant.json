@@ -43,6 +43,8 @@
     "resetDetection": "重置偵測",
     "characterName": "角色名稱",
     "characterNamePlaceholder": "輸入你的角色名稱",
+    "actorIdFilter": "角色 ID 篩選（選用）",
+    "actorIdFilterPlaceholder": "例如：12345, 67890",
     "onlyMe": "只顯示我的角色",
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",

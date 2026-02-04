@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory
 class StreamProcessor(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
 
+    private var cachedActorFilterRaw: String? = null
+    private var cachedActorFilter: Set<Int>? = null
+
     data class VarIntOutput(val value: Int, val length: Int)
 
     private val mask = 0x0f
@@ -506,7 +509,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         )
         logger.debug("----------------------------------")
         DebugLogWriter.debug(logger, "----------------------------------")
-        if (pdp.getActorId() != pdp.getTargetId()) {
+        if (shouldAcceptDamage(pdp)) {
             dataStorage.appendDamage(pdp)
         }
 
@@ -685,7 +688,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getSpecials()
         )
 
-        val isAccepted = pdp.getActorId() != pdp.getTargetId()
+        val isAccepted = shouldAcceptDamage(pdp)
         if (isAccepted) {
             //추후 hps 를 넣는다면 수정하기
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
@@ -698,6 +701,51 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun toHex(bytes: ByteArray): String {
         //출력테스트용
         return bytes.joinToString(" ") { "%02X".format(it) }
+    }
+
+    private fun shouldAcceptDamage(pdp: ParsedDamagePacket): Boolean {
+        if (pdp.getActorId() == pdp.getTargetId()) return false
+        if (pdp.getDamage() <= 0) return false
+        return isActorIdAllowed(pdp.getActorId())
+    }
+
+    private fun isActorIdAllowed(actorId: Int): Boolean {
+        val filter = getActorIdFilter() ?: return true
+        if (actorId in filter) return true
+        val summonData = dataStorage.getSummonData()
+        val summoner = summonData[actorId]
+        if (summoner != null && summoner in filter) return true
+        val summonMatch = summonData.entries.any { (summonId, summonerId) ->
+            summonerId == actorId && summonId in filter
+        }
+        return summonMatch
+    }
+
+    private fun getActorIdFilter(): Set<Int>? {
+        val raw = PropertyHandler.getProperty("dpsMeter.actorIdFilter")?.trim()
+        if (raw.isNullOrBlank()) {
+            cachedActorFilterRaw = null
+            cachedActorFilter = null
+            return null
+        }
+        if (raw == cachedActorFilterRaw) return cachedActorFilter
+        val parsed = parseActorIdFilter(raw)
+        cachedActorFilterRaw = raw
+        cachedActorFilter = parsed
+        if (parsed == null) {
+            logger.warn("Invalid dpsMeter.actorIdFilter value: '{}'", raw)
+        } else {
+            logger.info("Using actorId filter for {} actors", parsed.size)
+        }
+        return parsed
+    }
+
+    private fun parseActorIdFilter(raw: String): Set<Int>? {
+        val ids = raw.split(Regex("[,;|\\s]+"))
+            .mapNotNull { token -> token.trim().toIntOrNull() }
+            .filter { it > 0 }
+            .toSet()
+        return ids.ifEmpty { null }
     }
 
     private fun toHexLimited(bytes: ByteArray, limit: Int = 20): String {

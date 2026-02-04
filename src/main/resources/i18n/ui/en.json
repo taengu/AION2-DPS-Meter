@@ -43,6 +43,8 @@
     "resetDetection": "Reset detection",
     "characterName": "Character name",
     "characterNamePlaceholder": "Enter your character name",
+    "actorIdFilter": "Actor ID filter (optional)",
+    "actorIdFilterPlaceholder": "e.g. 12345, 67890",
     "onlyMe": "Only show my character",
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
