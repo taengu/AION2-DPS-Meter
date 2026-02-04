@@ -21,6 +21,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return actorId == filterValue
     }
 
+    private fun normalizeSkillId(raw: Int): Int {
+        return raw - (raw % 10000)
+    }
+
+    private fun isValidSkillId(id: Int): Boolean {
+        return (id in 100_000..199_999) ||
+            (id in 10_000_000..19_999_999) ||
+            (id in 12_000_000..12_999_999) ||
+            (id in 13_000_000..13_999_999) ||
+            (id in 14_000_000..14_999_999)
+    }
+
     private inner class DamagePacketReader(private val data: ByteArray, var offset: Int = 0) {
         fun readVarInt(): Int {
             if (offset >= data.size) return -1
@@ -883,18 +895,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage(),
             pdp.getSpecials()
         )
-        DebugLogWriter.debug(
-            logger,
-            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
-            pdp.getTargetId(),
-    private fun isValidSkillId(id: Int): Boolean {
-        return (id in 100_000..199_999) ||
-            (id in 10_000_000..19_999_999) ||
-            (id in 12_000_000..12_999_999) ||
-            (id in 13_000_000..13_999_999) ||
-            (id in 14_000_000..14_999_999)
-    }
-
             pdp.getActorId(),
             pdp.getSkillCode1(),
             pdp.getType(),
