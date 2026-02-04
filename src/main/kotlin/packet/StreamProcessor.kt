@@ -30,6 +30,29 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             (id in 10_000_000..19_999_999)
     }
 
+    private fun logDamagePacket(pdp: ParsedDamagePacket, packet: ByteArray) {
+        logger.debug(
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials()
+        )
+        DebugLogWriter.debug(
+            logger,
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials(),
+            toHex(packet)
+        )
+    }
+
     private inner class DamagePacketReader(private val data: ByteArray, var offset: Int = 0) {
         fun readVarInt(): Int {
             if (offset >= data.size) return -1
@@ -857,26 +880,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 //                var skipValueInfo = readVarInt(packet, offset)
 //                if (skipValueInfo.length < 0) return false
 //                pdp.addSkipData(skipValueInfo)
-//                offset += skipValueInfo.length
-//            }
-//        }
-
-        val pdp = ParsedDamagePacket()
-        pdp.setTargetId(targetInfo)
-        pdp.setSwitchVariable(switchInfo)
-        pdp.setFlag(flagInfo)
-        pdp.setActorId(actorInfo)
-        pdp.setSkillCode(skillCode)
-        pdp.setType(typeInfo)
-        pdp.setSpecials(specials)
-        pdp.setMultiHitCount(multiHitCount)
-        pdp.setMultiHitDamage(multiHitDamage)
-        pdp.setHealAmount(healAmount)
-        unknownInfo?.let { pdp.setUnknown(it) }
-        pdp.setDamage(VarIntOutput(adjustedDamage, 1))
-        pdp.setHexPayload(toHex(packet))
-
-        logger.trace("{}", toHex(packet))
+        logDamagePacket(pdp, packet)
         logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
         logger.trace(
             "Type packet bits {}",
