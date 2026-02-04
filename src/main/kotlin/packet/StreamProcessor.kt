@@ -13,11 +13,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private val mask = 0x0f
     private fun isMultiHitDamageType(type: Int): Boolean {
-        return type != 3
+        return type == 6 || type == 7
     }
 
     private inner class DamagePacketReader(private val data: ByteArray, var offset: Int = 0) {
-        fun readVarInt(): VarIntOutput {
+        fun readVarIntOutput(): VarIntOutput {
             val result = readVarInt(data, offset)
             if (result.length > 0) {
                 offset += result.length
@@ -25,16 +25,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return result
         }
 
+        fun readVarInt(): Int {
+            val (value, bytes) = readVarInt(data, offset)
+            if (bytes > 0) {
+                offset += bytes
+            }
+            return value
+        }
+
         fun readHitLoop(): List<Long> {
             val hits = mutableListOf<Long>()
-            val hitCountInfo = readVarInt()
-            if (hitCountInfo.length < 0) return hits
-            val hitCount = hitCountInfo.value
-            require(hitCount in 1..20) { "Invalid hit count: $hitCount" }
+            val hitCount = readVarInt()
+            require(hitCount in 1..10) { "Invalid hit count: $hitCount" }
             repeat(hitCount) {
-                val hitInfo = readVarInt()
-                if (hitInfo.length < 0) return emptyList()
-                hits += hitInfo.value.toLong()
+                hits += readVarInt().toLong()
             }
             return hits
         }
@@ -472,36 +476,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet[reader.offset] != 0x04.toByte()) return false
         if (packet[reader.offset + 1] != 0x38.toByte()) return false
         reader.offset += 2
-        if (reader.offset >= packet.size) return false
-        val targetInfo = reader.readVarInt()
-        if (targetInfo.length < 0) return false
-        if (reader.offset >= packet.size) return false
+        fun logUnparsedDamage(): Boolean {
+            DebugLogWriter.debug(logger, "Unparsed damage packet hex={}", toHex(packet))
+            return false
+        }
+        if (reader.offset >= packet.size) return logUnparsedDamage()
+        val targetInfo = reader.readVarIntOutput()
+        if (targetInfo.length < 0) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val switchInfo = reader.readVarInt()
-        if (switchInfo.length < 0) return false
-        if (reader.offset >= packet.size) return false
+        val switchInfo = reader.readVarIntOutput()
+        if (switchInfo.length < 0) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val flagInfo = reader.readVarInt()
-        if (flagInfo.length < 0) return false
-        if (reader.offset >= packet.size) return false
+        val flagInfo = reader.readVarIntOutput()
+        if (flagInfo.length < 0) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val actorInfo = reader.readVarInt()
-        if (actorInfo.length < 0) return false
-        if (reader.offset >= packet.size) return false
+        val actorInfo = reader.readVarIntOutput()
+        if (actorInfo.length < 0) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        if (reader.offset + 5 >= packet.size) return false
+        if (reader.offset + 5 >= packet.size) return logUnparsedDamage()
 
         val temp = reader.offset
 
-        val skillCode = parseUInt32le(packet, reader.offset)
+        val rawSkillCode = parseUInt32le(packet, reader.offset)
+        val skillCode = normalizeSkillId(rawSkillCode)
 
         reader.offset = temp + 5
 
-        val typeInfo = reader.readVarInt()
-        if (typeInfo.length < 0) return false
-        if (reader.offset >= packet.size) return false
+        val typeInfo = reader.readVarIntOutput()
+        if (typeInfo.length < 0) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val damageType = packet[reader.offset]
+        val damageType = typeInfo.value.toByte()
 
         val andResult = switchInfo.value and mask
         val start = reader.offset
@@ -511,34 +520,42 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             5 -> 12
             6 -> 10
             7 -> 14
-            else -> return false
+            else -> return logUnparsedDamage()
         }
-        if (start + tempV > packet.size) return false
+        if (start + tempV > packet.size) return logUnparsedDamage()
         val specials = parseSpecialDamageFlags(packet.copyOfRange(start, start + tempV))
         reader.offset += tempV
 
-        if (reader.offset >= packet.size) return false
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
         val hits: List<Long>?
         val unknownInfo: VarIntOutput?
         if (isMultiHitDamageType(typeInfo.value)) {
             unknownInfo = null
-            hits = reader.readHitLoop()
-            if (hits.isEmpty()) return false
+            val finalDamage = reader.readVarInt()
+            if (finalDamage < 0) return logUnparsedDamage()
+            hits = try {
+                reader.readHitLoop()
+            } catch (e: IllegalArgumentException) {
+                return logUnparsedDamage()
+            }
+            if (hits.isEmpty()) return logUnparsedDamage()
         } else {
-            val unknownData = reader.readVarInt()
-            if (unknownData.length < 0) return false
+            val unknownData = reader.readVarIntOutput()
+            if (unknownData.length < 0) return logUnparsedDamage()
             unknownInfo = unknownData
-            if (reader.offset >= packet.size) return false
-            val damageInfo = reader.readVarInt()
-            if (damageInfo.length < 0) return false
+            if (reader.offset >= packet.size) return logUnparsedDamage()
+            val damageInfo = reader.readVarIntOutput()
+            if (damageInfo.length < 0) return logUnparsedDamage()
             hits = listOf(damageInfo.value.toLong())
+            val trailerInfo = reader.readVarIntOutput()
+            if (trailerInfo.length < 0) return logUnparsedDamage()
         }
 
-        if (reader.offset >= packet.size) return false
+        if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val loopInfo = reader.readVarInt()
-        if (loopInfo.length < 0) return false
+        val loopInfo = reader.readVarIntOutput()
+        if (loopInfo.length < 0) return logUnparsedDamage()
 
 //        if (loopInfo.value != 0 && offset >= packet.size) return false
 //
@@ -550,6 +567,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 //                offset += skipValueInfo.length
 //            }
 //        }
+
+        val hitSummary = if (hits.size > 1) {
+            val hitValues = hits.distinct()
+            val hitValueText = if (hitValues.size == 1) {
+                hitValues.first().toString()
+            } else {
+                hitValues.joinToString(",")
+            }
+            " hits: ${hits.size} hit value: $hitValueText"
+        } else {
+            ""
+        }
 
         for (hit in hits) {
             val pdp = ParsedDamagePacket()
@@ -572,23 +601,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             )
             logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
             logger.debug(
-                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag: {}",
+                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}",
                 pdp.getTargetId(),
                 pdp.getActorId(),
                 pdp.getSkillCode1(),
                 pdp.getType(),
                 pdp.getDamage(),
-                pdp.getSpecials()
+                pdp.getSpecials(),
+                hitSummary
             )
             DebugLogWriter.debug(
                 logger,
-                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag: {}",
+                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}, hex={}",
                 pdp.getTargetId(),
                 pdp.getActorId(),
                 pdp.getSkillCode1(),
                 pdp.getType(),
                 pdp.getDamage(),
-                pdp.getSpecials()
+                pdp.getSpecials(),
+                hitSummary,
+                toHex(packet)
             )
 
             if (pdp.getActorId() != pdp.getTargetId()) {
@@ -604,6 +636,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun toHex(bytes: ByteArray): String {
         //출력테스트용
         return bytes.joinToString(" ") { "%02X".format(it) }
+    }
+
+    private fun normalizeSkillId(raw: Int): Int {
+        return raw - (raw % 10000)
     }
 
     private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
@@ -656,17 +692,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
 
-        if (packet.size == 8) {
-            return emptyList()
-        }
-        if (packet.size >= 10) {
+        if (packet.size >= 8) {
             val flagByte = packet[0].toInt() and 0xFF
 
             if ((flagByte and 0x01) != 0) {
                 flags.add(SpecialDamage.BACK)
             }
             if ((flagByte and 0x02) != 0) {
-                flags.add(SpecialDamage.UNKNOWN)
+                flags.add(SpecialDamage.CRITICAL)
             }
 
             if ((flagByte and 0x04) != 0) {
