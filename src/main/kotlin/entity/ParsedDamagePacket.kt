@@ -21,6 +21,7 @@ class ParsedDamagePacket {
         private var multiHitCount = 0
         private var multiHitDamage = 0
         private var healAmount = 0
+        private var hexPayload: String = ""
 
         fun setSpecials(specials: List<SpecialDamage>) {
                 this.specials = specials
@@ -64,6 +65,9 @@ class ParsedDamagePacket {
         fun setHealAmount(healAmount: Int) {
                 this.healAmount = healAmount
         }
+        fun setHexPayload(hexPayload: String) {
+                this.hexPayload = hexPayload
+        }
 
         fun getActorId(): Int {
                 return this.actorId
@@ -106,6 +110,9 @@ class ParsedDamagePacket {
         }
         fun getHealAmount(): Int {
                 return this.healAmount
+        }
+        fun getHexPayload(): String {
+                return this.hexPayload
         }
         fun getTimeStamp(): Long {
                 return this.timestamp
