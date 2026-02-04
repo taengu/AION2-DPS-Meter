@@ -345,15 +345,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 continue
             }
             val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-            val possibleName = decodeUtf8Strict(nameBytes) ?: run {
+            val possibleName = decodeUtf8Strict(nameBytes)
+            if (possibleName == null) {
                 idx = nameEnd
                 continue
             }
-            val sanitizedName = sanitizeNickname(possibleName) ?: run {
+            val sanitizedName = sanitizeNickname(possibleName)
+            if (sanitizedName == null) {
                 idx = nameEnd
                 continue
             }
-            val actorInfo = findVarIntBeforeNameHeader(packet, idx) ?: run {
+            val actorInfo = findVarIntBeforeNameHeader(packet, idx)
+            if (actorInfo == null) {
                 idx = nameEnd
                 continue
             }
