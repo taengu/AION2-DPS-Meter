@@ -27,10 +27,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun isValidSkillId(id: Int): Boolean {
         return (id in 100_000..199_999) ||
-            (id in 10_000_000..19_999_999) ||
-            (id in 12_000_000..12_999_999) ||
-            (id in 13_000_000..13_999_999) ||
-            (id in 14_000_000..14_999_999)
+            (id in 10_000_000..19_999_999)
     }
 
     private inner class DamagePacketReader(private val data: ByteArray, var offset: Int = 0) {
