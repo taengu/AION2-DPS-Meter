@@ -712,7 +712,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val isCritical = if (damageType.toInt() == 2) {
             (unknownSkillByte and 0x04) != 0
         } else {
-            (flagValue and 0x04) != 0
+            (flagValue and 0x04) != 0 || (unknownSkillByte and 0x04) != 0
         }
 
         if ((specialFlagByte and 0x01) != 0) {
@@ -721,25 +721,23 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (isCritical) {
             flags.add(SpecialDamage.CRITICAL)
         }
+        if ((specialFlagByte and 0x04) != 0) {
+            flags.add(SpecialDamage.PARRY)
+        }
         if ((specialFlagByte and 0x08) != 0) {
             flags.add(SpecialDamage.PERFECT)
         }
-        if (damageType.toInt() != 2 && flagValue != 0) {
-            if ((specialFlagByte and 0x04) != 0) {
-                flags.add(SpecialDamage.PARRY)
-            }
-            if ((specialFlagByte and 0x10) != 0) {
-                flags.add(SpecialDamage.DOUBLE)
-            }
-            if ((specialFlagByte and 0x20) != 0) {
-                flags.add(SpecialDamage.ENDURE)
-            }
-            if ((specialFlagByte and 0x40) != 0) {
-                flags.add(SpecialDamage.UNKNOWN4)
-            }
-            if ((specialFlagByte and 0x80) != 0) {
-                flags.add(SpecialDamage.POWER_SHARD)
-            }
+        if ((specialFlagByte and 0x10) != 0 && (flagValue and 0x10) != 0) {
+            flags.add(SpecialDamage.DOUBLE)
+        }
+        if ((specialFlagByte and 0x20) != 0 && (flagValue and 0x20) != 0) {
+            flags.add(SpecialDamage.ENDURE)
+        }
+        if ((specialFlagByte and 0x40) != 0 && (flagValue and 0x40) != 0) {
+            flags.add(SpecialDamage.UNKNOWN4)
+        }
+        if ((specialFlagByte and 0x80) != 0 && (flagValue and 0x80) != 0) {
+            flags.add(SpecialDamage.POWER_SHARD)
         }
 
         return flags
