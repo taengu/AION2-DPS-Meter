@@ -712,7 +712,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val isCritical = if (damageType.toInt() == 2) {
             (unknownSkillByte and 0x04) != 0
         } else {
-            (flagValue and 0x04) != 0 || (unknownSkillByte and 0x04) != 0
+            (flagValue and 0x04) != 0
         }
 
         if ((specialFlagByte and 0x01) != 0) {
@@ -724,7 +724,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if ((specialFlagByte and 0x08) != 0) {
             flags.add(SpecialDamage.PERFECT)
         }
-        if (damageType.toInt() != 2) {
+        if (damageType.toInt() != 2 && flagValue != 0) {
             if ((specialFlagByte and 0x04) != 0) {
                 flags.add(SpecialDamage.PARRY)
             }
