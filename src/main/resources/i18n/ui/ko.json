@@ -43,6 +43,8 @@
     "resetDetection": "감지 초기화",
     "characterName": "캐릭터 이름",
     "characterNamePlaceholder": "캐릭터 이름 입력",
+    "actorIdFilter": "액터 ID 필터",
+    "actorIdFilterPlaceholder": "액터 ID 입력",
     "onlyMe": "내 캐릭터만 표시",
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",

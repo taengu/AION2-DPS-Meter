@@ -7,6 +7,7 @@ class DpsApp {
     this.USER_NAME = "";
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
+    this.actorIdFilter = "";
     this.storageKeys = {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
@@ -15,6 +16,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
+      actorIdFilter: "dpsMeter.actorIdFilter",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -611,6 +613,7 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.onlyMeCheckbox = document.querySelector(".onlyMeCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
+    this.actorIdInput = document.querySelector(".actorIdInput");
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
@@ -619,12 +622,14 @@ class DpsApp {
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
+    const storedActorIdFilter = this.safeGetSetting(this.storageKeys.actorIdFilter) || "";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
+    this.setActorIdFilter(storedActorIdFilter, { persist: false, syncBackend: true });
     this.setTargetSelection(storedTargetSelection || this.targetSelection, {
       persist: false,
       syncBackend: true,
@@ -655,6 +660,14 @@ class DpsApp {
       this.debugLoggingCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setDebugLogging(isChecked, { persist: true, syncBackend: true });
+      });
+    }
+
+    if (this.actorIdInput) {
+      this.actorIdInput.value = this.actorIdFilter;
+      this.actorIdInput.addEventListener("input", (event) => {
+        const value = event.target?.value ?? "";
+        this.setActorIdFilter(value, { persist: true, syncBackend: true });
       });
     }
 
@@ -837,6 +850,17 @@ class DpsApp {
     }
     if (syncBackend) {
       window.javaBridge?.setDebugLoggingEnabled?.(this.debugLoggingEnabled);
+    }
+  }
+
+  setActorIdFilter(value, { persist = false, syncBackend = false } = {}) {
+    const trimmed = String(value ?? "").trim();
+    this.actorIdFilter = trimmed;
+    if (this.actorIdInput && document.activeElement !== this.actorIdInput) {
+      this.actorIdInput.value = trimmed;
+    }
+    if (persist || syncBackend) {
+      this.safeSetSetting(this.storageKeys.actorIdFilter, trimmed);
     }
   }
 

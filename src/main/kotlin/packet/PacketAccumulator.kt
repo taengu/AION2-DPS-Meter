@@ -18,7 +18,7 @@ class PacketAccumulator {
     fun append(data: ByteArray) {
         val size = buffer.size()
 
-        if (size in (WARN_BUFFER_SIZE + 1)..<MAX_BUFFER_SIZE) {
+        if (size in (WARN_BUFFER_SIZE + 1)..<MAX_BUFFER_SIZE && DebugLogWriter.shouldLogBufferWarnings()) {
             logger.debug("{} : buffer nearing limit", logger.name)
             DebugLogWriter.debug(logger, "{} : buffer nearing limit", logger.name)
         }

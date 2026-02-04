@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
+    private val actorIdFilterTargets = mutableSetOf<Int>()
+    private var lastActorFilterId: Int? = null
 
     data class VarIntOutput(val value: Int, val length: Int)
 
@@ -18,6 +20,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) {
             logger.warn("Broken packet: failed to read varint length {}", toHexLimited(packet))
+            logDamageParseError("Broken packet: failed to read varint length", packet)
             return
         }
         val packetSize = computePacketSize(packetLengthInfo)
@@ -28,6 +31,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 packetLengthInfo.value,
                 packetLengthInfo.length
             )
+            logDamageParseError("Broken packet: invalid computed size", packet)
             return
         }
         if (packet.size == packetSize) {
@@ -50,6 +54,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // 매직패킷 단일로 올때 무시
         if (packetSize > packet.size) {
             logger.warn("Broken packet: current byte length is shorter than expected: {}", toHexLimited(packet))
+            logDamageParseError("Broken packet: current byte length is shorter than expected", packet)
             val resyncIdx = findArrayIndex(packet, packetStartMarker)
             if (resyncIdx > 0) {
                 onPacketReceived(packet.copyOfRange(resyncIdx, packet.size))
@@ -90,6 +95,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             //남은패킷 재처리
         } catch (e: Exception) {
             logger.error("Exception while consuming packet {}", toHex(packet), e)
+            logDamageParseError("Exception while consuming packet", packet)
             return
         }
 
@@ -102,7 +108,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
-        logger.warn("Broken packet buffer detected: {}", toHexLimited(packet))
+        logDamageParseError("Broken packet buffer detected", packet)
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
             val target = dataStorage.getCurrentTarget()
@@ -141,7 +147,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 processed = processBrokenPacketSlice(packet, idx, handler)
             }
             if (flag && !processed) {
-                logger.debug("Remaining packet {}", toHex(packet))
+                logDamageParseError("Remaining packet", packet)
             }
             return
         }
@@ -450,41 +456,71 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val pdp = ParsedDamagePacket()
         pdp.setDot(true)
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return
+        if (packetLengthInfo.length < 0) {
+            logDamageParseError("DoT packet length varint unreadable", packet)
+            return
+        }
         offset += packetLengthInfo.length
 
         if (packet[offset] != 0x05.toByte()) return
         if (packet[offset+1] != 0x38.toByte()) return
         offset += 2
-        if (packet.size < offset) return
+        if (packet.size < offset) {
+            logDamageParseError("DoT packet truncated after opcode", packet)
+            return
+        }
 
         val targetInfo = readVarInt(packet,offset)
-        if (targetInfo.length < 0) return
+        if (targetInfo.length < 0) {
+            logDamageParseError("DoT packet missing target", packet)
+            return
+        }
         offset += targetInfo.length
-        if (packet.size < offset) return
+        if (packet.size < offset) {
+            logDamageParseError("DoT packet truncated after target", packet)
+            return
+        }
         pdp.setTargetId(targetInfo)
 
         offset += 1
-        if (packet.size < offset) return
+        if (packet.size < offset) {
+            logDamageParseError("DoT packet truncated after target padding", packet)
+            return
+        }
 
         val actorInfo = readVarInt(packet,offset)
-        if (actorInfo.length < 0) return
+        if (actorInfo.length < 0) {
+            logDamageParseError("DoT packet missing actor", packet)
+            return
+        }
         if (actorInfo.value == targetInfo.value) return
         offset += actorInfo.length
-        if (packet.size < offset) return
+        if (packet.size < offset) {
+            logDamageParseError("DoT packet truncated after actor", packet)
+            return
+        }
         pdp.setActorId(actorInfo)
 
         val unknownInfo = readVarInt(packet,offset)
-        if (unknownInfo.length <0) return
+        if (unknownInfo.length <0) {
+            logDamageParseError("DoT packet missing unknown", packet)
+            return
+        }
         offset += unknownInfo.length
 
         val skillCode:Int = parseUInt32le(packet,offset) / 100
         offset += 4
-        if (packet.size <= offset) return
+        if (packet.size <= offset) {
+            logDamageParseError("DoT packet truncated after skill", packet)
+            return
+        }
         pdp.setSkillCode(skillCode)
 
         val damageInfo = readVarInt(packet,offset)
-        if (damageInfo.length < 0) return
+        if (damageInfo.length < 0) {
+            logDamageParseError("DoT packet missing damage", packet)
+            return
+        }
         pdp.setDamage(damageInfo)
 
         logger.debug("{}", toHex(packet))
@@ -506,9 +542,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         )
         logger.debug("----------------------------------")
         DebugLogWriter.debug(logger, "----------------------------------")
-        if (pdp.getActorId() != pdp.getTargetId()) {
+        val isAccepted = pdp.getActorId() != pdp.getTargetId()
+        if (isAccepted) {
             dataStorage.appendDamage(pdp)
         }
+        logActorFilterDamage(pdp, packet)
 
     }
 
@@ -642,7 +680,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsingDamage(packet: ByteArray): Boolean {
         if (packet[0] == 0x20.toByte()) return false
         val reader = DamagePacketReader(packet)
-        val parsed = reader.parse() ?: return false
+        val parsed = reader.parse() ?: run {
+            logDamageParseError("Damage packet parse failed", packet)
+            return false
+        }
         val pdp = parsed.pdp
         val damageType = parsed.damageType
         pdp.setPayload(packet)
@@ -691,6 +732,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
             dataStorage.appendDamage(pdp)
         }
+        logActorFilterDamage(pdp, packet)
         return isAccepted
 
     }
@@ -717,6 +759,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         //구글 Protocol Buffers 라이브러리에 이미 있나? 코드 효율성에 차이있어보이면 나중에 바꾸는게 나을듯?
         if (!canReadVarInt(bytes, offset)) {
             logger.debug("Unable to read varint, packet {} offset {}", toHex(bytes), offset)
+            logDamageParseError("Unable to read varint", bytes)
             return VarIntOutput(-1, -1)
         }
         var value = 0
@@ -726,6 +769,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (true) {
             if (offset + count >= bytes.size) {
                 logger.error("Array out of bounds, packet {} offset {} count {}", toHex(bytes), offset, count)
+                logDamageParseError("Varint array out of bounds", bytes)
                 return VarIntOutput(-1, -1)
             }
 
@@ -746,9 +790,56 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     offset,
                     shift
                 )
+                logDamageParseError("Varint overflow", bytes)
                 return VarIntOutput(-1, -1)
             }
         }
+    }
+
+    private fun logDamageParseError(reason: String, packet: ByteArray) {
+        if (!DebugLogWriter.hasActorFilter()) return
+        DebugLogWriter.debug(logger, "Damage parse error: {} | hex={}", reason, toHex(packet))
+    }
+
+    private fun logActorFilterDamage(pdp: ParsedDamagePacket, packet: ByteArray) {
+        val actorFilterId = DebugLogWriter.getActorFilterId() ?: return
+        if (lastActorFilterId != actorFilterId) {
+            actorIdFilterTargets.clear()
+            lastActorFilterId = actorFilterId
+        }
+        val actorId = pdp.getActorId()
+        val targetId = pdp.getTargetId()
+        var shouldLog = false
+        val matchedReason = when {
+            actorId == actorFilterId -> {
+                shouldLog = true
+                "actor"
+            }
+            actorId != actorFilterId && targetId != actorFilterId -> {
+                if (actorIdFilterTargets.contains(targetId)) {
+                    shouldLog = true
+                    "shared-target"
+                }
+                null
+            }
+            else -> null
+        }
+        if (actorId == actorFilterId) {
+            actorIdFilterTargets.add(targetId)
+        }
+        if (!shouldLog) return
+        val reason = matchedReason ?: "shared-target"
+        DebugLogWriter.debugAt(
+            logger,
+            pdp.getTimeStamp(),
+            "Actor filter {} hit (actor {}, target {}, skill {}, damage {}) | hex={}",
+            reason,
+            actorId,
+            targetId,
+            pdp.getSkillCode1(),
+            pdp.getDamage(),
+            toHex(packet)
+        )
     }
 
     fun convertVarInt(value: Int): ByteArray {

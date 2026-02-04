@@ -777,6 +777,14 @@
   background: rgba(0, 0, 0, 0.35);
   color: var(--text-color);
 }
+.settingsPanel .actorIdInput {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--rounded-xs);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-color);
+}
 .settingsPanel .settingsAction {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--rounded-xs);
