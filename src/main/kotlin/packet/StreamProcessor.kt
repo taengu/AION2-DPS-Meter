@@ -483,6 +483,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun parsingDamage(packet: ByteArray): Boolean {
         if (packet[0] == 0x20.toByte()) return false
+        if (packet[0] == 0x1f.toByte()) return true
+        if (packet[0] == 0x1e.toByte()) return true
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         val reader = DamagePacketReader(packet, packetLengthInfo.length)
@@ -549,30 +551,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val hits: List<Long>
         val unknownInfo: VarIntOutput?
-        var loopInfo: VarIntOutput? = null
         val unknownValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
         unknownInfo = VarIntOutput(unknownValue, 1)
         val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage()
         val hitCount = reader.tryReadVarInt() ?: 1
-        var isMultiHit = hitCount > 1 && reader.remainingBytes() >= hitCount
-        if (hitCount > 8) {
-            isMultiHit = false
-        }
-
-        hits = if (isMultiHit) {
+        hits = if (hitCount > 1) {
             val hitValues = mutableListOf<Long>()
             repeat(hitCount) {
-                val hitValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-                hitValues.add(hitValue.toLong())
+                val hv = reader.tryReadVarInt() ?: return logUnparsedDamage()
+                hitValues.add(hv.toLong())
             }
             hitValues
         } else {
             emptyList()
         }
 
+        // Optional trailer / delimiter - ignore safely
         if (reader.offset < packet.size) {
-            val loopValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-            loopInfo = VarIntOutput(loopValue, 1)
+            reader.tryReadVarInt()
         }
 
 //        if (loopInfo.value != 0 && offset >= packet.size) return false
@@ -586,7 +582,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 //            }
 //        }
 
-        val hitSummary = if (isMultiHit && hits.size > 1) {
+        val hitSummary = if (hits.size > 1) {
             val hitValues = hits.distinct()
             val hitValueText = if (hitValues.size == 1) {
                 hitValues.first().toString()
@@ -598,104 +594,51 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             ""
         }
 
-        if (isMultiHit) {
-            for (hit in hits) {
-                val pdp = ParsedDamagePacket()
-                pdp.setTargetId(targetInfo)
-                pdp.setSwitchVariable(switchInfo)
-                pdp.setFlag(flagInfo)
-                pdp.setActorId(actorInfo)
-                pdp.setSkillCode(skillCode)
-                pdp.setType(typeInfo)
-                pdp.setSpecials(specials)
-                unknownInfo?.let { pdp.setUnknown(it) }
-                pdp.setDamage(VarIntOutput(hit.toInt(), 1))
-                loopInfo?.let { pdp.setLoop(it) }
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(targetInfo)
+        pdp.setSwitchVariable(switchInfo)
+        pdp.setFlag(flagInfo)
+        pdp.setActorId(actorInfo)
+        pdp.setSkillCode(skillCode)
+        pdp.setType(typeInfo)
+        pdp.setSpecials(specials)
+        unknownInfo?.let { pdp.setUnknown(it) }
+        pdp.setDamage(VarIntOutput(finalDamage, 1))
 
-                logger.trace("{}", toHex(packet))
-                logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
-                logger.trace(
-                    "Type packet bits {}",
-                    String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
-                )
-                logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
-                logger.debug(
-                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}",
-                    pdp.getTargetId(),
-                    pdp.getActorId(),
-                    pdp.getSkillCode1(),
-                    pdp.getType(),
-                    pdp.getDamage(),
-                    pdp.getSpecials(),
-                    hitSummary
-                )
-                DebugLogWriter.debug(
-                    logger,
-                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}, hex={}",
-                    pdp.getTargetId(),
-                    pdp.getActorId(),
-                    pdp.getSkillCode1(),
-                    pdp.getType(),
-                    pdp.getDamage(),
-                    pdp.getSpecials(),
-                    hitSummary,
-                    toHex(packet)
-                )
+        logger.trace("{}", toHex(packet))
+        logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
+        logger.trace(
+            "Type packet bits {}",
+            String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
+        )
+        logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        logger.debug(
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials(),
+            hitSummary
+        )
+        DebugLogWriter.debug(
+            logger,
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}, hex={}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials(),
+            hitSummary,
+            toHex(packet)
+        )
 
-                if (pdp.getActorId() != pdp.getTargetId()) {
-                    //추후 hps 를 넣는다면 수정하기
-                    //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
-                    dataStorage.appendDamage(pdp)
-                }
-            }
-        } else {
-            val pdp = ParsedDamagePacket()
-            pdp.setTargetId(targetInfo)
-            pdp.setSwitchVariable(switchInfo)
-            pdp.setFlag(flagInfo)
-            pdp.setActorId(actorInfo)
-            pdp.setSkillCode(skillCode)
-            pdp.setType(typeInfo)
-            pdp.setSpecials(specials)
-            unknownInfo?.let { pdp.setUnknown(it) }
-            pdp.setDamage(VarIntOutput(finalDamage, 1))
-            loopInfo?.let { pdp.setLoop(it) }
-
-            logger.trace("{}", toHex(packet))
-            logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
-            logger.trace(
-                "Type packet bits {}",
-                String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
-            )
-            logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
-            logger.debug(
-                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}",
-                pdp.getTargetId(),
-                pdp.getActorId(),
-                pdp.getSkillCode1(),
-                pdp.getType(),
-                pdp.getDamage(),
-                pdp.getSpecials(),
-                hitSummary
-            )
-            DebugLogWriter.debug(
-                logger,
-                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}, hex={}",
-                pdp.getTargetId(),
-                pdp.getActorId(),
-                pdp.getSkillCode1(),
-                pdp.getType(),
-                pdp.getDamage(),
-                pdp.getSpecials(),
-                hitSummary,
-                toHex(packet)
-            )
-
-            if (pdp.getActorId() != pdp.getTargetId()) {
-                //추후 hps 를 넣는다면 수정하기
-                //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
-                dataStorage.appendDamage(pdp)
-            }
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            //추후 hps 를 넣는다면 수정하기
+            //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
+            dataStorage.appendDamage(pdp)
         }
         return true
 
