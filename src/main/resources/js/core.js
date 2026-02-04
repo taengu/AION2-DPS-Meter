@@ -396,6 +396,9 @@ class DpsApp {
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
     const skills = [];
+    const detailSkills = detailObj?.skills && typeof detailObj.skills === "object" ? detailObj.skills : detailObj;
+    const multiHitCount = Math.trunc(Number(detailObj?.multiHitCount)) || 0;
+    const multiHitDamage = Math.trunc(Number(detailObj?.multiHitDamage)) || 0;
     let totalDmg = 0;
 
     let totalTimes = 0;
@@ -405,7 +408,7 @@ class DpsApp {
     let totalPerfect = 0;
     let totalDouble = 0;
 
-    for (const [code, value] of Object.entries(detailObj)) {
+    for (const [code, value] of Object.entries(detailSkills)) {
       if (!value || typeof value !== "object") continue;
 
       const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
@@ -501,6 +504,8 @@ class DpsApp {
       totalPerfectPct: pct(totalPerfect, totalTimes),
       totalDoublePct: pct(totalDouble, totalTimes),
       combatTime,
+      multiHitCount,
+      multiHitDamage,
 
       skills,
     };

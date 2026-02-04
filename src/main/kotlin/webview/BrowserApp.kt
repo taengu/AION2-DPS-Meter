@@ -1,6 +1,7 @@
 package com.tbread.webview
 
 import com.tbread.DpsCalculator
+import com.tbread.entity.BattleDetail
 import com.tbread.entity.DpsData
 import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.CombatPortDetector
@@ -186,7 +187,13 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
     }
 
     fun getBattleDetail(uid:Int):String{
-        return Json.encodeToString(dpsData.map[uid]?.analyzedData)
+        val personalData = dpsData.map[uid]
+        val detail = BattleDetail(
+            skills = personalData?.analyzedData ?: emptyMap(),
+            multiHitCount = personalData?.multiHitCount ?: 0,
+            multiHitDamage = personalData?.multiHitDamage ?: 0
+        )
+        return Json.encodeToString(detail)
     }
 
     fun getVersion():String{

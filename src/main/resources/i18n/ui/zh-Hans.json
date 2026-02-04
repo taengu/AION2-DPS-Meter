@@ -28,6 +28,8 @@
     },
     "stats": {
       "totalDamage": "总伤害",
+      "multiHitDamage": "连击伤害",
+      "multiHitHits": "连击次数",
       "contribution": "贡献度",
       "critRate": "暴击率",
       "perfectRate": "完美率",

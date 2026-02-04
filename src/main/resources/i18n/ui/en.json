@@ -28,6 +28,8 @@
     },
     "stats": {
       "totalDamage": "Total Damage",
+      "multiHitDamage": "Multi-hit Damage",
+      "multiHitHits": "Multi-hit Hits",
       "contribution": "Contribution",
       "critRate": "Crit Rate",
       "perfectRate": "Perfect Rate",

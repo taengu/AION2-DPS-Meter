@@ -28,6 +28,8 @@
     },
     "stats": {
       "totalDamage": "총 피해",
+      "multiHitDamage": "연타 피해",
+      "multiHitHits": "연타 타수",
       "contribution": "기여도",
       "critRate": "치명타율",
       "perfectRate": "퍼펙트율",

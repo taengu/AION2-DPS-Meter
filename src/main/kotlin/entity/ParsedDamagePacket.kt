@@ -18,6 +18,8 @@ class ParsedDamagePacket {
         private val id = UUID.randomUUID()
         private var specials:List<SpecialDamage> = arrayListOf()
         private var dot = false
+        private var multiHitCount = 0
+        private var multiHitDamage = 0
 
         fun setSpecials(specials: List<SpecialDamage>) {
                 this.specials = specials
@@ -52,6 +54,12 @@ class ParsedDamagePacket {
         fun setType(typeInfo: StreamProcessor.VarIntOutput){
                 this.type = typeInfo.value
         }
+        fun setMultiHitCount(count: Int) {
+                this.multiHitCount = count
+        }
+        fun setMultiHitDamage(damage: Int) {
+                this.multiHitDamage = damage
+        }
 
         fun getActorId(): Int {
                 return this.actorId
@@ -85,6 +93,12 @@ class ParsedDamagePacket {
         }
         fun getType():Int{
                 return this.type
+        }
+        fun getMultiHitCount(): Int {
+                return this.multiHitCount
+        }
+        fun getMultiHitDamage(): Int {
+                return this.multiHitDamage
         }
         fun getTimeStamp(): Long {
                 return this.timestamp

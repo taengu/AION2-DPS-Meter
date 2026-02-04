@@ -11,6 +11,8 @@ data class PersonalData(
     var amount: Double = 0.0,
     @Required var damageContribution: Double = 0.0,
     @Transient val analyzedData: MutableMap<Int, AnalyzedSkill> = mutableMapOf(),
+    @Transient var multiHitCount: Int = 0,
+    @Transient var multiHitDamage: Int = 0,
     val nickname: String
 ) {
     private fun addDamage(damage: Double) {
@@ -19,6 +21,10 @@ data class PersonalData(
 
     fun processPdp(pdp: ParsedDamagePacket) {
         addDamage(pdp.getDamage().toDouble())
+        if (pdp.getMultiHitCount() > 0) {
+            multiHitCount += pdp.getMultiHitCount()
+            multiHitDamage += pdp.getMultiHitDamage()
+        }
         if (!analyzedData.containsKey(pdp.getSkillCode1())) {
             val analyzedSkill = AnalyzedSkill(pdp)
             analyzedData[pdp.getSkillCode1()] = analyzedSkill

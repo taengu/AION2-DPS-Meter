@@ -30,6 +30,8 @@ const createDetailsUI = ({
 
   const STATUS = [
     { key: "details.stats.totalDamage", fallback: "Total Damage", getValue: (d) => formatNum(d?.totalDmg) },
+    { key: "details.stats.multiHitDamage", fallback: "Multi-hit Damage", getValue: (d) => formatNum(d?.multiHitDamage) },
+    { key: "details.stats.multiHitHits", fallback: "Multi-hit Hits", getValue: (d) => formatNum(d?.multiHitCount) },
     { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     // { label: "보스 막기비율", getValue: (d) => d?.parry ?? "-" },
     // { label: "보스 회피비율", getValue: (d) => d?.eva ?? "-" },
