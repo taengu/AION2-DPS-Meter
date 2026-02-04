@@ -229,6 +229,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             return true
                         }
                     }
+                } else {
+                    val fallbackActorId = findRecentActorId(packet, i)
+                    if (fallbackActorId != null && fallbackActorId !in namedActors) {
+                        val canBind = registerAsciiNickname(
+                            packet,
+                            fallbackActorId,
+                            nameInfo.first,
+                            nameInfo.second
+                        )
+                        if (canBind) {
+                            namedActors.add(fallbackActorId)
+                            return true
+                        }
+                    }
                 }
             }
             i++
@@ -242,7 +256,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (idx + 2 < packet.size) {
             val marker = packet[idx].toInt() and 0xff
             val markerNext = packet[idx + 1].toInt() and 0xff
-            val isMarker = marker == 0xF8 && markerNext == 0x03
+            val isMarker = (marker == 0xF8 || marker == 0xF5) && markerNext == 0x03
             if (isMarker) {
                 val actorOffset = idx - 2
                 if (actorOffset < 0 || !canReadVarInt(packet, actorOffset)) {
@@ -417,6 +431,31 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val nameBytes = packet.copyOfRange(nameStart, nameEnd)
         if (!isPrintableAscii(nameBytes)) return null
         return nameStart to nameLength
+    }
+
+    private fun findRecentActorId(packet: ByteArray, anchorIndex: Int): Int? {
+        if (anchorIndex <= 0) return null
+        val window = 24
+        val maxGap = 16
+        val start = (anchorIndex - window).coerceAtLeast(0)
+        var bestActorId: Int? = null
+        var bestGap = Int.MAX_VALUE
+        for (idx in start until anchorIndex) {
+            if (!canReadVarInt(packet, idx)) continue
+            val info = readVarInt(packet, idx)
+            if (info.length <= 0) continue
+            val endIdx = idx + info.length
+            if (endIdx > anchorIndex) continue
+            val actorId = info.value
+            if (actorId < 1000) continue
+            val gap = anchorIndex - endIdx
+            if (gap > maxGap) continue
+            if (gap < bestGap) {
+                bestGap = gap
+                bestActorId = actorId
+            }
+        }
+        return bestActorId
     }
 
     private fun registerAsciiNickname(
