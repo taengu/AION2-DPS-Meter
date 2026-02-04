@@ -96,8 +96,8 @@ class ParsedDamagePacket {
                 return this.specials
         }
 
-        fun isCrit():Boolean{
-                return this.type == 3
+        fun isCrit(): Boolean {
+                return this.specials.contains(SpecialDamage.CRITICAL)
         }
         fun isDoT():Boolean{
                 return dot
