@@ -336,11 +336,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             val nameStart = idx + 2
             val nameEnd = nameStart + nameLength
-            if (nameEnd + 2 > packet.size) {
+            if (nameEnd >= packet.size) {
                 idx++
                 continue
             }
-            if (packet[nameEnd] != 0xF8.toByte() || packet[nameEnd + 1] != 0x03.toByte()) {
+            if (!hasLootMarkerAhead(packet, nameEnd)) {
                 idx++
                 continue
             }
@@ -353,7 +353,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 idx = nameEnd
                 continue
             }
-            val actorInfo = findVarIntEndingAt(packet, idx) ?: run {
+            val actorInfo = findVarIntBeforeNameHeader(packet, idx) ?: run {
                 idx = nameEnd
                 continue
             }
@@ -367,17 +367,37 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return candidates
     }
 
-    private fun findVarIntEndingAt(packet: ByteArray, endIndexExclusive: Int): VarIntOutput? {
-        val searchStart = (endIndexExclusive - 5).coerceAtLeast(0)
-        for (start in searchStart until endIndexExclusive) {
-            if (!canReadVarInt(packet, start)) continue
-            val info = readVarInt(packet, start)
-            if (info.length <= 0) continue
-            if (start + info.length == endIndexExclusive) {
-                return info
+    private fun findVarIntBeforeNameHeader(packet: ByteArray, nameHeaderIndex: Int): VarIntOutput? {
+        if (nameHeaderIndex < 2) return null
+        if (packet[nameHeaderIndex - 2] != 0xA0.toByte() || packet[nameHeaderIndex - 1] != 0x01.toByte()) {
+            return null
+        }
+        val markerStart = nameHeaderIndex - 2
+        val minEnd = (markerStart - 4).coerceAtLeast(0)
+        for (endIndexExclusive in markerStart downTo minEnd) {
+            val searchStart = (endIndexExclusive - 5).coerceAtLeast(0)
+            for (start in searchStart until endIndexExclusive) {
+                if (!canReadVarInt(packet, start)) continue
+                val info = readVarInt(packet, start)
+                if (info.length <= 0) continue
+                if (start + info.length == endIndexExclusive) {
+                    return info
+                }
             }
         }
         return null
+    }
+
+    private fun hasLootMarkerAhead(packet: ByteArray, startIndex: Int): Boolean {
+        val endIndex = (startIndex + 128).coerceAtMost(packet.size - 1)
+        var idx = startIndex
+        while (idx < endIndex) {
+            if (packet[idx] == 0xF8.toByte() && packet[idx + 1] == 0x03.toByte()) {
+                return true
+            }
+            idx++
+        }
+        return false
     }
 
     private fun actorExists(actorId: Int): Boolean {
