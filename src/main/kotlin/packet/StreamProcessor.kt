@@ -535,7 +535,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val start = reader.offset
         var tempV = 0
         tempV += when (andResult) {
-            0 -> 0
             4 -> 8
             5 -> 12
             6 -> 10
