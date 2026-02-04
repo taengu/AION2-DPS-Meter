@@ -41,6 +41,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         fun readSkillCode(): Int {
             val start = offset
+            if (start + 3 < data.size) {
+                val direct = normalizeSkillId(readIntLE(start))
+                if (direct in 11_000_000..19_999_999) {
+                    offset = start + 4
+                    return direct
+                }
+            }
+
             if (start + 13 < data.size) {
                 val first = normalizeSkillId(readIntLE(start + 10))
                 if (first in 11_000_000..19_999_999) {
