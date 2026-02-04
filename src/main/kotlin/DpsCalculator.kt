@@ -1137,6 +1137,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 return possibleOrigin
             }
         }
+        if (isLikelyRealSkill(skillCode)) {
+            return skillCode
+        }
         logger.debug(
             "Failed to infer skill code: {} (target {}, actor {}, damage {})",
             skillCode,
@@ -1158,6 +1161,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             payloadHex
         )
         return null
+    }
+
+    private fun isLikelyRealSkill(code: Int): Boolean {
+        return code in 11_000_000..19_999_999
     }
 
     fun resetDataStorage() {
