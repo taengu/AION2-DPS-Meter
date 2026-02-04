@@ -547,7 +547,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             else -> return logUnparsedDamage()
         }
         if (start + tempV > packet.size) return logUnparsedDamage()
-        val specials = parseSpecialDamageFlags(packet.copyOfRange(start, start + tempV), flagInfo.value, damageType)
+        val specials = parseSpecialDamageFlags(
+            packet.copyOfRange(start, start + tempV),
+            flagInfo.value,
+            damageType,
+            andResult
+        )
         reader.offset += tempV
 
         if (reader.offset >= packet.size) return logUnparsedDamage()
@@ -676,16 +681,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseSpecialDamageFlags(
         packet: ByteArray,
         flagValue: Int,
-        damageType: Byte
+        damageType: Byte,
+        switchResult: Int
     ): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
         if (packet.isEmpty()) return flags
         val specialFlagByte = packet[0].toInt() and 0xFF
         val unknownSkillByte = if (packet.size > 2) packet[2].toInt() and 0xFF else 0
         val isCritical = if (damageType.toInt() == 2) {
-            (unknownSkillByte and 0x04) != 0
+            switchResult == 4 && flagValue == 0 && (unknownSkillByte and 0x04) != 0
         } else {
-            (flagValue and 0x04) != 0 || (unknownSkillByte and 0x04) != 0
+            (specialFlagByte and 0x02) != 0
         }
 
         if ((specialFlagByte and 0x01) != 0) {
@@ -697,7 +703,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if ((specialFlagByte and 0x04) != 0) {
             flags.add(SpecialDamage.PARRY)
         }
-        if ((specialFlagByte and 0x08) != 0) {
+        if ((specialFlagByte and 0x08) != 0 && (damageType.toInt() != 2 || flagValue == 0)) {
             flags.add(SpecialDamage.PERFECT)
         }
         if ((specialFlagByte and 0x10) != 0 && (flagValue and 0x10) != 0) {
