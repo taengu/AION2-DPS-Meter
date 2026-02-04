@@ -887,9 +887,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             logger,
             "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
             pdp.getTargetId(),
-    private fun isValidSkillId(normalized: Int): Boolean {
-        return normalized in 11_000_000..19_999_999 ||
-            normalized in 1_000_000..1_999_999
+    private fun isValidSkillId(id: Int): Boolean {
+        return (id in 100_000..199_999) ||
+            (id in 10_000_000..19_999_999) ||
+            (id in 12_000_000..12_999_999) ||
+            (id in 13_000_000..13_999_999) ||
+            (id in 14_000_000..14_999_999)
     }
 
             pdp.getActorId(),
