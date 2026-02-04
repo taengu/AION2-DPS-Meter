@@ -41,27 +41,34 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         fun readSkillCode(): Int {
             val start = offset
-            val varInt = tryReadVarInt()
-            if (varInt != null) {
-                val normalized = normalizeSkillId(varInt)
-                if (isValidSkillId(normalized)) {
-                    return normalized
-                }
-                offset = start
+            val scanLimit = minOf(40, data.size - start - 4)
+            if (scanLimit < 0) {
+                throw IllegalStateException("Skill not found")
             }
-            for (i in 0..5) {
-                if (start + i + 4 > data.size) break
+
+            data class Candidate(val index: Int, val normalized: Int)
+            val candidates = mutableListOf<Candidate>()
+
+            for (i in 0..scanLimit) {
                 val raw = (data[start + i].toInt() and 0xFF) or
                     ((data[start + i + 1].toInt() and 0xFF) shl 8) or
                     ((data[start + i + 2].toInt() and 0xFF) shl 16) or
                     ((data[start + i + 3].toInt() and 0xFF) shl 24)
                 val normalized = normalizeSkillId(raw)
                 if (isValidSkillId(normalized)) {
-                    offset = start + i + 4
-                    return normalized
+                    candidates.add(Candidate(i, normalized))
                 }
             }
-            throw IllegalStateException("Skill not found")
+            if (candidates.isEmpty()) {
+                throw IllegalStateException("Skill not found")
+            }
+
+            val best = candidates.firstOrNull { it.normalized in 11_000_000..19_999_999 }
+                ?: candidates.firstOrNull { it.normalized in 100_000..199_999 }
+                ?: candidates.first()
+
+            offset = start + best.index + 4
+            return best.normalized
         }
 
     }
