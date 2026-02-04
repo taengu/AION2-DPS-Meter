@@ -7,8 +7,8 @@
 
   --text-color: rgb(255, 255, 255);
   --text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.8),
-    0 2px 8px rgba(0, 0, 0, 0.4);
+          0 1px 2px rgba(0, 0, 0, 0.8),
+          0 2px 8px rgba(0, 0, 0, 0.4);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -21,22 +21,22 @@
 
 * {
   font-family:
-    "Pretendard",
-    "Noto Sans KR",
-    "Noto Sans SC",
-    "Noto Sans TC",
-    "Microsoft YaHei UI",
-    "Microsoft YaHei",
-    "Microsoft JhengHei UI",
-    "Microsoft JhengHei",
-    "PingFang SC",
-    "PingFang TC",
-    "Heiti SC",
-    "Heiti TC",
-    "SimHei",
-    "Segoe UI",
-    "Arial Unicode MS",
-    sans-serif;
+          "Pretendard",
+          "Noto Sans KR",
+          "Noto Sans SC",
+          "Noto Sans TC",
+          "Microsoft YaHei UI",
+          "Microsoft YaHei",
+          "Microsoft JhengHei UI",
+          "Microsoft JhengHei",
+          "PingFang SC",
+          "PingFang TC",
+          "Heiti SC",
+          "Heiti TC",
+          "SimHei",
+          "Segoe UI",
+          "Arial Unicode MS",
+          sans-serif;
   margin: 0;
   padding: 0;
   -webkit-user-select: none;
