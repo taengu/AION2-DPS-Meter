@@ -572,7 +572,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val damageValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
             hits = listOf(damageValue.toLong())
             val trailerValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-            stackedHits = reader.tryReadStackedHits(trailerValue)
+            stackedHits = if (trailerValue > 1) {
+                reader.tryReadStackedHits(trailerValue)
+            } else {
+                null
+            }
         }
 
         if (reader.offset < packet.size) {
