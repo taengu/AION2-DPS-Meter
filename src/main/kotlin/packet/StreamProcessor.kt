@@ -562,7 +562,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var adjustedDamage = finalDamage
         var multiHitCount = 0
         var multiHitDamage = 0
-        val hitCount = reader.tryReadVarInt()
+        val hitCount = if (
+            reader.remainingBytes() >= 2 &&
+            packet[reader.offset] == 0x03.toByte() &&
+            packet[reader.offset + 1] == 0x00.toByte()
+        ) {
+            null
+        } else {
+            reader.tryReadVarInt()
+        }
         if (hitCount != null && hitCount > 0 && reader.remainingBytes() > 0) {
             var hitSum = 0
             var hitsRead = 0
