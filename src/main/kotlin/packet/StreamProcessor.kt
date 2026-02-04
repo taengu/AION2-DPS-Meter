@@ -704,16 +704,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     ): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
         if (packet.isEmpty()) return flags
-        val b = packet[0].toInt() and 0xFF
+        val b0 = packet[0].toInt() and 0xFF
+        val b1 = if (packet.size > 1) packet[1].toInt() and 0xFF else 0
 
-        if ((b and 0x01) != 0) flags.add(SpecialDamage.BACK)
-        if ((b and 0x02) != 0) flags.add(SpecialDamage.CRITICAL)
-        if ((b and 0x04) != 0) flags.add(SpecialDamage.PARRY)
-        if ((b and 0x08) != 0) flags.add(SpecialDamage.PERFECT)
-        if ((b and 0x10) != 0) flags.add(SpecialDamage.DOUBLE)
-        if ((b and 0x20) != 0) flags.add(SpecialDamage.ENDURE)
-        if ((b and 0x40) != 0) flags.add(SpecialDamage.UNKNOWN4)
-        if ((b and 0x80) != 0) flags.add(SpecialDamage.POWER_SHARD)
+        if ((b0 and 0x01) != 0) flags.add(SpecialDamage.BACK)
+        if ((b0 and 0x04) != 0) flags.add(SpecialDamage.PARRY)
+        if ((b0 and 0x08) != 0) flags.add(SpecialDamage.PERFECT)
+        if ((b0 and 0x10) != 0) flags.add(SpecialDamage.DOUBLE)
+        if ((b0 and 0x20) != 0) flags.add(SpecialDamage.ENDURE)
+        if ((b0 and 0x40) != 0) flags.add(SpecialDamage.UNKNOWN4)
+        if ((b0 and 0x80) != 0) flags.add(SpecialDamage.POWER_SHARD)
+
+        if ((b1 and 0x02) != 0) flags.add(SpecialDamage.CRITICAL)
+        if ((b1 and 0x10) != 0) flags.add(SpecialDamage.SMITE)
 
         return flags
     }
