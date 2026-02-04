@@ -707,38 +707,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     ): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
         if (packet.isEmpty()) return flags
-        val specialFlagByte = packet[0].toInt() and 0xFF
-        val unknownSkillByte = if (packet.size > 2) packet[2].toInt() and 0xFF else 0
-        val isCritical = if (damageType.toInt() == 2) {
-            switchResult == 4 && flagValue == 0 && (unknownSkillByte and 0x04) != 0
-        } else {
-            (specialFlagByte and 0x02) != 0
-        }
+        val b = packet[0].toInt() and 0xFF
 
-        if ((specialFlagByte and 0x01) != 0) {
-            flags.add(SpecialDamage.BACK)
-        }
-        if (isCritical) {
-            flags.add(SpecialDamage.CRITICAL)
-        }
-        if ((specialFlagByte and 0x04) != 0) {
-            flags.add(SpecialDamage.PARRY)
-        }
-        if ((specialFlagByte and 0x08) != 0 && (damageType.toInt() != 2 || flagValue == 0)) {
-            flags.add(SpecialDamage.PERFECT)
-        }
-        if ((specialFlagByte and 0x10) != 0) {
-            flags.add(SpecialDamage.DOUBLE)
-        }
-        if ((specialFlagByte and 0x20) != 0 && (flagValue and 0x20) != 0) {
-            flags.add(SpecialDamage.ENDURE)
-        }
-        if ((specialFlagByte and 0x40) != 0 && (flagValue and 0x40) != 0) {
-            flags.add(SpecialDamage.UNKNOWN4)
-        }
-        if ((specialFlagByte and 0x80) != 0) {
-            flags.add(SpecialDamage.POWER_SHARD)
-        }
+        if ((b and 0x01) != 0) flags.add(SpecialDamage.BACK)
+        if ((b and 0x02) != 0) flags.add(SpecialDamage.CRITICAL)
+        if ((b and 0x04) != 0) flags.add(SpecialDamage.PARRY)
+        if ((b and 0x08) != 0) flags.add(SpecialDamage.PERFECT)
+        if ((b and 0x10) != 0) flags.add(SpecialDamage.DOUBLE)
+        if ((b and 0x20) != 0) flags.add(SpecialDamage.ENDURE)
+        if ((b and 0x40) != 0) flags.add(SpecialDamage.UNKNOWN4)
+        if ((b and 0x80) != 0) flags.add(SpecialDamage.POWER_SHARD)
 
         return flags
     }
