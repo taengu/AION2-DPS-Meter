@@ -147,78 +147,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             if (flag && !processed) {
                 logger.debug("Remaining packet {}", toHex(packet))
-                parseNicknameFromBrokenLengthPacket(packet)
+                castNicknameNet(packet)
             }
             return
         }
         val newPacket = packet.copyOfRange(10, packet.size)
         onPacketReceived(newPacket)
-    }
-
-    private fun parseNicknameFromBrokenLengthPacket(packet: ByteArray) {
-        var originOffset = 0
-        while (originOffset < packet.size) {
-            val info = readVarInt(packet, originOffset)
-            if (info.length == -1) {
-                return
-            }
-            val innerOffset = originOffset + info.length
-
-            if (innerOffset + 6 >= packet.size) {
-                originOffset++
-                continue
-            }
-
-            if (packet[innerOffset + 3] == 0x01.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
-                val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
-                if (innerOffset + 6 + possibleNameLength <= packet.size) {
-                    val possibleNameBytes = packet.copyOfRange(innerOffset + 6, innerOffset + 6 + possibleNameLength)
-                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                    val sanitizedName = sanitizeNickname(possibleName)
-                    if (sanitizedName != null) {
-                        logger.info(
-                            "Potential nickname found in pattern 1: {} (hex={})",
-                            sanitizedName,
-                            toHex(possibleNameBytes)
-                        )
-                        DebugLogWriter.info(
-                            logger,
-                            "Potential nickname found in pattern 1: {} (hex={})",
-                            sanitizedName,
-                            toHex(possibleNameBytes)
-                        )
-                        dataStorage.appendNickname(info.value, sanitizedName)
-                    }
-                }
-            }
-            // Pattern 2 disabled temporarily due to unreliable results.
-            if (packet.size > innerOffset + 5) {
-                if (packet[innerOffset + 3] == 0x00.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
-                    val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
-                    if (packet.size > innerOffset + possibleNameLength + 6) {
-                        val possibleNameBytes =
-                            packet.copyOfRange(innerOffset + 6, innerOffset + possibleNameLength + 6)
-                        val possibleName = String(possibleNameBytes, Charsets.UTF_8)
-                        val sanitizedName = sanitizeNickname(possibleName)
-                        if (sanitizedName != null) {
-                            logger.info(
-                                "Potential nickname found in new pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            DebugLogWriter.info(
-                                logger,
-                                "Potential nickname found in new pattern: {} (hex={})",
-                                sanitizedName,
-                                toHex(possibleNameBytes)
-                            )
-                            dataStorage.appendNickname(info.value, sanitizedName)
-                        }
-                    }
-                }
-            }
-            originOffset++
-        }
     }
 
     private fun sanitizeNickname(nickname: String): String? {
@@ -384,6 +318,48 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             foundAny = true
         }
         return foundAny
+    }
+
+    private fun castNicknameNet(packet: ByteArray): Boolean {
+        var originOffset = 0
+        while (originOffset < packet.size) {
+            val info = readVarInt(packet, originOffset)
+            if (info.length == -1) {
+                return false
+            }
+            val innerOffset = originOffset + info.length
+
+            if (innerOffset + 6 >= packet.size) {
+                originOffset++
+                continue
+            }
+
+            if (packet[innerOffset + 3] == 0x01.toByte() && packet[innerOffset + 4] == 0x07.toByte()) {
+                val possibleNameLength = packet[innerOffset + 5].toInt() and 0xff
+                if (innerOffset + 6 + possibleNameLength <= packet.size) {
+                    val possibleNameBytes = packet.copyOfRange(innerOffset + 6, innerOffset + 6 + possibleNameLength)
+                    val possibleName = String(possibleNameBytes, Charsets.UTF_8)
+                    val sanitizedName = sanitizeNickname(possibleName)
+                    if (sanitizedName != null) {
+                        logger.info(
+                            "Potential nickname found in cast net: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        DebugLogWriter.info(
+                            logger,
+                            "Potential nickname found in cast net: {} (hex={})",
+                            sanitizedName,
+                            toHex(possibleNameBytes)
+                        )
+                        dataStorage.appendNickname(info.value, sanitizedName)
+                        return true
+                    }
+                }
+            }
+            originOffset++
+        }
+        return false
     }
 
     private fun actorExists(actorId: Int): Boolean {
