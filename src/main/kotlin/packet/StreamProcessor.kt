@@ -543,15 +543,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val hits: List<Long>?
+        val hits: List<Long>
         val unknownInfo: VarIntOutput?
         var loopInfo: VarIntOutput? = null
         val unknownValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
         unknownInfo = VarIntOutput(unknownValue, 1)
         val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage()
         val hitCount = reader.tryReadVarInt() ?: 1
+        var isMultiHit = hitCount > 1 && reader.remainingBytes() >= hitCount
+        if (hitCount > 8) {
+            isMultiHit = false
+        }
 
-        hits = if (hitCount > 1 && reader.remainingBytes() >= hitCount) {
+        hits = if (isMultiHit) {
             val hitValues = mutableListOf<Long>()
             repeat(hitCount) {
                 val hitValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
@@ -559,7 +563,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             hitValues
         } else {
-            listOf(finalDamage.toLong())
+            emptyList()
         }
 
         if (reader.offset < packet.size) {
@@ -578,7 +582,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 //            }
 //        }
 
-        val hitSummary = if (hits.size > 1) {
+        val hitSummary = if (isMultiHit && hits.size > 1) {
             val hitValues = hits.distinct()
             val hitValueText = if (hitValues.size == 1) {
                 hitValues.first().toString()
@@ -590,7 +594,57 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             ""
         }
 
-        for (hit in hits) {
+        if (isMultiHit) {
+            for (hit in hits) {
+                val pdp = ParsedDamagePacket()
+                pdp.setTargetId(targetInfo)
+                pdp.setSwitchVariable(switchInfo)
+                pdp.setFlag(flagInfo)
+                pdp.setActorId(actorInfo)
+                pdp.setSkillCode(skillCode)
+                pdp.setType(typeInfo)
+                pdp.setSpecials(specials)
+                unknownInfo?.let { pdp.setUnknown(it) }
+                pdp.setDamage(VarIntOutput(hit.toInt(), 1))
+                loopInfo?.let { pdp.setLoop(it) }
+
+                logger.trace("{}", toHex(packet))
+                logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
+                logger.trace(
+                    "Type packet bits {}",
+                    String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
+                )
+                logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+                logger.debug(
+                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}",
+                    pdp.getTargetId(),
+                    pdp.getActorId(),
+                    pdp.getSkillCode1(),
+                    pdp.getType(),
+                    pdp.getDamage(),
+                    pdp.getSpecials(),
+                    hitSummary
+                )
+                DebugLogWriter.debug(
+                    logger,
+                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}{}, hex={}",
+                    pdp.getTargetId(),
+                    pdp.getActorId(),
+                    pdp.getSkillCode1(),
+                    pdp.getType(),
+                    pdp.getDamage(),
+                    pdp.getSpecials(),
+                    hitSummary,
+                    toHex(packet)
+                )
+
+                if (pdp.getActorId() != pdp.getTargetId()) {
+                    //추후 hps 를 넣는다면 수정하기
+                    //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
+                    dataStorage.appendDamage(pdp)
+                }
+            }
+        } else {
             val pdp = ParsedDamagePacket()
             pdp.setTargetId(targetInfo)
             pdp.setSwitchVariable(switchInfo)
@@ -600,7 +654,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.setType(typeInfo)
             pdp.setSpecials(specials)
             unknownInfo?.let { pdp.setUnknown(it) }
-            pdp.setDamage(VarIntOutput(hit.toInt(), 1))
+            pdp.setDamage(VarIntOutput(finalDamage, 1))
             loopInfo?.let { pdp.setLoop(it) }
 
             logger.trace("{}", toHex(packet))
