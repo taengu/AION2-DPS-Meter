@@ -17,6 +17,8 @@
 
   --panel-border: rgba(255, 255, 255, 0.12);
   --title: rgba(235, 245, 255, 0.95);
+  --font: 16px;
+  --details-bg-opacity: 0.5;
 }
 
 * {
@@ -68,9 +70,6 @@
     width: 88px;
     img {
       -webkit-user-drag: none;
-      -khtml-user-drag: none;
-      -moz-user-drag: none;
-      -o-user-drag: none;
 
       width: 100%;
     }
@@ -260,7 +259,7 @@
 .list {
   display: grid;
   gap: 4px;
-  padding: 0px 12px;
+  padding: 0 12px;
   &:has(.item:not([style*="display: none"])) {
     padding: 4px 12px 12px;
   }
@@ -349,7 +348,7 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 6px; /* 리스트 위쪽에 띄우고 싶으면 */
-  padding: 0px 12px;
+  padding: 0 12px;
 
   &.isVisible {
     display: flex;
@@ -469,7 +468,6 @@
       user-select: none;
       font-size: 22px;
       padding: 2px 8px;
-      border-radius: 6px;
       transition: 0.2s;
       border-radius: 4px;
     }
@@ -648,7 +646,7 @@
       font-size: 24px;
     }
     .updateModalText {
-      margin: 24px 0px;
+      margin: 24px 0;
       white-space: pre-line;
     }
     .updateModalBtn {
@@ -674,9 +672,6 @@
 }
 .header .bossIcon img {
   -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
   width: 100%;
 }
 .header .bossNames {
@@ -964,7 +959,6 @@
   user-select: none;
   font-size: 22px;
   padding: 2px 8px;
-  border-radius: 6px;
   transition: 0.2s;
   border-radius: 4px;
 }
@@ -1113,7 +1107,7 @@
   font-size: 24px;
 }
 .updateModal .updateModalCard .updateModalText {
-  margin: 24px 0px;
+  margin: 24px 0;
   white-space: pre-line;
 }
 .updateModal .updateModalCard .updateModalBtn {
