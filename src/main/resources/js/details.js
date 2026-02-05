@@ -137,18 +137,37 @@ const createDetailsUI = ({
     return formatCompactNumber(getTargetDamageForSelection(target));
   };
 
+  const jobColorMap = {
+    정령성: "#4FD1C5",
+    궁성: "#41D98A",
+    살성: "#7BE35A",
+    수호성: "#5F8CFF",
+    마도성: "#9A6BFF",
+    호법성: "#E06BFF",
+    치유성: "#F2C15A",
+    검성: "#FF9A3D",
+  };
+
+  const getJobColor = (job) => jobColorMap[job] || "";
+
   const updateHeaderText = () => {
     if (detailsTitleLabel) {
       detailsTitleLabel.textContent = labelText("details.header", "Details");
     }
     if (detailsTitleSeparator) {
-      detailsTitleSeparator.textContent = "-";
+      detailsTitleSeparator.textContent = "for";
     }
     if (detailsTitleVs) {
       detailsTitleVs.textContent = "vs";
     }
     if (detailsNicknameBtn) {
       detailsNicknameBtn.textContent = selectedAttackerLabel || "-";
+      const actorId = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length === 1
+        ? selectedAttackerIds[0]
+        : null;
+      const actorJob = actorId ? detailsActors.get(Number(actorId))?.job : "";
+      const color = actorJob ? getJobColor(actorJob) : "";
+      detailsNicknameBtn.style.color = color || "";
     }
     if (detailsTargetBtn) {
       const targetLabel = selectedTargetId ? `Mob #${selectedTargetId}` : "-";
@@ -157,7 +176,13 @@ const createDetailsUI = ({
     if (detailsTargetSuffix) {
       const target = getTargetById(selectedTargetId);
       const suffix = formatTargetSuffix(target);
-      detailsTargetSuffix.textContent = suffix ? `(${suffix})` : "";
+      if (!suffix) {
+        detailsTargetSuffix.textContent = "";
+      } else if (sortMode === "recent") {
+        detailsTargetSuffix.textContent = suffix;
+      } else {
+        detailsTargetSuffix.textContent = `(${suffix})`;
+      }
     }
   };
 
@@ -169,9 +194,69 @@ const createDetailsUI = ({
     updateHeaderText();
   };
 
+  const resolveStatValue = (statKey, data) => {
+    if (!data) return "-";
+    switch (statKey) {
+      case "details.stats.totalDamage":
+        return formatNum(data.totalDmg);
+      case "details.stats.contribution":
+        return pctText(data.contributionPct);
+      case "details.stats.critRate":
+        return pctText(data.totalCritPct);
+      case "details.stats.perfectRate":
+        return pctText(data.totalPerfectPct);
+      case "details.stats.doubleRate":
+        return pctText(data.totalDoublePct);
+      case "details.stats.backRate":
+        return pctText(data.totalBackPct);
+      case "details.stats.parryRate":
+        return pctText(data.totalParryPct);
+      case "details.stats.combatTime":
+        return data.combatTime ?? "-";
+      default:
+        return STATUS.find((stat) => stat.key === statKey)?.getValue(data) ?? "-";
+    }
+  };
+
   const renderStats = (details) => {
+    const showCombinedTotals = details?.showCombinedTotals && Array.isArray(details?.perActorStats);
     for (let i = 0; i < STATUS.length; i++) {
-      statSlots[i].valueEl.textContent = STATUS[i].getValue(details);
+      const slot = statSlots[i];
+      const statKey = STATUS[i].key;
+      if (!showCombinedTotals) {
+        slot.valueEl.style.display = "";
+        slot.valueEl.style.flexWrap = "";
+        slot.valueEl.style.gap = "";
+        slot.valueEl.style.justifyContent = "";
+        slot.valueEl.style.alignItems = "";
+        slot.valueEl.innerHTML = "";
+        slot.valueEl.textContent = STATUS[i].getValue(details);
+        continue;
+      }
+
+      slot.valueEl.innerHTML = "";
+      slot.valueEl.style.display = "flex";
+      slot.valueEl.style.flexWrap = "wrap";
+      slot.valueEl.style.gap = "6px";
+      slot.valueEl.style.justifyContent = "flex-end";
+      slot.valueEl.style.alignItems = "center";
+
+      const actorStats = details.perActorStats || [];
+      actorStats.forEach((actor) => {
+        const span = document.createElement("span");
+        span.textContent = resolveStatValue(statKey, actor);
+        span.style.fontWeight = "400";
+        const color = getJobColor(actor.job);
+        if (color) {
+          span.style.color = color;
+        }
+        slot.valueEl.appendChild(span);
+      });
+
+      const totalSpan = document.createElement("span");
+      totalSpan.textContent = resolveStatValue(statKey, details);
+      totalSpan.style.fontWeight = "700";
+      slot.valueEl.appendChild(totalSpan);
     }
   };
 
@@ -257,7 +342,6 @@ const createDetailsUI = ({
 
   const renderSkills = (details) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
-    const showSkillColors = !!details?.showSkillIcons;
     const topSkills = [...skills].sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
     // .slice(0, 12);
 
@@ -303,21 +387,8 @@ const createDetailsUI = ({
       const doubleRate = pct(double, hits);
 
       view.nameTextEl.textContent = skill.name ?? "";
-      if (showSkillColors && skill.job) {
-        const jobColorMap = {
-          정령성: "#4FD1C5",
-          궁성: "#41D98A",
-          살성: "#7BE35A",
-          수호성: "#5F8CFF",
-          마도성: "#9A6BFF",
-          호법성: "#E06BFF",
-          치유성: "#F2C15A",
-          검성: "#FF9A3D",
-        };
-        view.nameTextEl.style.color = jobColorMap[skill.job] || "";
-      } else {
-        view.nameTextEl.style.color = "";
-      }
+      const skillColor = skill.job ? getJobColor(skill.job) : "";
+      view.nameTextEl.style.color = skillColor || "";
       view.hitEl.textContent = `${hits}`;
       view.critEl.textContent = `${critRate}%`;
 
@@ -365,6 +436,14 @@ const createDetailsUI = ({
     const actor = detailsActors.get(Number(actorId));
     if (actor?.nickname) return actor.nickname;
     return `Player #${actorId}`;
+  };
+
+  const resolveRowLabel = (row) => {
+    if (!row) return "-";
+    if (row.isIdentifying) {
+      return `Player #${row.id ?? row.name ?? ""}`.trim();
+    }
+    return String(row.name ?? "-");
   };
 
   const renderNicknameMenu = () => {
@@ -425,7 +504,13 @@ const createDetailsUI = ({
       item.className = "detailsDropdownItem";
       item.dataset.value = String(target.targetId);
       const suffix = formatTargetSuffix(target);
-      item.textContent = `Mob #${target.targetId}${suffix ? ` (${suffix})` : ""}`;
+      if (!suffix) {
+        item.textContent = `Mob #${target.targetId}`;
+      } else if (sortMode === "recent") {
+        item.textContent = `Mob #${target.targetId} ${suffix}`;
+      } else {
+        item.textContent = `Mob #${target.targetId} (${suffix})`;
+      }
       if (Number(target.targetId) === Number(selectedTargetId)) {
         item.classList.add("isActive");
       }
@@ -573,12 +658,15 @@ const createDetailsUI = ({
     openedRowId = rowId;
     lastRow = row;
 
-    selectedAttackerLabel = String(row.name ?? "");
+    selectedAttackerLabel = resolveRowLabel(row);
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
     loadDetailsContext();
     if (detailsContext && detailsContext.currentTargetId) {
       selectedTargetId = detailsContext.currentTargetId;
+    }
+    if (selectedAttackerIds && selectedAttackerIds.length === 1) {
+      selectedAttackerLabel = resolveActorLabel(selectedAttackerIds[0]);
     }
     renderNicknameMenu();
     renderTargetMenu();

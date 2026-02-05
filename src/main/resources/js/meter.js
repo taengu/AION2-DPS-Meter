@@ -1,4 +1,4 @@
-const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getMetric }) => {
+const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getMetric, getSortDirection }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
@@ -211,10 +211,11 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
 
   const updateFromRows = (rows) => {
     const arr = Array.isArray(rows) ? rows.slice() : [];
+    const sortDirection = typeof getSortDirection === "function" ? getSortDirection() : "desc";
     arr.sort((a, b) => {
       const aMetric = Number(resolveMetric(a)?.value) || 0;
       const bMetric = Number(resolveMetric(b)?.value) || 0;
-      return bMetric - aMetric;
+      return sortDirection === "asc" ? aMetric - bMetric : bMetric - aMetric;
     });
     renderRows(getDisplayRows(arr));
   };

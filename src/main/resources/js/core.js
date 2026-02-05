@@ -53,7 +53,8 @@ class DpsApp {
     this._windowTitleTimer = null;
 
     this.i18n = window.i18n;
-    this.targetSelection = "mostDamage";
+    this.targetSelection = "lastHitByMe";
+    this.listSortDirection = "desc";
     this.lastTargetMode = "";
     this.lastTargetName = "";
     this.lastTargetId = 0;
@@ -133,6 +134,7 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getUserName: () => this.USER_NAME,
       getMetric: (row) => this.getMetricForRow(row),
+      getSortDirection: () => this.listSortDirection,
       onClickUserRow: (row) => this.detailsUI.open(row),
     });
 
@@ -555,6 +557,8 @@ class DpsApp {
       heal = 0,
       countForTotals = true,
       job = "",
+      actorId = null,
+      isDot = false,
     }) => {
       const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
       if (dmgInt <= 0) {
@@ -584,6 +588,8 @@ class DpsApp {
         heal: Number(heal) || 0,
         dmg: dmgInt,
         job,
+        actorId,
+        isDot,
       });
     };
 
@@ -602,6 +608,7 @@ class DpsApp {
           this.i18n?.format?.("skills.dot", { name: baseName }, `${baseName} - DOT`) ||
           `${baseName} - DOT`;
         const isDot = !!value.isDot;
+        const actorId = Number(value.actorId);
 
         pushSkill({
           codeKey: isDot ? `${code}-dot` : code,
@@ -616,6 +623,8 @@ class DpsApp {
           heal: value.heal,
           job: value.job ?? "",
           countForTotals: !isDot,
+          actorId: Number.isFinite(actorId) ? actorId : null,
+          isDot,
         });
       }
     } else {
@@ -663,6 +672,36 @@ class DpsApp {
       if (den <= 0) return 0;
       return Math.round((num / den) * 1000) / 10;
     };
+    const perActorStatsMap = new Map();
+    for (const skill of skills) {
+      if (!Number.isFinite(Number(skill.actorId))) continue;
+      const actorId = Number(skill.actorId);
+      const entry =
+        perActorStatsMap.get(actorId) || {
+          actorId,
+          job: skill.job ?? "",
+          totalDmg: 0,
+          totalTimes: 0,
+          totalCrit: 0,
+          totalParry: 0,
+          totalBack: 0,
+          totalPerfect: 0,
+          totalDouble: 0,
+        };
+      entry.totalDmg += Number(skill.dmg) || 0;
+      if (!skill.isDot) {
+        entry.totalTimes += Number(skill.time) || 0;
+        entry.totalCrit += Number(skill.crit) || 0;
+        entry.totalParry += Number(skill.parry) || 0;
+        entry.totalBack += Number(skill.back) || 0;
+        entry.totalPerfect += Number(skill.perfect) || 0;
+        entry.totalDouble += Number(skill.double) || 0;
+      }
+      if (!entry.job && skill.job) {
+        entry.job = skill.job;
+      }
+      perActorStatsMap.set(actorId, entry);
+    }
     const fallbackContribution = Number(row?.damageContribution);
     const baseTotalDamage = Number.isFinite(Number(totalTargetDamage))
       ? Number(totalTargetDamage)
@@ -676,6 +715,24 @@ class DpsApp {
       ? this.formatBattleTime(battleTimeMsRaw)
       : this.battleTime?.getCombatTimeText?.() ?? "00:00";
 
+    const perActorStats = [...perActorStatsMap.values()]
+      .map((entry) => ({
+        actorId: entry.actorId,
+        job: entry.job,
+        totalDmg: entry.totalDmg,
+        contributionPct:
+          Number.isFinite(baseTotalDamage) && baseTotalDamage > 0
+            ? (entry.totalDmg / baseTotalDamage) * 100
+            : 0,
+        totalCritPct: pct(entry.totalCrit, entry.totalTimes),
+        totalParryPct: pct(entry.totalParry, entry.totalTimes),
+        totalBackPct: pct(entry.totalBack, entry.totalTimes),
+        totalPerfectPct: pct(entry.totalPerfect, entry.totalTimes),
+        totalDoublePct: pct(entry.totalDouble, entry.totalTimes),
+        combatTime,
+      }))
+      .sort((a, b) => b.totalDmg - a.totalDmg);
+
     return {
       totalDmg,
       contributionPct,
@@ -688,26 +745,18 @@ class DpsApp {
 
       skills,
       showSkillIcons,
+      perActorStats,
+      showCombinedTotals: !attackerIds || attackerIds.length === 0,
     };
   }
 
   bindHeaderButtons() {
     this.collapseBtn?.addEventListener("click", () => {
-      this.isCollapse = !this.isCollapse;
+      this.listSortDirection = this.listSortDirection === "asc" ? "desc" : "asc";
+      this.renderCurrentRows();
 
-      // 접히면 polling 멈추고 완전 초기화
-      if (this.isCollapse) {
-        this.stopPolling();
-        this.elList.style.display = "none";
-        this.resetAll({ callBackend: true });
-      } else {
-        // 펼치면 polling 재개하고 즉시 1회 fetch
-        this.elList.style.display = "grid";
-        this.startPolling();
-        this.fetchDps();
-      }
-
-      const iconName = this.isCollapse ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
+      const iconName =
+        this.listSortDirection === "asc" ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
       const iconEl =
         this.collapseBtn.querySelector("svg") || this.collapseBtn.querySelector("[data-lucide]");
       if (!iconEl) {

@@ -27,6 +27,7 @@ data class DetailsContext(
 
 @Serializable
 data class DetailSkillEntry(
+    val actorId: Int,
     val code: Int,
     val name: String,
     val time: Int,

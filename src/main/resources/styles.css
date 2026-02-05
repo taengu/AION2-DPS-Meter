@@ -637,7 +637,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 700;
       flex-wrap: wrap;
     }
@@ -665,7 +665,6 @@
 
     .detailsNicknameBtn {
       color: var(--isUser-fill);
-      font-size: 18px;
     }
 
     .detailsTargetBtn,
@@ -1290,7 +1289,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -1314,7 +1313,6 @@
 }
 .detailsPanel .detailsHeader .detailsNicknameBtn {
   color: var(--isUser-fill);
-  font-size: 18px;
 }
 .detailsPanel .detailsHeader .detailsTargetBtn,
 .detailsPanel .detailsHeader .detailsTargetSuffix {

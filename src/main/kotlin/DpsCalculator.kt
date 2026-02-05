@@ -943,8 +943,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         dpsData.targetId = currentTarget
         dataStorage.setCurrentTarget(currentTarget)
 
-        val battleTime = when (targetDecision.mode) {
-            TargetSelectionMode.ALL_TARGETS -> parseAllBattleTime(targetDecision.targetIds)
+        val isRecentCombined = targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME &&
+            targetDecision.trackingTargetId == 0 &&
+            targetDecision.targetIds.isNotEmpty()
+        val battleTime = when {
+            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, 30_000L)
+            targetDecision.mode == TargetSelectionMode.ALL_TARGETS -> parseAllBattleTime(targetDecision.targetIds)
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
         val nicknameData = dataStorage.getNickname()
@@ -961,8 +965,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
             return dpsData
         }
-        val pdps = when (targetDecision.mode) {
-            TargetSelectionMode.ALL_TARGETS -> collectAllPdp(pdpMap, targetDecision.targetIds)
+        val pdps = when {
+            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, 30_000L)
+            targetDecision.mode == TargetSelectionMode.ALL_TARGETS -> collectAllPdp(pdpMap, targetDecision.targetIds)
             else -> pdpMap[currentTarget]?.toList() ?: return dpsData
         }
         pdps.forEach { pdp ->
@@ -1126,6 +1131,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val existing = skillMap[key]
             val next = if (existing == null) {
                 DetailSkillEntry(
+                    actorId = uid,
                     code = inferredCode,
                     name = SKILL_MAP[inferredCode] ?: "",
                     time = 0,
@@ -1190,8 +1196,14 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
             }
             TargetSelectionMode.LAST_HIT_BY_ME -> {
-                val targetId = selectTargetLastHitByMe(currentTarget)
-                TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
+                val localActors = resolveConfirmedLocalActorIds()
+                if (localActors == null) {
+                    val recentTargets = selectRecentTargetsForUnknownPlayer(30_000L)
+                    TargetDecision(recentTargets, "", targetSelectionMode, 0)
+                } else {
+                    val targetId = selectTargetLastHitByMe(localActors, currentTarget)
+                    TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
+                }
             }
             TargetSelectionMode.ALL_TARGETS -> {
                 TargetDecision(targetInfoMap.keys.toSet(), "", targetSelectionMode, mostRecentTarget)
@@ -1211,25 +1223,16 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return mostDamageStale && mostRecentFresh
     }
 
-    private fun selectTargetLastHitByMe(fallbackTarget: Int): Int {
+    private fun resolveConfirmedLocalActorIds(): Set<Int>? {
         val localName = LocalPlayer.characterName?.trim().orEmpty()
-        if (localName.isBlank()) return fallbackTarget
-
-        val localActorIds = mutableSetOf<Int>()
         val localPlayerId = LocalPlayer.playerId?.toInt()
-        if (localPlayerId != null) {
-            localActorIds.add(localPlayerId)
-        }
-        if (localActorIds.isEmpty()) {
-            val nicknameData = dataStorage.getNickname()
-            localActorIds.addAll(
-                nicknameData
-                    .filterValues { it == localName }
-                    .keys
-            )
-        }
-        if (localActorIds.isEmpty()) return fallbackTarget
+        if (localName.isBlank() || localPlayerId == null) return null
 
+        val nicknameData = dataStorage.getNickname()
+        val recordedName = nicknameData[localPlayerId]
+        if (recordedName == null || recordedName != localName) return null
+
+        val localActorIds = mutableSetOf(localPlayerId)
         val summonData = dataStorage.getSummonData()
         if (summonData.isNotEmpty()) {
             summonData.forEach { (summonId, summonerId) ->
@@ -1241,12 +1244,15 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 }
             }
         }
+        return localActorIds
+    }
 
+    private fun selectTargetLastHitByMe(localActorIds: Set<Int>, fallbackTarget: Int): Int {
         val actorData = dataStorage.getActorData()
-        val cutoff = System.currentTimeMillis() - 10_000L
+        val cutoff = System.currentTimeMillis() - 5_000L
         var mostRecentTarget = fallbackTarget
         var mostRecentTime = -1L
-        val recentCounts = mutableMapOf<Int, Int>()
+        val recentDamage = mutableMapOf<Int, Int>()
         val recentTimes = mutableMapOf<Int, Long>()
 
         localActorIds.forEach { actorId ->
@@ -1260,7 +1266,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     mostRecentTarget = targetId
                 }
                 if (timestamp >= cutoff) {
-                    recentCounts[targetId] = (recentCounts[targetId] ?: 0) + 1
+                    recentDamage[targetId] = (recentDamage[targetId] ?: 0) + pdp.getDamage()
                     val existingTime = recentTimes[targetId] ?: 0L
                     if (timestamp > existingTime) {
                         recentTimes[targetId] = timestamp
@@ -1269,28 +1275,49 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
-        if (mostRecentTime < 0) {
+        if (mostRecentTime < 0 || mostRecentTime <= lastLocalHitTime) {
             return fallbackTarget
         }
 
-        if (mostRecentTime <= lastLocalHitTime) {
-            return fallbackTarget
-        }
-
-        val selectedTarget = if (recentCounts.size > 1) {
-            val frequentTarget = recentCounts.entries.maxWithOrNull(
+        val selectedTarget = if (recentDamage.isNotEmpty()) {
+            recentDamage.entries.maxWithOrNull(
                 compareBy<Map.Entry<Int, Int>> { it.value }
                     .thenBy { recentTimes[it.key] ?: 0L }
-            )?.key
-            frequentTarget ?: mostRecentTarget
-        } else if (recentCounts.size == 1) {
-            recentCounts.keys.first()
+            )?.key ?: mostRecentTarget
         } else {
             mostRecentTarget
         }
 
         lastLocalHitTime = mostRecentTime
         return selectedTarget
+    }
+
+    private fun selectRecentTargetsForUnknownPlayer(windowMs: Long): Set<Int> {
+        val cutoff = System.currentTimeMillis() - windowMs
+        return targetInfoMap.filterValues { it.lastDamageTime() >= cutoff }.keys
+    }
+
+    private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
+        val cutoff = System.currentTimeMillis() - windowMs
+        val combined = mutableListOf<ParsedDamagePacket>()
+        val seen = mutableSetOf<UUID>()
+        targetIds.forEach { targetId ->
+            dataStorage.getBossModeData()[targetId]?.forEach { pdp ->
+                if (pdp.getTimeStamp() < cutoff) return@forEach
+                if (seen.add(pdp.getUuid())) {
+                    combined.add(pdp)
+                }
+            }
+        }
+        return combined
+    }
+
+    private fun parseRecentBattleTime(targetIds: Set<Int>, windowMs: Long): Long {
+        val pdps = collectRecentPdp(targetIds, windowMs)
+        if (pdps.isEmpty()) return 0
+        val start = pdps.minOf { it.getTimeStamp() }
+        val end = pdps.maxOf { it.getTimeStamp() }
+        return end - start
     }
 
     private fun resolveTargetName(target: Int): String {
