@@ -51,7 +51,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     ((data[start + i + 3].toInt() and 0xFF) shl 24)
                 val normalized = normalizeSkillId(raw)
                 val typeInfo = readVarInt(data, start + i + 4)
-                val isValidType = typeInfo.length > 0 && typeInfo.value in 0..255
+                val isValidType = typeInfo.length > 0 && typeInfo.value in 1..9
                 if (normalized in 3_000_000..3_999_999) {
                     if (isValidType) {
                         offset = start + i + 4
