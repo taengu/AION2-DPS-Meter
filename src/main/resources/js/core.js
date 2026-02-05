@@ -22,7 +22,7 @@ class DpsApp {
     this.lastJson = null;
     this.isCollapse = false;
     this.displayMode = "dps";
-    this.theme = "classic";
+    this.theme = "aion2";
     this.availableThemes = [
       "classic",
       "aion2",

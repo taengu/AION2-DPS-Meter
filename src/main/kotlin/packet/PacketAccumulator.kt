@@ -18,7 +18,7 @@ class PacketAccumulator {
         val size = buffer.size()
 
         if (size in (WARN_BUFFER_SIZE + 1)..<MAX_BUFFER_SIZE) {
-            logger.warn("{} : buffer nearing limit", logger.name)
+            logger.trace("{} : buffer nearing limit", logger.name)
         }
 
         if (size > MAX_BUFFER_SIZE) {
