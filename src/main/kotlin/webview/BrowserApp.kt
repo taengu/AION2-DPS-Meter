@@ -49,7 +49,7 @@ class BrowserApp(
         private val dpsCalculator: DpsCalculator,
         private val hostServices: HostServices,
         private val windowTitleProvider: () -> String?,
-        private val onUiReady: (() -> Unit)?
+        private val uiReadyNotifier: () -> Unit
     ) {
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
 
@@ -140,7 +140,7 @@ class BrowserApp(
         }
 
         fun notifyUiReady() {
-            onUiReady?.invoke()
+            uiReadyNotifier()
         }
     }
 
@@ -154,6 +154,12 @@ class BrowserApp(
     @Volatile
     private var cachedWindowTitle: String? = null
     private val windowTitlePollerStarted = AtomicBoolean(false)
+    private val uiReadyReported = AtomicBoolean(false)
+    private val uiReadyNotifier: () -> Unit = {
+        if (uiReadyReported.compareAndSet(false, true)) {
+            onUiReady?.invoke()
+        }
+    }
 
     private fun startWindowTitlePolling() {
         if (!windowTitlePollerStarted.compareAndSet(false, true)) return
@@ -176,7 +182,7 @@ class BrowserApp(
         val engine = webView.engine
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 
-        val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, onUiReady)
+        val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier)
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject
@@ -205,6 +211,7 @@ class BrowserApp(
         stage.scene = scene
         stage.isAlwaysOnTop = true
         stage.title = "Aion2 Dps Overlay"
+        stage.setOnShown { uiReadyNotifier() }
 
         stage.show()
         Timeline(KeyFrame(Duration.millis(500.0), {

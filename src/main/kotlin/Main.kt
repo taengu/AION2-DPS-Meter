@@ -35,6 +35,11 @@ class AionMeterApp : Application() {
         val capturer = PcapCapturer(config, channel)
         val dispatcher = CaptureDispatcher(channel, dataStorage)
         val uiReady = CompletableDeferred<Unit>()
+        val markUiReady = {
+            if (!uiReady.isCompleted) {
+                uiReady.complete(Unit)
+            }
+        }
         val iconStream = javaClass.getResourceAsStream("/resources/icon.ico")
         if (iconStream != null) {
             primaryStage.icons.add(javafx.scene.image.Image(iconStream))
@@ -64,7 +69,7 @@ class AionMeterApp : Application() {
         }
 
         // Initialize and show the browser
-        val browserApp = BrowserApp(calculator) { uiReady.complete(Unit) }
+        val browserApp = BrowserApp(calculator) { markUiReady() }
         browserApp.start(primaryStage)
 
         // Ensure the window actually paints
