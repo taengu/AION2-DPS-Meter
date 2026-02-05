@@ -25,6 +25,8 @@
   --rounded-xs: 6px;
 
   --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-bg: rgba(12, 22, 40, 0.92);
+  --panel-field-bg: rgba(0, 0, 0, 0.35);
   --title: rgba(235, 245, 255, 0.95);
   --font: 16px;
   --details-bg-opacity: 0.5;
@@ -272,7 +274,7 @@
   top: 0;
   width: 420px;
   border: 1px solid var(--panel-border);
-  background: rgb(12, 22, 40);
+  background: var(--panel-bg);
   padding: 12px 8px;
   border-radius: var(--rounded-lg);
   text-shadow: var(--text-shadow);
@@ -361,7 +363,7 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--rounded-xs);
     padding: 6px 8px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--panel-field-bg);
     color: var(--text-color);
   }
 
@@ -369,7 +371,7 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--rounded-xs);
     padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--panel-field-bg);
     color: var(--text-color);
     font-weight: 600;
     cursor: pointer;
@@ -380,8 +382,17 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--rounded-xs);
     padding: 6px 8px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--panel-field-bg);
     color: var(--text-color);
+  }
+  .settingsSelect option,
+  .settingsSelect optgroup {
+    background: var(--panel-bg);
+    color: var(--text-color);
+  }
+  .settingsSelect:focus {
+    outline: 1px solid var(--isUser-fill);
+    outline-offset: 1px;
   }
 
   .settingsCheckbox {
@@ -1002,14 +1013,14 @@
   border: 1px solid var(--panel-border);
   border-radius: var(--rounded-xs);
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--panel-field-bg);
   color: var(--text-color);
 }
 .settingsPanel .settingsAction {
   border: 1px solid var(--panel-border);
   border-radius: var(--rounded-xs);
   padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--panel-field-bg);
   color: var(--text-color);
   font-weight: 600;
   cursor: pointer;
@@ -1019,8 +1030,17 @@
   border: 1px solid var(--panel-border);
   border-radius: var(--rounded-xs);
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--panel-field-bg);
   color: var(--text-color);
+}
+.settingsPanel .settingsSelect option,
+.settingsPanel .settingsSelect optgroup {
+  background: var(--panel-bg);
+  color: var(--text-color);
+}
+.settingsPanel .settingsSelect:focus {
+  outline: 1px solid var(--isUser-fill);
+  outline-offset: 1px;
 }
 .settingsPanel .settingsCheckbox {
   display: flex;
