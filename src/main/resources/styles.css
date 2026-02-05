@@ -229,6 +229,40 @@
       text-align: center;
     }
   }
+
+  .footerBtns {
+    position: absolute;
+    right: 24px;
+    bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    color: white;
+    text-shadow: var(--text-shadow);
+    cursor: pointer;
+
+    .footerBtn {
+      display: flex;
+      align-items: center;
+      width: 20px;
+      height: 20px;
+    }
+
+    .metricToggleBtn {
+      width: auto;
+      height: auto;
+      min-width: 26px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+  }
 }
 .settingsPanel {
   position: absolute;
@@ -866,6 +900,37 @@
   align-items: center;
   width: 20px;
   height: 20px;
+}
+.footerBtns {
+  position: absolute;
+  right: 24px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  color: white;
+  text-shadow: var(--text-shadow);
+  cursor: pointer;
+}
+.footerBtns .footerBtn {
+  display: flex;
+  align-items: center;
+  width: 20px;
+  height: 20px;
+}
+.footerBtns .metricToggleBtn {
+  width: auto;
+  height: auto;
+  min-width: 26px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
 }
 
 .settingsPanel.isOpen {
