@@ -2,6 +2,7 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.entity.DpsData
+import com.tbread.keyboard.RefreshKeybindManager
 import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.CombatPortDetector
 import com.tbread.packet.LocalPlayer
@@ -37,7 +38,9 @@ class BrowserApp(
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
     private var webEngine: WebEngine? = null
+    private val refreshKeybindManager = RefreshKeybindManager({ triggerRefreshFromKeybind() })
     override fun stop() {
+        refreshKeybindManager.stop()
         super.stop()
     }
 
@@ -132,6 +135,7 @@ class BrowserApp(
         fun setRefreshKeybind(value: String?) {
             val normalized = value?.trim().orEmpty()
             PropertyHandler.setProperty("dpsMeter.refreshKeybind", normalized)
+            refreshKeybindManager.updateKeybind(normalized)
         }
 
         fun logDebug(message: String?) {
@@ -182,6 +186,20 @@ class BrowserApp(
         }
     }
 
+    private fun triggerRefreshFromKeybind() {
+        val engine = webEngine
+        if (engine == null) {
+            dpsCalculator.resetDataStorage()
+            return
+        }
+        Platform.runLater {
+            try {
+                engine.executeScript("window.dpsApp?.triggerRefreshFromKeybind?.()")
+            } catch (e: Exception) {
+                logger.warn("Failed to trigger refresh via keybind", e)
+            }
+        }
+    }
 
     override fun start(stage: Stage) {
         DebugLogWriter.loadFromSettings()
@@ -202,6 +220,10 @@ class BrowserApp(
                 window.setMember("dpsData", this)
             }
         }
+
+        val storedKeybind = PropertyHandler.getProperty("dpsMeter.refreshKeybind") ?: "Ctrl+R"
+        refreshKeybindManager.updateKeybind(storedKeybind)
+        refreshKeybindManager.start()
 
 
         val scene = Scene(webView, 1600.0, 1000.0)
