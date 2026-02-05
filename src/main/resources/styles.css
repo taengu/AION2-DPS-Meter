@@ -4,11 +4,13 @@
   --warning-fill: #ffa537;
   --error-fill: #c24343;
   --dps: #29ff6f;
+  --dps-text: #6fffd0;
 
   --text-color: rgb(255, 255, 255);
   --text-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.8),
-          0 2px 8px rgba(0, 0, 0, 0.4);
+          0 1px 1px rgba(0, 0, 0, 0.85),
+          0 2px 4px rgba(0, 0, 0, 0.6),
+          0 4px 10px rgba(0, 0, 0, 0.35);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -19,6 +21,28 @@
   --title: rgba(235, 245, 255, 0.95);
   --font: 16px;
   --details-bg-opacity: 0.5;
+}
+
+:root[data-theme="aion2"] {
+  --row-fill: #5b4dff;
+  --isUser-fill: #36c5ff;
+  --warning-fill: #ffae4f;
+  --error-fill: #ff5a7a;
+  --dps: #29ff6f;
+  --dps-text: #7fd8ff;
+  --panel-border: rgba(140, 180, 255, 0.2);
+  --title: rgba(220, 235, 255, 0.98);
+}
+
+:root[data-theme="ember"] {
+  --row-fill: #ff9a3d;
+  --isUser-fill: #ff6b6b;
+  --warning-fill: #ffd166;
+  --error-fill: #ff3b5c;
+  --dps: #29ff6f;
+  --dps-text: #ffd7a3;
+  --panel-border: rgba(255, 210, 165, 0.2);
+  --title: rgba(255, 240, 220, 0.98);
 }
 
 * {
@@ -56,6 +80,9 @@
   /* background-color: rgba(255, 255, 255, 0.1); */
   border: 1px solid rgba(209, 213, 219, 0.3);
   border-radius: var(--rounded);
+  position: relative;
+  min-width: 300px;
+  min-height: 160px;
 }
 
 .header {
@@ -243,6 +270,22 @@
     text-shadow: var(--text-shadow);
     width: 100%;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .discordButton .discordIcon {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+  }
+
+  .discordButton .discordIcon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
   }
 
   .quitButton {
@@ -329,10 +372,10 @@
       text-overflow: ellipsis;
     }
     .dps {
-      color: var(--dps);
+      color: var(--dps-text);
       font-size: var(--font);
       text-shadow: var(--text-shadow);
-      font-weight: bold;
+      font-weight: 400;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -340,8 +383,8 @@
   }
 }
 .meter .item.isIdentifying .content .name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 400;
 }
 .battleTime {
   display: none;
@@ -390,6 +433,27 @@
   }
 }
 
+.resizeHandle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  opacity: 0.65;
+}
+
+.resizeHandle::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+}
+
 .detailsPanel {
   position: absolute;
   color: white;
@@ -400,7 +464,7 @@
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: 864px;
+  width: 920px;
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
@@ -616,7 +680,8 @@
             justify-content: end;
             align-items: center;
             text-shadow: var(--text-shadow);
-            color: var(--dps);
+            color: var(--dps-text);
+            font-weight: 400;
           }
         }
       }
@@ -805,6 +870,20 @@
   text-shadow: var(--text-shadow);
   width: 100%;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.settingsPanel .discordButton .discordIcon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+}
+.settingsPanel .discordButton .discordIcon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 
 .list .item {
@@ -861,11 +940,14 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.list .item .name.isCjk {
+  font-weight: 500;
+}
 .list .item .dps {
-  color: var(--dps);
+  color: var(--dps-text);
   font-size: var(--font);
   text-shadow: var(--text-shadow);
-  font-weight: bold;
+  font-weight: 400;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1089,7 +1171,8 @@
   justify-content: end;
   align-items: center;
   text-shadow: var(--text-shadow);
-  color: var(--dps);
+  color: var(--dps-text);
+  font-weight: 400;
 }
 
 .updateModal.isOpen {
