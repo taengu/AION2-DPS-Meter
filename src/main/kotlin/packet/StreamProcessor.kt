@@ -42,27 +42,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         fun remainingBytes(): Int = data.size - offset
 
         fun readSkillCode(): Int {
-            val start = offset
-            for (i in 0..5) {
-                if (start + i + 4 > data.size) break
-                val raw = (data[start + i].toInt() and 0xFF) or
-                    ((data[start + i + 1].toInt() and 0xFF) shl 8) or
-                    ((data[start + i + 2].toInt() and 0xFF) shl 16) or
-                    ((data[start + i + 3].toInt() and 0xFF) shl 24)
-                val normalized = normalizeSkillId(raw)
-                if (normalized in 3_000_000..3_999_999) {
-                    offset = start + i + 4
-                    return AUTO_ATTACK_CODE
-                }
-                if (
-                    normalized in 11_000_000..19_999_999 ||
-                    normalized in 100_000..199_999
-                ) {
-                    offset = start + i + 4
-                    return normalized
-                }
+            if (offset + 4 > data.size) {
+                throw IllegalStateException("skill not found")
             }
-
+            val raw = (data[offset].toInt() and 0xFF) or
+                ((data[offset + 1].toInt() and 0xFF) shl 8) or
+                ((data[offset + 2].toInt() and 0xFF) shl 16) or
+                ((data[offset + 3].toInt() and 0xFF) shl 24)
+            val normalized = normalizeSkillId(raw)
+            offset += 4
+            if (normalized in 3_000_000..3_999_999) {
+                return AUTO_ATTACK_CODE
+            }
+            if (
+                normalized in 11_000_000..19_999_999 ||
+                normalized in 100_000..199_999
+            ) {
+                return normalized
+            }
             throw IllegalStateException("skill not found")
         }
 
