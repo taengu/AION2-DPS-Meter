@@ -909,9 +909,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private var mode: Mode = Mode.BOSS_ONLY
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
-    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.MOST_DAMAGE
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
     private val targetSwitchStaleMs = 10_000L
     private var lastLocalHitTime: Long = -1L
+    private val unknownPlayerTargetWindowMs = 120_000L
+    private val allTargetsWindowMs = 60_000L
 
     fun setMode(mode: Mode) {
         this.mode = mode
@@ -949,10 +951,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             targetDecision.trackingTargetId == 0 &&
             targetDecision.targetIds.isNotEmpty()
         val battleTime = when {
-            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, 30_000L)
+            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, unknownPlayerTargetWindowMs)
             localActorsForBattleTime != null && targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME ->
                 parseActorBattleTimeForTarget(localActorsForBattleTime, currentTarget)
-            targetDecision.mode == TargetSelectionMode.ALL_TARGETS -> parseAllBattleTime(targetDecision.targetIds)
+            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
+                parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
         val nicknameData = dataStorage.getNickname()
@@ -970,8 +973,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return dpsData
         }
         val pdps = when {
-            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, 30_000L)
-            targetDecision.mode == TargetSelectionMode.ALL_TARGETS -> collectAllPdp(pdpMap, targetDecision.targetIds)
+            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, unknownPlayerTargetWindowMs)
+            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
+                collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
             else -> pdpMap[currentTarget]?.toList() ?: return dpsData
         }
         pdps.forEach { pdp ->
@@ -1215,7 +1219,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             TargetSelectionMode.LAST_HIT_BY_ME -> {
                 val localActors = resolveConfirmedLocalActorIds()
                 if (localActors == null) {
-                    val recentTargets = selectRecentTargetsForUnknownPlayer(30_000L)
+                    val recentTargets = selectRecentTargetsForUnknownPlayer(unknownPlayerTargetWindowMs)
                     TargetDecision(recentTargets, "", targetSelectionMode, 0)
                 } else {
                     val targetId = selectTargetLastHitByMe(localActors, currentTarget)
@@ -1223,7 +1227,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 }
             }
             TargetSelectionMode.ALL_TARGETS -> {
-                TargetDecision(targetInfoMap.keys.toSet(), "", targetSelectionMode, mostRecentTarget)
+                val recentTargets = selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
+                TargetDecision(recentTargets, "", targetSelectionMode, 0)
             }
         }
     }
@@ -1253,13 +1258,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 localActorIds.add(localPlayerId)
             }
         }
-        if (localActorIds.isEmpty()) {
-            localActorIds.addAll(
-                nicknameData
-                    .filterValues { it == localName }
-                    .keys
-            )
-        }
+        localActorIds.addAll(
+            nicknameData
+                .filterValues { it == localName }
+                .keys
+        )
         if (localActorIds.isEmpty()) return null
         val summonData = dataStorage.getSummonData()
         if (summonData.isNotEmpty()) {

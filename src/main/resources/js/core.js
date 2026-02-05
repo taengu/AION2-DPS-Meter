@@ -123,6 +123,7 @@ class DpsApp {
     this._connectionStatusOverride = false;
 
     this.resetBtn = document.querySelector(".resetBtn");
+    this.targetModeBtn = document.querySelector(".targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
     this.metricToggleBtn = document.querySelector(".metricToggleBtn");
 
@@ -784,6 +785,17 @@ class DpsApp {
     this.resetBtn?.addEventListener("click", () => {
       this.resetAll({ callBackend: true });
     });
+    this.targetModeBtn?.addEventListener("click", () => {
+      const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
+      this.setTargetSelection(nextMode, {
+        persist: true,
+        syncBackend: true,
+        reason: "header toggle",
+      });
+      if (!this.isCollapse) {
+        this.fetchDps();
+      }
+    });
     this.metricToggleBtn?.addEventListener("click", () => {
       const nextMode = this.displayMode === "totalDamage" ? "dps" : "totalDamage";
       this.setDisplayMode(nextMode, { persist: true });
@@ -804,7 +816,6 @@ class DpsApp {
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
-    this.targetSelect = document.querySelector(".targetSelect");
     this.themeSelect = document.querySelector(".themeSelect");
     this.refreshKeybindInput = document.querySelector(".settingsKeybindInput");
 
@@ -821,7 +832,9 @@ class DpsApp {
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
-    this.setTargetSelection(storedTargetSelection || this.targetSelection, {
+    const normalizedTargetSelection =
+      storedTargetSelection === "allTargets" ? "allTargets" : this.targetSelection;
+    this.setTargetSelection(normalizedTargetSelection, {
       persist: false,
       syncBackend: true,
       reason: storedTargetSelection ? "restore from storage" : "default selection",
@@ -873,20 +886,6 @@ class DpsApp {
         const value = event.target?.value;
         if (value) {
           this.applyTheme(value, { persist: true });
-        }
-      });
-    }
-
-    if (this.targetSelect) {
-      this.targetSelect.value = this.targetSelection;
-      this.targetSelect.addEventListener("change", (event) => {
-        const value = event.target?.value;
-        if (value) {
-          this.setTargetSelection(value, {
-            persist: true,
-            syncBackend: true,
-            reason: "user selection",
-          });
         }
       });
     }
@@ -1119,15 +1118,12 @@ class DpsApp {
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
     const previousSelection = this.targetSelection;
-    this.targetSelection = mode || "mostDamage";
+    this.targetSelection = mode === "allTargets" ? "allTargets" : "lastHitByMe";
     if (persist) {
       localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
     }
     if (syncBackend) {
       window.javaBridge?.setTargetSelection?.(this.targetSelection);
-    }
-    if (this.targetSelect && document.activeElement !== this.targetSelect) {
-      this.targetSelect.value = this.targetSelection;
     }
     if (previousSelection !== this.targetSelection) {
       this.logDebug(
@@ -1135,6 +1131,7 @@ class DpsApp {
       );
       this._lastTargetSelection = this.targetSelection;
     }
+    this.updateTargetModeButton();
   }
 
   applyTheme(themeId, { persist = false } = {}) {
@@ -1370,6 +1367,9 @@ class DpsApp {
   }
 
   getTargetLabel({ targetId = 0, targetName = "", targetMode = "" } = {}) {
+    if (targetMode === "allTargets") {
+      return this.getDefaultTargetLabel(targetMode);
+    }
     if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
       return `Mob #${Number(targetId)}`;
     }
@@ -1377,6 +1377,21 @@ class DpsApp {
       return targetName;
     }
     return this.getDefaultTargetLabel(targetMode);
+  }
+
+  updateTargetModeButton() {
+    if (!this.targetModeBtn) return;
+    const isAllTargets = this.targetSelection === "allTargets";
+    this.targetModeBtn.classList.toggle("isAllTargets", isAllTargets);
+    const label = isAllTargets ? "ALL" : "";
+    const labelEl = this.targetModeBtn.querySelector(".targetModeLabel");
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+    const ariaLabel = isAllTargets
+      ? "All targets mode"
+      : "Target mode";
+    this.targetModeBtn.setAttribute("aria-label", ariaLabel);
   }
 
   refreshBossLabel() {

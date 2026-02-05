@@ -29,6 +29,13 @@
 
           <div class="headerBtns">
             <div class="headerBtn resetBtn"><i data-lucide="rotate-ccw"></i></div>
+            <div
+              class="headerBtn targetModeBtn"
+              role="button"
+              aria-label="Target mode">
+              <span class="targetModeIcon"><i data-lucide="target"></i></span>
+              <span class="targetModeLabel">ALL</span>
+            </div>
             <div class="headerBtn settingsBtn"><i data-lucide="settings"></i></div>
           </div>
         </div>
@@ -207,27 +214,6 @@
                 <option value="zh-Hans">简体中文</option>
               </select>
             </div>
-            <div class="settingsRow settingsRowSelect">
-              <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.targetSelection.label">
-                  Target selection (experimental)
-                </div>
-              </div>
-              <select class="settingsSelect targetSelect">
-                <option value="mostDamage" data-i18n="settings.targetSelection.options.mostDamage">
-                  Most damage (current)
-                </option>
-                <option value="mostRecent" data-i18n="settings.targetSelection.options.mostRecent">
-                  Most recently damaged
-                </option>
-                <option value="lastHitByMe" data-i18n="settings.targetSelection.options.lastHitByMe">
-                  Last hit by me
-                </option>
-                <option value="allTargets" data-i18n="settings.targetSelection.options.allTargets">
-                  All targets combined
-                </option>
-              </select>
-              </div>
             <div class="settingsRow settingsRowInput">
               <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.refreshKeybind.label">
