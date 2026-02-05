@@ -700,7 +700,7 @@
       justify-content: flex-start;
       white-space: nowrap;
 
-      color: var(--row-fill);
+      color: var(--isUser-fill);
     }
 
     .cell.dmg {
@@ -1194,7 +1194,7 @@
   flex: 0 0 200px;
   justify-content: flex-start;
   white-space: nowrap;
-  color: var(--row-fill);
+  color: var(--isUser-fill);
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
