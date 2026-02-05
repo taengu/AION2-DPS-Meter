@@ -63,28 +63,28 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     }
 
-    fun onPacketReceived(packet: ByteArray) {
+    fun onPacketReceived(packet: ByteArray): Boolean {
+        var parsed = false
         val packetLengthInfo = readVarInt(packet)
         if (packet.size == packetLengthInfo.value) {
             logger.trace(
                 "Current byte length matches expected length: {}",
                 toHex(packet.copyOfRange(0, packet.size - 3))
             )
-            parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))
+            parsed = parsePerfectPacket(packet.copyOfRange(0, packet.size - 3)) || parsed
             //더이상 자를필요가 없는 최종 패킷뭉치
-            return
+            return parsed
         }
-        if (packet.size <= 3) return
+        if (packet.size <= 3) return parsed
         // 매직패킷 단일로 올때 무시
         if (packetLengthInfo.value > packet.size) {
             logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
-            parseBrokenLengthPacket(packet)
+            parsed = parseBrokenLengthPacket(packet) || parsed
             //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
-            return
+            return parsed
         }
         if (packetLengthInfo.value <= 3) {
-            onPacketReceived(packet.copyOfRange(1, packet.size))
-            return
+            return onPacketReceived(packet.copyOfRange(1, packet.size)) || parsed
         }
 
         try {
@@ -94,21 +94,22 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         "Packet split succeeded: {}",
                         toHex(packet.copyOfRange(0, packetLengthInfo.value - 3))
                     )
-                    parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3))
+                    parsed = parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3)) || parsed
                     //매직패킷이 빠져있는 패킷뭉치
                 }
             }
 
-            onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size))
+            parsed = onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size)) || parsed
             //남은패킷 재처리
         } catch (e: IndexOutOfBoundsException) {
             logger.debug("Truncated tail packet skipped: {}", toHex(packet))
-            return
+            return parsed
         }
-
+        return parsed
     }
 
-    private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
+    private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
+        var parsed = false
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
             val target = dataStorage.getCurrentTarget()
@@ -121,27 +122,31 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val dotKeyword = dotOpcodes + targetBytes
                 val damageIdx = findArrayIndex(packet, damageKeyword)
                 val dotIdx = findArrayIndex(packet,dotKeyword)
-                val (idx, handler) = when {
+                val (idx, isDamage) = when {
                     damageIdx > 0 && dotIdx > 0 -> {
-                        if (damageIdx < dotIdx) damageIdx to ::parsingDamage
-                        else dotIdx to ::parseDoTPacket
+                        if (damageIdx < dotIdx) damageIdx to true
+                        else dotIdx to false
                     }
-                    damageIdx > 0 -> damageIdx to ::parsingDamage
-                    dotIdx > 0 -> dotIdx to ::parseDoTPacket
-                    else -> -1 to null
+                    damageIdx > 0 -> damageIdx to true
+                    dotIdx > 0 -> dotIdx to false
+                    else -> -1 to false
                 }
-                if (idx > 0 && handler != null){
+                if (idx > 0) {
                     val packetLengthInfo = readVarInt(packet, idx - 1)
                     if (packetLengthInfo.length == 1) {
                         val startIdx = idx - 1
                         val endIdx = idx - 1 + packetLengthInfo.value - 3
                         if (startIdx in 0..<endIdx && endIdx <= packet.size) {
                             val extractedPacket = packet.copyOfRange(startIdx, endIdx)
-                            handler(extractedPacket)
+                            if (isDamage) {
+                                parsed = parsingDamage(extractedPacket) || parsed
+                            } else {
+                                parseDoTPacket(extractedPacket)
+                            }
                             processed = true
                             if (endIdx < packet.size) {
                                 val remainingPacket = packet.copyOfRange(endIdx, packet.size)
-                                parseBrokenLengthPacket(remainingPacket, false)
+                                parsed = parseBrokenLengthPacket(remainingPacket, false) || parsed
                             }
                         }
                     }
@@ -149,12 +154,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             if (flag && !processed) {
                 logger.debug("Remaining packet {}", toHex(packet))
-                castNicknameNet(packet)
+                parsed = castNicknameNet(packet) || parsed
             }
-            return
+            return parsed
         }
         val newPacket = packet.copyOfRange(10, packet.size)
-        onPacketReceived(newPacket)
+        return onPacketReceived(newPacket) || parsed
     }
 
     private fun sanitizeNickname(nickname: String): String? {
@@ -467,20 +472,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return true
     }
 
-    private fun parsePerfectPacket(packet: ByteArray) {
-        if (packet.size < 3) return
-        var flag = parsingDamage(packet)
-        if (flag) return
-        flag = parseActorNameBindingRules(packet)
-        if (flag) return
-        flag = parseLootAttributionActorName(packet)
-        if (flag) return
-        flag = parsingNickname(packet)
-        if (flag) return
-        flag = parseSummonPacket(packet)
-        if (flag) return
+    private fun parsePerfectPacket(packet: ByteArray): Boolean {
+        if (packet.size < 3) return false
+        if (parsingDamage(packet)) return true
+        if (parseActorNameBindingRules(packet)) return true
+        if (parseLootAttributionActorName(packet)) return true
+        if (parsingNickname(packet)) return true
+        if (parseSummonPacket(packet)) return false
         parseDoTPacket(packet)
-
+        return false
     }
 
     private fun parseDoTPacket(packet:ByteArray){
@@ -715,8 +715,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun parsingDamage(packet: ByteArray): Boolean {
         if (packet[0] == 0x20.toByte()) return false
-        if (packet[0] == 0x1f.toByte()) return true
-        if (packet[0] == 0x1e.toByte()) return true
+        if (packet[0] == 0x1f.toByte()) return false
+        if (packet[0] == 0x1e.toByte()) return false
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         val reader = DamagePacketReader(packet, packetLengthInfo.length)

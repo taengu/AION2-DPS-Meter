@@ -70,7 +70,8 @@
   },
   "battleTime": {
     "analysing": "준비됨 - 전투 모니터링 중...",
-    "idle": "대기 중"
+    "idle": "대기 중",
+    "notRunning": "AION2 not running"
   },
   "meter": {
     "identifyingPlayer": "플레이어 #{id}"
@@ -86,6 +87,7 @@
   },
   "connection": {
     "auto": "자동",
+    "detecting": "Detecting device/port...",
     "loopback": "로컬 루프백"
   },
   "target": {

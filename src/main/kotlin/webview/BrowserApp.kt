@@ -72,14 +72,12 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()
             val lockedDevice = CombatPortDetector.currentDevice()
-            val storedDevice = PropertyHandler.getProperty("server.device")
-            val fallbackPort = PropertyHandler.getProperty("server.port")?.toIntOrNull()
             val info = ConnectionInfo(
                 ip = ip,
-                port = lockedPort ?: fallbackPort,
+                port = lockedPort,
                 locked = lockedPort != null,
                 characterName = LocalPlayer.characterName,
-                device = lockedDevice ?: storedDevice
+                device = lockedDevice
             )
             return Json.encodeToString(info)
         }

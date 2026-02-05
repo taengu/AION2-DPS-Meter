@@ -3,6 +3,7 @@ package com.tbread
 import com.tbread.config.PcapCapturerConfig
 import com.tbread.packet.*
 import com.tbread.webview.BrowserApp
+import com.tbread.windows.WindowTitleDetector
 import com.sun.jna.platform.win32.Advapi32
 import com.sun.jna.platform.win32.Kernel32
 import com.sun.jna.platform.win32.Shell32
@@ -16,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.system.exitProcess
 
@@ -42,7 +44,20 @@ class AionMeterApp : Application() {
         }
 
         appScope.launch(Dispatchers.IO) {
-            capturer.start()
+            var running = false
+            while (true) {
+                val detected = WindowTitleDetector.findAion2WindowTitle() != null
+                if (detected != running) {
+                    running = detected
+                    if (running) {
+                        capturer.start()
+                    } else {
+                        capturer.stop()
+                    }
+                }
+                val delayMs = if (running) 60_000L else 10_000L
+                delay(delayMs)
+            }
         }
 
         // Initialize and show the browser
