@@ -735,12 +735,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
         val switchValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-        val andResult = switchValue and mask
+        val switchInfo = VarIntOutput(switchValue, 1)
+        if (reader.offset >= packet.size) return logUnparsedDamage()
+        val andResult = switchInfo.value and mask
         if (andResult !in 4..7) {
             return true
         }
-        val switchInfo = VarIntOutput(switchValue, 1)
-        if (reader.offset >= packet.size) return logUnparsedDamage()
 
         val flagValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
         val flagInfo = VarIntOutput(flagValue, 1)
