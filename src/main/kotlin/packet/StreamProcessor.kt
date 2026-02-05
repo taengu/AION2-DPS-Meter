@@ -53,7 +53,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     normalized in 3_000_000..3_999_999 ||
                     normalized in 100_000..199_999
                 ) {
-                    offset = start + i + 5
+                    offset = start + i + 4
                     return normalized
                 }
             }
