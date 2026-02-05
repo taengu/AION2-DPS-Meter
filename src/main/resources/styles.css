@@ -260,6 +260,8 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
+    justify-content: flex-end;
+    width: 100%;
   }
 
   .discordButton {
