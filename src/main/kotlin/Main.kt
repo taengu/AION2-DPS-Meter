@@ -9,51 +9,73 @@ import com.sun.jna.platform.win32.Shell32
 import com.sun.jna.platform.win32.WinNT
 import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
+import javafx.application.Application
 import javafx.application.Platform
 import javafx.stage.Stage
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlin.system.exitProcess
 
-fun main() {
+// This class handles the JavaFX lifecycle properly for Native Images
+class AionMeterApp : Application() {
+    private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    override fun start(primaryStage: Stage) {
+        // We initialize the logic inside start() to ensure the toolkit is ready
+        val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
+        val config = PcapCapturerConfig.loadFromProperties()
+        val dataStorage = DataStorage()
+        val calculator = DpsCalculator(dataStorage)
+        val capturer = PcapCapturer(config, channel)
+        val dispatcher = CaptureDispatcher(channel, dataStorage)
+        val iconStream = javaClass.getResourceAsStream("/resources/icon.ico")
+        if (iconStream != null) {
+            primaryStage.icons.add(javafx.scene.image.Image(iconStream))
+        }
+
+        // Launch background tasks
+        appScope.launch {
+            dispatcher.run()
+        }
+
+        appScope.launch(Dispatchers.IO) {
+            capturer.start()
+        }
+
+        // Initialize and show the browser
+        val browserApp = BrowserApp(calculator)
+        browserApp.start(primaryStage)
+
+        // Ensure the window actually paints
+        primaryStage.show()
+        primaryStage.toFront()
+    }
+
+    override fun stop() {
+        // Cleanup when the window is closed
+        exitProcess(0)
+    }
+}
+
+fun main(args: Array<String>) {
+    // 1. Check Admin
     ensureAdminOnWindows()
 
+    // 2. Setup Logging/Errors
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
-        println("thread dead ${t.name}")
+        println("Critical Error in thread ${t.name}: ${e.message}")
         e.printStackTrace()
     }
 
-    println("Running on Java version: ${System.getProperty("java.version")} from ${System.getProperty("java.home")}")
+    println("Starting Native Aion2 Meter...")
+    println("Java: ${System.getProperty("java.version")} | Path: ${System.getProperty("java.home")}")
 
-    val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
-    val config = PcapCapturerConfig.loadFromProperties()
-
-    val dataStorage = DataStorage()
-    val calculator = DpsCalculator(dataStorage)
-
-    val capturer = PcapCapturer(config, channel)
-    val dispatcher = CaptureDispatcher(channel, dataStorage)
-
-    // Create a scope for your background tasks
-    val appScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Default)
-
-    // Launch the dispatcher
-    appScope.launch {
-        dispatcher.run() // This is now safe because it's in a coroutine
-    }
-
-    // Launch the capturer
-    appScope.launch(Dispatchers.IO) {
-        capturer.start()
-    }
-
-    // JavaFX startup remains the same
-    Platform.startup {
-        val browserApp = BrowserApp(calculator)
-        browserApp.start(Stage())
-    }
+    // 3. Launch the Application
+    // This blocks the main thread until the window is closed
+    Application.launch(AionMeterApp::class.java, *args)
 }
 
 private fun ensureAdminOnWindows() {
@@ -63,12 +85,15 @@ private fun ensureAdminOnWindows() {
 
     val currentProcess = ProcessHandle.current()
     val command = currentProcess.info().command().orElse(null) ?: return
-    if (!command.endsWith(".exe", ignoreCase = true)) return
+
+    // If running as a native .exe, it won't end in java.exe
     val commandLower = command.lowercase()
     if (commandLower.endsWith("java.exe") || commandLower.endsWith("javaw.exe")) return
+
     val args = currentProcess.info().arguments().orElse(emptyArray())
     val parameters = args.joinToString(" ") { "\"$it\"" }
 
+    println("Requesting Admin Privileges...")
     Shell32.INSTANCE.ShellExecute(
         null,
         "runas",
