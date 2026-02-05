@@ -28,7 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
-class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
+class BrowserApp(
+    private val dpsCalculator: DpsCalculator,
+    private val onUiReady: (() -> Unit)? = null
+) : Application() {
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
 
@@ -45,7 +48,8 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         private val stage: Stage,
         private val dpsCalculator: DpsCalculator,
         private val hostServices: HostServices,
-        private val windowTitleProvider: () -> String?
+        private val windowTitleProvider: () -> String?,
+        private val onUiReady: (() -> Unit)?
     ) {
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
 
@@ -134,6 +138,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
           Platform.exit()     
           exitProcess(0)       
         }
+
+        fun notifyUiReady() {
+            onUiReady?.invoke()
+        }
     }
 
     @Volatile
@@ -168,7 +176,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         val engine = webView.engine
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 
-        val bridge = JSBridge(stage, dpsCalculator, hostServices) { cachedWindowTitle }
+        val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, onUiReady)
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject

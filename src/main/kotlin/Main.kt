@@ -14,6 +14,7 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.stage.Stage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
@@ -33,6 +34,7 @@ class AionMeterApp : Application() {
         val calculator = DpsCalculator(dataStorage)
         val capturer = PcapCapturer(config, channel)
         val dispatcher = CaptureDispatcher(channel, dataStorage)
+        val uiReady = CompletableDeferred<Unit>()
         val iconStream = javaClass.getResourceAsStream("/resources/icon.ico")
         if (iconStream != null) {
             primaryStage.icons.add(javafx.scene.image.Image(iconStream))
@@ -44,6 +46,7 @@ class AionMeterApp : Application() {
         }
 
         appScope.launch(Dispatchers.IO) {
+            uiReady.await()
             var running = false
             while (true) {
                 val detected = WindowTitleDetector.findAion2WindowTitle() != null
@@ -61,7 +64,7 @@ class AionMeterApp : Application() {
         }
 
         // Initialize and show the browser
-        val browserApp = BrowserApp(calculator)
+        val browserApp = BrowserApp(calculator) { uiReady.complete(Unit) }
         browserApp.start(primaryStage)
 
         // Ensure the window actually paints
