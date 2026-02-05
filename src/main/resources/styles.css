@@ -1,18 +1,23 @@
 :root {
-  --row-fill: #ffc837;
-  --isUser-fill: #65d635;
-  --warning-fill: #ffa537;
-  --error-fill: #c24343;
-  --dps: #29ff6f;
-  --dps-text: #f0fff0;
+  /* Bars */
+  --row-fill: #5fbf87;
+  --isUser-fill: #6aa6ff;
 
-  --text-color: rgb(255, 255, 255);
+  /* Status */
+  --warning-fill: #f2b94f;
+  --error-fill: #e06b6b;
+
+  /* DPS numbers */
+  --dps: #dff5ea;
+  --dps-text: #dff5ea;
+
+  /* General text */
+  --text-color: #ffffff;
   --text-shadow:
           0 0 1px rgba(0, 0, 0, 0.95),
           0 1px 1px rgba(0, 0, 0, 0.95),
           0 2px 3px rgba(0, 0, 0, 0.8),
-          0 4px 10px rgba(0, 0, 0, 0.45),
-          0 0 6px rgba(124, 77, 255, 0.25);
+          0 4px 10px rgba(0, 0, 0, 0.45);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -26,25 +31,105 @@
 }
 
 :root[data-theme="aion2"] {
-  --row-fill: #5b4dff;
-  --isUser-fill: #36c5ff;
-  --warning-fill: #ffae4f;
-  --error-fill: #ff5a7a;
-  --dps: #29ff6f;
-  --dps-text: #7fd8ff;
-  --panel-border: rgba(140, 180, 255, 0.2);
-  --title: rgba(220, 235, 255, 0.98);
+  /* Bars */
+  --row-fill: #8b3fbf;
+  --isUser-fill: #4fb6ff;
+
+  /* Status */
+  --warning-fill: #f2b45a;
+  --error-fill: #e85b7f;
+
+  /* DPS numbers */
+  --dps: #cfe9ff;
+  --dps-text: #cfe9ff;
+
+  /* UI chrome */
+  --panel-border: rgba(140, 180, 255, 0.22);
+  --title: rgba(225, 235, 255, 0.98);
 }
 
 :root[data-theme="ember"] {
-  --row-fill: #ff9a3d;
-  --isUser-fill: #ff6b6b;
-  --warning-fill: #ffd166;
-  --error-fill: #ff3b5c;
-  --dps: #29ff6f;
-  --dps-text: #ffd7a3;
-  --panel-border: rgba(255, 210, 165, 0.2);
+  /* Bars */
+  --row-fill: #d9772a;
+  --isUser-fill: #ff6f4f;
+
+  /* Status */
+  --warning-fill: #f5c16c;
+  --error-fill: #e84b5f;
+
+  /* DPS numbers */
+  --dps: #ffe6c9;
+  --dps-text: #ffe6c9;
+
+  /* UI chrome */
+  --panel-border: rgba(255, 200, 150, 0.22);
   --title: rgba(255, 240, 220, 0.98);
+}
+
+:root[data-theme="frost"] {
+  --row-fill: #5fa3b5;
+  --isUser-fill: #8fd3ff;
+  --warning-fill: #f2c97d;
+  --error-fill: #e56b6b;
+  --dps: #eaf7ff;
+  --dps-text: #eaf7ff;
+  --panel-border: rgba(180, 220, 255, 0.22);
+  --title: rgba(235, 245, 255, 0.98);
+}
+
+:root[data-theme="natura"] {
+  --row-fill: #4f9b6a;
+  --isUser-fill: #7be3a2;
+  --warning-fill: #f0c36d;
+  --error-fill: #e06666;
+  --dps: #e9f7ef;
+  --dps-text: #e9f7ef;
+  --panel-border: rgba(160, 220, 190, 0.22);
+  --title: rgba(230, 245, 235, 0.98);
+}
+
+:root[data-theme="storm"] {
+  --row-fill: #6b6fd6;
+  --isUser-fill: #9aa4ff;
+  --warning-fill: #f2c24f;
+  --error-fill: #e35b6f;
+  --dps: #eef0ff;
+  --dps-text: #eef0ff;
+  --panel-border: rgba(170, 180, 255, 0.22);
+  --title: rgba(235, 238, 255, 0.98);
+}
+
+:root[data-theme="void"] {
+  --row-fill: #5a4a78;
+  --isUser-fill: #8f7bff;
+  --warning-fill: #f0b45f;
+  --error-fill: #e05b7a;
+  --dps: #f0ecff;
+  --dps-text: #f0ecff;
+  --panel-border: rgba(180, 160, 255, 0.22);
+  --title: rgba(235, 230, 255, 0.98);
+}
+
+:root[data-theme="obsidian"] {
+  --row-fill: #3f3f46;
+  --isUser-fill: #6fd3ff;
+  --warning-fill: #f2b84f;
+  --error-fill: #e35d5d;
+  --dps: #f5f5f5;
+  --dps-text: #f5f5f5;
+  --panel-border: rgba(200, 200, 200, 0.18);
+  --title: rgba(245, 245, 245, 0.98);
+}
+
+:root[data-theme="cyber"] {
+  --row-fill: #3a8f8f;
+  --isUser-fill: #5cf2e8;
+  --warning-fill: #f2b94f;
+  --error-fill: #ff5f7a;
+  --dps: #e6ffff;
+  --dps-text: #e6ffff;
+  --panel-border: rgba(120, 240, 240, 0.25);
+  --title: rgba(220, 255, 255, 0.98);
 }
 
 * {

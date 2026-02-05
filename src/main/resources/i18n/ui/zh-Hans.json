@@ -52,7 +52,13 @@
       "options": {
         "classic": "经典",
         "aion2": "Aion2",
-        "ember": "余烬"
+        "ember": "余烬",
+        "frost": "霜冻",
+        "natura": "自然",
+        "storm": "风暴",
+        "void": "虚空",
+        "obsidian": "黑曜",
+        "cyber": "赛博"
       }
     },
     "language": {

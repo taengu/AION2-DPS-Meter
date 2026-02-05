@@ -52,7 +52,13 @@
       "options": {
         "classic": "클래식",
         "aion2": "Aion2",
-        "ember": "엠버"
+        "ember": "엠버",
+        "frost": "프로스트",
+        "natura": "나투라",
+        "storm": "스톰",
+        "void": "보이드",
+        "obsidian": "옵시디언",
+        "cyber": "사이버"
       }
     },
     "language": {

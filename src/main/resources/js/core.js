@@ -23,7 +23,17 @@ class DpsApp {
     this.isCollapse = false;
     this.displayMode = "dps";
     this.theme = "classic";
-    this.availableThemes = ["classic", "aion2", "ember"];
+    this.availableThemes = [
+      "classic",
+      "aion2",
+      "ember",
+      "frost",
+      "natura",
+      "storm",
+      "void",
+      "obsidian",
+      "cyber",
+    ];
 
     // 빈데이터 덮어쓰기 방지 스냅샷
     this.lastSnapshot = null;
