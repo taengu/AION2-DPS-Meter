@@ -216,7 +216,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             if (packet[i] == 0x07.toByte()) {
-                val nameInfo = readAsciiName(packet, i)
+                val nameInfo = readUtf8Name(packet, i)
                 if (nameInfo == null) {
                     i++
                     continue
@@ -224,7 +224,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (lastAnchor != null && lastAnchor.actorId !in namedActors) {
                     val distance = i - lastAnchor.endIndex
                     if (distance >= 0) {
-                        val canBind = registerAsciiNickname(
+                        val canBind = registerUtf8Nickname(
                             packet,
                             lastAnchor.actorId,
                             nameInfo.first,
@@ -414,7 +414,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private data class ActorAnchor(val actorId: Int, val startIndex: Int, val endIndex: Int)
 
-    private fun readAsciiName(packet: ByteArray, anchorIndex: Int): Pair<Int, Int>? {
+    private fun readUtf8Name(packet: ByteArray, anchorIndex: Int): Pair<Int, Int>? {
         val lengthIndex = anchorIndex + 1
         if (lengthIndex >= packet.size) return null
         val nameLength = packet[lengthIndex].toInt() and 0xff
@@ -423,11 +423,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val nameEnd = nameStart + nameLength
         if (nameEnd > packet.size) return null
         val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-        if (!isPrintableAscii(nameBytes)) return null
+        val possibleName = decodeUtf8Strict(nameBytes) ?: return null
+        val sanitizedName = sanitizeNickname(possibleName) ?: return null
+        if (sanitizedName.isEmpty()) return null
         return nameStart to nameLength
     }
 
-    private fun registerAsciiNickname(
+    private fun registerUtf8Nickname(
         packet: ByteArray,
         actorId: Int,
         nameStart: Int,
@@ -439,42 +441,33 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val nameEnd = nameStart + nameLength
         if (nameStart < 0 || nameEnd > packet.size) return false
         val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
-        if (!isPrintableAscii(possibleNameBytes)) return false
-        val possibleName = String(possibleNameBytes, Charsets.US_ASCII)
+        val possibleName = decodeUtf8Strict(possibleNameBytes) ?: return false
+        val sanitizedName = sanitizeNickname(possibleName) ?: return false
         if (!actorExists(actorId)) {
             if (allowPrepopulate) {
-                dataStorage.appendNickname(actorId, possibleName)
+                dataStorage.appendNickname(actorId, sanitizedName)
             } else {
-                dataStorage.cachePendingNickname(actorId, possibleName)
+                dataStorage.cachePendingNickname(actorId, sanitizedName)
             }
             return true
         }
         val existingNickname = dataStorage.getNickname()[actorId]
-        if (existingNickname != possibleName) {
+        if (existingNickname != sanitizedName) {
             logger.info(
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
-                possibleName,
+                sanitizedName,
                 toHex(possibleNameBytes)
             )
             DebugLogWriter.info(
                 logger,
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
-                possibleName,
+                sanitizedName,
                 toHex(possibleNameBytes)
             )
         }
-        dataStorage.appendNickname(actorId, possibleName)
-        return true
-    }
-
-    private fun isPrintableAscii(bytes: ByteArray): Boolean {
-        if (bytes.isEmpty()) return false
-        for (b in bytes) {
-            val value = b.toInt() and 0xff
-            if (value < 0x20 || value > 0x7e) return false
-        }
+        dataStorage.appendNickname(actorId, sanitizedName)
         return true
     }
 
