@@ -228,7 +228,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             packet,
                             lastAnchor.actorId,
                             nameInfo.first,
-                            nameInfo.second
+                            nameInfo.second,
+                            allowPrepopulate = true
                         )
                         if (canBind) {
                             namedActors.add(lastAnchor.actorId)
@@ -430,7 +431,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         packet: ByteArray,
         actorId: Int,
         nameStart: Int,
-        nameLength: Int
+        nameLength: Int,
+        allowPrepopulate: Boolean = false
     ): Boolean {
         if (dataStorage.getNickname()[actorId] != null) return false
         if (nameLength <= 0 || nameLength > 16) return false
@@ -440,7 +442,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (!isPrintableAscii(possibleNameBytes)) return false
         val possibleName = String(possibleNameBytes, Charsets.US_ASCII)
         if (!actorExists(actorId)) {
-            dataStorage.cachePendingNickname(actorId, possibleName)
+            if (allowPrepopulate) {
+                dataStorage.appendNickname(actorId, possibleName)
+            } else {
+                dataStorage.cachePendingNickname(actorId, possibleName)
+            }
             return true
         }
         val existingNickname = dataStorage.getNickname()[actorId]
