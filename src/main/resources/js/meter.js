@@ -1,5 +1,6 @@
 const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getMetric }) => {
   const MAX_CACHE = 32;
+  const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
@@ -153,10 +154,12 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow, getM
       view.rowEl.classList.toggle("isIdentifying", !!row.isIdentifying);
 
       const rowId = row.id ?? row.name ?? "";
-      view.nameEl.textContent = row.isIdentifying
+      const nameText = row.isIdentifying
         ? window.i18n?.format?.("meter.identifyingPlayer", { id: rowId }, `Player #${rowId}`) ??
           `Player #${rowId}`
         : row.name ?? "";
+      view.nameEl.textContent = nameText;
+      view.nameEl.classList.toggle("isCjk", cjkRegex.test(nameText));
       if (row.job && !!row.job) {
         const src = `./assets/${row.job}.png`;
         view.classIconImg.src = src;

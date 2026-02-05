@@ -46,7 +46,15 @@
     "onlyMe": "只顯示我的角色",
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
-    "discord": "💬 在 Discord 取得支援",
+    "discord": "在 Discord 取得支援",
+    "theme": {
+      "label": "主題",
+      "options": {
+        "classic": "經典",
+        "aion2": "Aion2",
+        "ember": "餘燼"
+      }
+    },
     "language": {
       "label": "語言"
     },

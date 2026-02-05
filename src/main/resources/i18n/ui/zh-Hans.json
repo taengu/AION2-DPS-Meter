@@ -46,7 +46,15 @@
     "onlyMe": "仅显示我的角色",
     "debugLogging": "启用调试日志",
     "quit": "退出",
-    "discord": "💬 在 Discord 获取支持",
+    "discord": "在 Discord 获取支持",
+    "theme": {
+      "label": "主题",
+      "options": {
+        "classic": "经典",
+        "aion2": "Aion2",
+        "ember": "余烬"
+      }
+    },
     "language": {
       "label": "语言"
     },
