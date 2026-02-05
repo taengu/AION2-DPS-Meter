@@ -914,18 +914,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val pdpMap = dataStorage.getBossModeData()
 
         pdpMap.forEach { (target, data) ->
-            var flag = false
-            var targetInfo = targetInfoMap[target]
-            if (!targetInfoMap.containsKey(target)) {
-                flag = true
-            }
             data.forEach { pdp ->
-                if (flag) {
-                    flag = false
-                    targetInfo = TargetInfo(target, 0, pdp.getTimeStamp(), pdp.getTimeStamp())
-                    targetInfoMap[target] = targetInfo!!
+                val targetInfo = targetInfoMap.getOrPut(target) {
+                    TargetInfo(target, 0, pdp.getTimeStamp(), pdp.getTimeStamp())
                 }
-                targetInfo!!.processPdp(pdp)
+                targetInfo.processPdp(pdp)
                 //그냥 아래에서 재계산하는거 여기서 해놓고 아래에선 그냥 골라서 주는게 맞는거같은데 나중에 고민할필요있을듯
             }
         }

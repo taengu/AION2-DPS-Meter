@@ -14,7 +14,7 @@ class PcapCapturer(
     private val channel: Channel<CapturedPayload>
 ) {
     companion object {
-        private val logger = LoggerFactory.getLogger(javaClass.enclosingClass)
+        private val logger = LoggerFactory.getLogger(PcapCapturer::class.java)
         private const val FALLBACK_DELAY_MS = 5000L
 
         private fun getAllDevices(): List<PcapNetworkInterface> =

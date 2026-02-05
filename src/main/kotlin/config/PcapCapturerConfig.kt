@@ -10,7 +10,7 @@ data class PcapCapturerConfig(
     val snapshotSize: Int = 65536
 ) {
     companion object {
-        private val logger = LoggerFactory.getLogger(javaClass.enclosingClass)
+        private val logger = LoggerFactory.getLogger(PcapCapturerConfig::class.java)
         fun loadFromProperties(): PcapCapturerConfig {
             val ip = PropertyHandler.getProperty("server.ip") ?: "127.0.0.1"
             val port = PropertyHandler.getProperty("server.port") ?: "50349"

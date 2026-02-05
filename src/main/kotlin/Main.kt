@@ -17,14 +17,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.system.exitProcess
 
-fun main() = runBlocking {
+fun main() {
     ensureAdminOnWindows()
+
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")
         e.printStackTrace()
     }
 
-    WindowsFirewallListener.openOnStartup()
+    println("Running on Java version: ${System.getProperty("java.version")} from ${System.getProperty("java.home")}")
 
     val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
     val config = PcapCapturerConfig.loadFromProperties()
@@ -35,14 +36,20 @@ fun main() = runBlocking {
     val capturer = PcapCapturer(config, channel)
     val dispatcher = CaptureDispatcher(channel, dataStorage)
 
-    launch(Dispatchers.Default) {
-        dispatcher.run()
+    // Create a scope for your background tasks
+    val appScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Default)
+
+    // Launch the dispatcher
+    appScope.launch {
+        dispatcher.run() // This is now safe because it's in a coroutine
     }
 
-    launch(Dispatchers.IO) {
+    // Launch the capturer
+    appScope.launch(Dispatchers.IO) {
         capturer.start()
     }
 
+    // JavaFX startup remains the same
     Platform.startup {
         val browserApp = BrowserApp(calculator)
         browserApp.start(Stage())

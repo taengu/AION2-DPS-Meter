@@ -53,6 +53,22 @@ dependencies {
 
 }
 
+graalvmNative {
+    binaries {
+        named("main") {
+            // This is the specific class Kotlin generates for your main function
+            mainClass.set("com.tbread.MainKt")
+
+            imageName.set("Aion2Meter")
+
+            // Critical for JNA and Pcap4J support in native images
+            buildArgs.add("--no-fallback")
+            buildArgs.add("--enable-http")
+            buildArgs.add("--enable-https")
+        }
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "com.tbread.MainKt"
