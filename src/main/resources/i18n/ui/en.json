@@ -70,7 +70,8 @@
   },
   "battleTime": {
     "analysing": "Ready - monitoring combat...",
-    "idle": "Idle"
+    "idle": "Idle",
+    "notRunning": "Aion2 not running"
   },
   "meter": {
     "identifyingPlayer": "Player #{id}"
@@ -86,6 +87,7 @@
   },
   "connection": {
     "auto": "Auto",
+    "detecting": "Detecting correct device/port...",
     "loopback": "Local Loopback"
   },
   "target": {

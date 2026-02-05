@@ -103,6 +103,11 @@ class DpsApp {
     this.elBossName = document.querySelector(".bossName");
     this.elBossName.textContent = this.getDefaultTargetLabel();
     this._lastRenderedTargetLabel = this.elBossName.textContent;
+    this.battleTimeRoot = document.querySelector(".battleTime");
+    this.analysisStatusEl = document.querySelector(".analysisStatus");
+    this.aionRunning = false;
+    this.isDetectingPort = false;
+    this._connectionStatusOverride = false;
 
     this.resetBtn = document.querySelector(".resetBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
@@ -121,6 +126,13 @@ class DpsApp {
     });
 
     const getBattleTimeStatusText = () => {
+      if (!this.aionRunning) {
+        return this.i18n?.t("battleTime.notRunning", "Aion2 not running") ?? "Aion2 not running";
+      }
+      if (this.isDetectingPort) {
+        return this.i18n?.t("connection.detecting", "Detecting correct device/port...") ??
+          "Detecting correct device/port...";
+      }
       if (this.battleTime?.getState?.() === "state-idle") {
         return this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
       }
@@ -223,7 +235,13 @@ class DpsApp {
 
   checkAion2WindowTitle() {
     const title = window.javaBridge?.getAion2WindowTitle?.();
-    if (!title || typeof title !== "string") return;
+    const running = typeof title === "string" && title.trim().length > 0;
+    if (running !== this.aionRunning) {
+      this.aionRunning = running;
+      this.refreshConnectionInfo();
+      this.updateConnectionStatusUi();
+    }
+    if (!running) return;
     const detectedName = this.parseCharacterNameFromWindowTitle(title);
     if (!detectedName || detectedName === this.USER_NAME) return;
     this.setUserName(detectedName, { persist: true, syncBackend: true });
@@ -284,6 +302,7 @@ class DpsApp {
       this._lastBattleTimeMs = null;
       this._battleTimeVisible = false;
       this.battleTime.setVisible(false);
+      this.updateConnectionStatusUi();
       return;
     }
 
@@ -295,6 +314,7 @@ class DpsApp {
         this.battleTime.update(now, this._lastBattleTimeMs);
       }
 
+      this.updateConnectionStatusUi();
       return;
     }
 
@@ -350,6 +370,7 @@ class DpsApp {
       this.battleTime.update(now, battleTimeMs);
     }
 
+    this.updateConnectionStatusUi();
     if (this.onlyShowUser && this.USER_NAME) {
       rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
       listReasons.push(`filtered to user ${this.USER_NAME}`);
@@ -983,6 +1004,8 @@ class DpsApp {
     if (typeof raw !== "string") {
       this.lockedIp.textContent = "-";
       this.lockedPort.textContent = "-";
+      this.isDetectingPort = this.aionRunning;
+      this.updateConnectionStatusUi();
       return;
     }
     const info = this.safeParseJSON(raw, {});
@@ -993,11 +1016,54 @@ class DpsApp {
       (rawIp === "127.0.0.1" || rawIp === "::1"
         ? this.i18n?.t("connection.loopback", "Local Loopback") ?? "Local Loopback"
         : rawIp);
-    const port = Number.isFinite(Number(info?.port))
+    const hasPort = Number.isFinite(Number(info?.port));
+    this.isDetectingPort = this.aionRunning && !hasPort;
+    const port = hasPort
       ? String(info.port)
-      : this.i18n?.t("connection.auto", "Auto");
+      : this.isDetectingPort
+        ? this.i18n?.t("connection.detecting", "Detecting correct device/port...")
+        : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+    this.updateConnectionStatusUi();
+  }
+
+  updateConnectionStatusUi() {
+    if (!this.battleTimeRoot || !this.analysisStatusEl) return;
+    if (!this.aionRunning) {
+      this.applyConnectionStatusOverride(
+        this.i18n?.t("battleTime.notRunning", "Aion2 not running") ?? "Aion2 not running"
+      );
+      return;
+    }
+    if (this.isDetectingPort) {
+      this.applyConnectionStatusOverride(
+        this.i18n?.t("connection.detecting", "Detecting correct device/port...") ??
+          "Detecting correct device/port..."
+      );
+      return;
+    }
+    this.clearConnectionStatusOverride();
+  }
+
+  applyConnectionStatusOverride(text) {
+    this._connectionStatusOverride = true;
+    this.battleTimeRoot.classList.add("isVisible", "state-idle");
+    this.analysisStatusEl.textContent = text;
+    this.analysisStatusEl.style.display = "";
+  }
+
+  clearConnectionStatusOverride() {
+    if (!this._connectionStatusOverride) return;
+    this._connectionStatusOverride = false;
+    this.battleTimeRoot.classList.remove("state-idle");
+    if (!this._battleTimeVisible) {
+      this.battleTimeRoot.classList.remove("isVisible");
+    }
+    this.analysisStatusEl.textContent =
+      this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
+      "Ready - monitoring combat...";
+    this.analysisStatusEl.style.removeProperty("display");
   }
 
   getRowsSummary(rows) {

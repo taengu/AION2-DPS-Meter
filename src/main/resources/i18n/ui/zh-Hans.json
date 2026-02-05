@@ -70,7 +70,8 @@
   },
   "battleTime": {
     "analysing": "准备就绪 - 监控战斗中...",
-    "idle": "空闲"
+    "idle": "空闲",
+    "notRunning": "Aion2 not running"
   },
   "meter": {
     "identifyingPlayer": "玩家 #{id}"
@@ -86,6 +87,7 @@
   },
   "connection": {
     "auto": "自动",
+    "detecting": "Detecting correct device/port...",
     "loopback": "本地回环"
   },
   "target": {
