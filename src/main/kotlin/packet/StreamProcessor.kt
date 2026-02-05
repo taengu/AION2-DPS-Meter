@@ -245,7 +245,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseLootAttributionActorName(packet: ByteArray): Boolean {
-        val candidates = mutableListOf<ActorNameCandidate>()
+        val candidates = mutableMapOf<Int, ActorNameCandidate>()
         var idx = 0
         while (idx + 2 < packet.size) {
             val marker = packet[idx].toInt() and 0xff
@@ -293,7 +293,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     idx = nameEnd
                     continue
                 }
-                candidates.add(ActorNameCandidate(actorInfo.value, sanitizedName, nameBytes))
+                val candidate = ActorNameCandidate(actorInfo.value, sanitizedName, nameBytes)
+                val existingCandidate = candidates[candidate.actorId]
+                if (existingCandidate == null || candidate.nameBytes.size > existingCandidate.nameBytes.size) {
+                    candidates[candidate.actorId] = candidate
+                }
                 idx = skipGuildName(packet, nameEnd)
                 continue
             }
@@ -303,12 +307,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (candidates.isEmpty()) return false
         val allowPrepopulate = candidates.size > 1
         var foundAny = false
-        for (candidate in candidates) {
-            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId)) {
-                dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
+        for (candidate in candidates.values) {
+            val existingNickname = dataStorage.getNickname()[candidate.actorId]
+            val canUpdateExisting = existingNickname != null &&
+                candidate.name.length > existingNickname.length &&
+                candidate.name.startsWith(existingNickname)
+            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting) {
+                if (existingNickname == null) {
+                    dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
+                }
                 continue
             }
-            if (dataStorage.getNickname()[candidate.actorId] != null) continue
+            if (existingNickname != null && !canUpdateExisting) continue
             logger.info(
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
