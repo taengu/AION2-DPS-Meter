@@ -253,7 +253,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val isMarker = marker in listOf(0xF5, 0xF8) && (markerNext == 0x03 || markerNext == 0xA3)
             if (isMarker) {
                 var actorInfo: VarIntOutput? = null
-                val minOffset = maxOf(0, idx - 4)
+                val minOffset = maxOf(0, idx - 8)
                 for (actorOffset in idx - 1 downTo minOffset) {
                     if (!canReadVarInt(packet, actorOffset)) continue
                     val candidateInfo = readVarInt(packet, actorOffset)
@@ -272,7 +272,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     continue
                 }
                 val nameLength = packet[lengthIdx].toInt() and 0xff
-                if (nameLength !in 3..16) {
+                if (nameLength !in 1..24) {
                     idx++
                     continue
                 }
