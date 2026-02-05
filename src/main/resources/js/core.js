@@ -1298,6 +1298,7 @@ const startApp = async () => {
     await window.i18n?.init?.();
     window.lucide?.createIcons?.();
     dpsApp.start();
+    window.javaBridge?.notifyUiReady?.();
   } catch (err) {
     debug?.log?.("startApp.error", err);
   }

@@ -245,24 +245,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parseLootAttributionActorName(packet: ByteArray): Boolean {
-        val candidates = mutableListOf<ActorNameCandidate>()
+        val candidates = mutableMapOf<Int, ActorNameCandidate>()
         var idx = 0
         while (idx + 2 < packet.size) {
             val marker = packet[idx].toInt() and 0xff
             val markerNext = packet[idx + 1].toInt() and 0xff
-            val isMarker = marker == 0xF8 && markerNext == 0x03
+            val isMarker = marker in listOf(0xF5, 0xF8) && (markerNext == 0x03 || markerNext == 0xA3)
             if (isMarker) {
-                val actorOffset = idx - 2
-                if (actorOffset < 0 || !canReadVarInt(packet, actorOffset)) {
-                    idx++
-                    continue
+                var actorInfo: VarIntOutput? = null
+                val minOffset = maxOf(0, idx - 8)
+                for (actorOffset in idx - 1 downTo minOffset) {
+                    if (!canReadVarInt(packet, actorOffset)) continue
+                    val candidateInfo = readVarInt(packet, actorOffset)
+                    if (candidateInfo.length <= 0 || actorOffset + candidateInfo.length != idx) continue
+                    if (candidateInfo.value !in 100..99999 || candidateInfo.value == 0) continue
+                    actorInfo = candidateInfo
+                    break
                 }
-                val actorInfo = readVarInt(packet, actorOffset)
-                if (actorInfo.length != 2 || actorOffset + actorInfo.length != idx) {
-                    idx++
-                    continue
-                }
-                if (actorInfo.value !in 100..99999 || actorInfo.value == 0) {
+                if (actorInfo == null) {
                     idx++
                     continue
                 }
@@ -272,7 +272,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     continue
                 }
                 val nameLength = packet[lengthIdx].toInt() and 0xff
-                if (nameLength !in 3..16) {
+                if (nameLength !in 1..24) {
                     idx++
                     continue
                 }
@@ -293,7 +293,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     idx = nameEnd
                     continue
                 }
-                candidates.add(ActorNameCandidate(actorInfo.value, sanitizedName, nameBytes))
+                val candidate = ActorNameCandidate(actorInfo.value, sanitizedName, nameBytes)
+                val existingCandidate = candidates[candidate.actorId]
+                if (existingCandidate == null || candidate.nameBytes.size > existingCandidate.nameBytes.size) {
+                    candidates[candidate.actorId] = candidate
+                }
                 idx = skipGuildName(packet, nameEnd)
                 continue
             }
@@ -303,12 +307,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (candidates.isEmpty()) return false
         val allowPrepopulate = candidates.size > 1
         var foundAny = false
-        for (candidate in candidates) {
-            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId)) {
-                dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
+        for (candidate in candidates.values) {
+            val existingNickname = dataStorage.getNickname()[candidate.actorId]
+            val canUpdateExisting = existingNickname != null &&
+                candidate.name.length > existingNickname.length &&
+                candidate.name.startsWith(existingNickname)
+            if (!allowPrepopulate && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting) {
+                if (existingNickname == null) {
+                    dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
+                }
                 continue
             }
-            if (dataStorage.getNickname()[candidate.actorId] != null) continue
+            if (existingNickname != null && !canUpdateExisting) continue
             logger.info(
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
