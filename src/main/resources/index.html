@@ -147,6 +147,18 @@
             </label>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.theme.label">Theme</div>
+              </div>
+              <select class="settingsSelect themeSelect">
+                <option value="classic" data-i18n="settings.theme.options.classic">
+                  Classic
+                </option>
+                <option value="aion2" data-i18n="settings.theme.options.aion2">Aion2</option>
+                <option value="ember" data-i18n="settings.theme.options.ember">Ember</option>
+              </select>
+            </div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.language.label">Language</div>
               </div>
               <select class="settingsSelect languageSelect">
@@ -185,8 +197,18 @@
                 <span data-i18n="settings.debugLogging">Enable debug logging</span>
               </label>
             </div>
-            <button class="discordButton" data-i18n="settings.discord">
-              💬 Get support on our Discord
+            <button class="discordButton" type="button">
+              <span data-i18n="settings.discord">Get support on our Discord</span>
+              <span class="discordIcon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  role="img"
+                  focusable="false"
+                  aria-hidden="true">
+                  <path
+                    d="M19.75 4.94A19.87 19.87 0 0 0 15.32 3a13.4 13.4 0 0 0-.64 1.3 18.5 18.5 0 0 0-5.35 0A13.4 13.4 0 0 0 8.68 3a19.9 19.9 0 0 0-4.43 1.94C2.2 8.17 1.7 11.29 1.95 14.37A19.7 19.7 0 0 0 7 17.04c.42-.57.8-1.18 1.13-1.82-.62-.23-1.2-.52-1.75-.85.15-.1.3-.2.45-.3 3.38 1.56 7.05 1.56 10.42 0 .15.1.3.2.45.3-.54.33-1.13.62-1.75.85.33.64.71 1.25 1.13 1.82a19.7 19.7 0 0 0 5.04-2.67c.34-3.68-.55-6.77-2.37-9.31ZM8.9 12.9c-.77 0-1.4-.71-1.4-1.58 0-.87.62-1.58 1.4-1.58.78 0 1.4.7 1.4 1.58 0 .87-.62 1.58-1.4 1.58Zm6.2 0c-.77 0-1.4-.71-1.4-1.58 0-.87.62-1.58 1.4-1.58.78 0 1.4.7 1.4 1.58 0 .87-.62 1.58-1.4 1.58Z" />
+                </svg>
+              </span>
             </button>
             <button class="quitButton" data-i18n="settings.quit">Quit</button>
           </div>
@@ -199,6 +221,7 @@
             Ready - monitoring combat...
           </div>
         </div>
+        <div class="resizeHandle" aria-hidden="true"></div>
       </div>
       <div
         class="console"

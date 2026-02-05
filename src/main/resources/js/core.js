@@ -15,12 +15,15 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
+      theme: "dpsMeter.theme",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
     this.lastJson = null;
     this.isCollapse = false;
     this.displayMode = "dps";
+    this.theme = "classic";
+    this.availableThemes = ["classic", "aion2", "ember"];
 
     // 빈데이터 덮어쓰기 방지 스냅샷
     this.lastSnapshot = null;
@@ -107,6 +110,7 @@ class DpsApp {
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
+    this.bindResizeHandle();
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -618,12 +622,14 @@ class DpsApp {
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
     this.targetSelect = document.querySelector(".targetSelect");
+    this.themeSelect = document.querySelector(".themeSelect");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
+    const storedTheme = this.safeGetSetting(this.storageKeys.theme);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
@@ -633,6 +639,7 @@ class DpsApp {
       syncBackend: true,
       reason: storedTargetSelection ? "restore from storage" : "default selection",
     });
+    this.applyTheme(storedTheme || this.theme, { persist: false });
     if (storedLanguage) {
       this.i18n?.setLanguage?.(storedLanguage, { persist: false });
     }
@@ -669,6 +676,16 @@ class DpsApp {
         if (value) {
           this.safeSetStorage(this.storageKeys.language, value);
           this.i18n?.setLanguage?.(value, { persist: true });
+        }
+      });
+    }
+
+    if (this.themeSelect) {
+      this.themeSelect.value = this.theme;
+      this.themeSelect.addEventListener("change", (event) => {
+        const value = event.target?.value;
+        if (value) {
+          this.applyTheme(value, { persist: true });
         }
       });
     }
@@ -863,6 +880,18 @@ class DpsApp {
     }
   }
 
+  applyTheme(themeId, { persist = false } = {}) {
+    const normalized = this.availableThemes.includes(themeId) ? themeId : this.availableThemes[0];
+    this.theme = normalized;
+    document.documentElement.dataset.theme = normalized;
+    if (this.themeSelect && document.activeElement !== this.themeSelect) {
+      this.themeSelect.value = normalized;
+    }
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.theme, normalized);
+    }
+  }
+
   setDisplayMode(mode, { persist = false } = {}) {
     this.displayMode = mode === "totalDamage" ? "totalDamage" : "dps";
     if (persist) {
@@ -1039,6 +1068,9 @@ class DpsApp {
       initialStageY = 0;
 
     document.addEventListener("mousedown", (e) => {
+      if (e.target?.closest?.(".resizeHandle")) {
+        return;
+      }
       isDragging = true;
       startX = e.screenX;
       startY = e.screenY;
@@ -1058,6 +1090,47 @@ class DpsApp {
     document.addEventListener("mouseup", () => {
       isDragging = false;
     });
+  }
+
+  bindResizeHandle() {
+    this.resizeHandle = document.querySelector(".resizeHandle");
+    this.meterEl = document.querySelector(".meter");
+    if (!this.resizeHandle || !this.meterEl) return;
+
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+    const minWidth = 300;
+    const minHeight = 160;
+
+    const onMouseMove = (event) => {
+      if (!isResizing) return;
+      const nextWidth = Math.max(minWidth, startWidth + (event.clientX - startX));
+      const nextHeight = Math.max(minHeight, startHeight + (event.clientY - startY));
+      this.meterEl.style.width = `${nextWidth}px`;
+      this.meterEl.style.height = `${nextHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      if (!isResizing) return;
+      isResizing = false;
+    };
+
+    this.resizeHandle.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = this.meterEl.getBoundingClientRect();
+      startWidth = rect.width;
+      startHeight = rect.height;
+      startX = event.clientX;
+      startY = event.clientY;
+      isResizing = true;
+    });
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   }
 }
 

@@ -46,7 +46,15 @@
     "onlyMe": "Only show my character",
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
-    "discord": "💬 Get support on our Discord",
+    "discord": "Get support on our Discord",
+    "theme": {
+      "label": "Theme",
+      "options": {
+        "classic": "Classic",
+        "aion2": "Aion2",
+        "ember": "Ember"
+      }
+    },
     "language": {
       "label": "Language"
     },
