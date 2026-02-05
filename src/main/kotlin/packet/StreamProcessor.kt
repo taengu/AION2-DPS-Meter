@@ -250,7 +250,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (idx + 2 < packet.size) {
             val marker = packet[idx].toInt() and 0xff
             val markerNext = packet[idx + 1].toInt() and 0xff
-            val isMarker = marker == 0xF8 && markerNext == 0x03
+            val isMarker = marker == 0xF8 && (markerNext == 0x03 || markerNext == 0xA3)
             if (isMarker) {
                 val actorOffset = idx - 2
                 if (actorOffset < 0 || !canReadVarInt(packet, actorOffset)) {
