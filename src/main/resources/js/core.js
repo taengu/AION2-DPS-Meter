@@ -8,12 +8,18 @@ class DpsApp {
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
     this.pinMeToTop = false;
+    this.includeMainMeterScreenshot = false;
+    this.saveScreenshotToFolder = false;
+    this.screenshotFolder = "";
     this.storageKeys = {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
+      detailsIncludeMeterScreenshot: "dpsMeter.detailsIncludeMeterScreenshot",
+      detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
+      detailsScreenshotFolder: "dpsMeter.detailsScreenshotFolder",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
@@ -230,24 +236,53 @@ class DpsApp {
         const detailsRect = this.detailsPanel?.classList?.contains("open")
           ? this.detailsPanel.getBoundingClientRect()
           : null;
-        if (!meterRect) return;
-        const minX = detailsRect ? Math.min(meterRect.left, detailsRect.left) : meterRect.left;
-        const minY = detailsRect ? Math.min(meterRect.top, detailsRect.top) : meterRect.top;
-        const maxX = detailsRect ? Math.max(meterRect.right, detailsRect.right) : meterRect.right;
-        const maxY = detailsRect ? Math.max(meterRect.bottom, detailsRect.bottom) : meterRect.bottom;
+        const includeMeter = !!this.includeMainMeterScreenshot;
+        const baseRect = includeMeter ? meterRect || detailsRect : detailsRect;
+        if (!baseRect) return;
+        const minX = includeMeter && meterRect && detailsRect
+          ? Math.min(meterRect.left, detailsRect.left)
+          : baseRect.left;
+        const minY = includeMeter && meterRect && detailsRect
+          ? Math.min(meterRect.top, detailsRect.top)
+          : baseRect.top;
+        const maxX = includeMeter && meterRect && detailsRect
+          ? Math.max(meterRect.right, detailsRect.right)
+          : baseRect.right;
+        const maxY = includeMeter && meterRect && detailsRect
+          ? Math.max(meterRect.bottom, detailsRect.bottom)
+          : baseRect.bottom;
         const rectWidth = Math.max(1, maxX - minX);
         const rectHeight = Math.max(1, maxY - minY);
         const scale = window.devicePixelRatio || 1;
-        const success = window.javaBridge?.captureScreenshotToClipboard?.(
+        const clipboardSuccess = window.javaBridge?.captureScreenshotToClipboard?.(
           minX,
           minY,
           rectWidth,
           rectHeight,
           scale
         );
-        if (!success || !this.detailsScreenshotNote) return;
+        let fileSuccess = false;
+        if (this.saveScreenshotToFolder && this.screenshotFolder) {
+          const filename = this.buildScreenshotFilename();
+          fileSuccess = !!window.javaBridge?.captureScreenshotToFile?.(
+            minX,
+            minY,
+            rectWidth,
+            rectHeight,
+            scale,
+            this.screenshotFolder,
+            filename
+          );
+        }
+        if ((!clipboardSuccess && !fileSuccess) || !this.detailsScreenshotNote) return;
         this.detailsScreenshotBtn.setAttribute("title", tooltipText);
-        this.detailsScreenshotNote.textContent = "Saved to clipboard";
+        if (clipboardSuccess && fileSuccess) {
+          this.detailsScreenshotNote.textContent = "Saved to clipboard + file";
+        } else if (fileSuccess) {
+          this.detailsScreenshotNote.textContent = "Saved to file";
+        } else {
+          this.detailsScreenshotNote.textContent = "Saved to clipboard";
+        }
         this.detailsScreenshotNote.classList.add("isVisible");
         if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);
         screenshotNoteTimer = window.setTimeout(() => {
@@ -1447,10 +1482,62 @@ class DpsApp {
     this.detailsOpacityValue = document.querySelector(".detailsOpacityValue");
     this.detailsSettingsBtn = document.querySelector(".detailsSettingsBtn");
     this.detailsSettingsMenu = document.querySelector(".detailsSettingsMenu");
+    this.detailsIncludeMeterCheckbox = document.querySelector(".detailsIncludeMeterCheckbox");
+    this.detailsSaveScreenshotCheckbox = document.querySelector(".detailsSaveScreenshotCheckbox");
+    this.detailsScreenshotFolderRow = document.querySelector(".detailsSettingsFolder");
+    this.detailsScreenshotFolderPath = document.querySelector(".detailsSettingsFolderPath");
+    this.detailsScreenshotFolderBtn = document.querySelector(".detailsSettingsFolderBtn");
 
     const storedOpacity = this.safeGetStorage(this.storageKeys.detailsBackgroundOpacity);
     const initialOpacity = this.parseDetailsOpacity(storedOpacity);
     this.setDetailsBackgroundOpacity(initialOpacity, { persist: false });
+
+    const storedIncludeMeter =
+      this.safeGetStorage(this.storageKeys.detailsIncludeMeterScreenshot) === "true";
+    const storedSaveToFolder =
+      this.safeGetStorage(this.storageKeys.detailsSaveScreenshotToFolder) === "true";
+    const storedFolder = this.safeGetStorage(this.storageKeys.detailsScreenshotFolder);
+    this.includeMainMeterScreenshot = storedIncludeMeter;
+    this.saveScreenshotToFolder = storedSaveToFolder;
+    this.screenshotFolder = storedFolder || this.getDefaultScreenshotFolder();
+
+    if (this.detailsIncludeMeterCheckbox) {
+      this.detailsIncludeMeterCheckbox.checked = this.includeMainMeterScreenshot;
+      this.detailsIncludeMeterCheckbox.addEventListener("change", (event) => {
+        this.includeMainMeterScreenshot = !!event.target?.checked;
+        this.safeSetStorage(
+          this.storageKeys.detailsIncludeMeterScreenshot,
+          String(this.includeMainMeterScreenshot)
+        );
+      });
+    }
+    if (this.detailsSaveScreenshotCheckbox) {
+      this.detailsSaveScreenshotCheckbox.checked = this.saveScreenshotToFolder;
+      this.detailsSaveScreenshotCheckbox.addEventListener("change", (event) => {
+        this.saveScreenshotToFolder = !!event.target?.checked;
+        if (this.saveScreenshotToFolder && !this.screenshotFolder) {
+          this.screenshotFolder = this.getDefaultScreenshotFolder();
+        }
+        this.safeSetStorage(
+          this.storageKeys.detailsSaveScreenshotToFolder,
+          String(this.saveScreenshotToFolder)
+        );
+        if (this.screenshotFolder) {
+          this.safeSetStorage(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
+        }
+        this.updateScreenshotFolderDisplay();
+      });
+    }
+    if (this.detailsScreenshotFolderBtn) {
+      this.detailsScreenshotFolderBtn.addEventListener("click", () => {
+        const selected = window.javaBridge?.chooseScreenshotFolder?.(this.screenshotFolder);
+        if (!selected || typeof selected !== "string") return;
+        this.screenshotFolder = selected;
+        this.safeSetStorage(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
+        this.updateScreenshotFolderDisplay();
+      });
+    }
+    this.updateScreenshotFolderDisplay();
 
     if (this.detailsOpacityInput) {
       this.detailsOpacityInput.value = String(Math.round(initialOpacity * 100));
@@ -1550,6 +1637,31 @@ class DpsApp {
     if (persist) {
       this.safeSetStorage(this.storageKeys.detailsBackgroundOpacity, String(clamped));
     }
+  }
+
+  getDefaultScreenshotFolder() {
+    return (
+      window.javaBridge?.getDefaultScreenshotFolder?.() ||
+      this.safeGetStorage(this.storageKeys.detailsScreenshotFolder) ||
+      ""
+    );
+  }
+
+  updateScreenshotFolderDisplay() {
+    if (!this.detailsScreenshotFolderRow) return;
+    this.detailsScreenshotFolderRow.classList.toggle("isHidden", !this.saveScreenshotToFolder);
+    if (this.detailsScreenshotFolderPath) {
+      this.detailsScreenshotFolderPath.textContent = this.screenshotFolder || "-";
+    }
+  }
+
+  buildScreenshotFilename() {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(
+      now.getHours()
+    )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    return `AION2_DPS_${stamp}.png`;
   }
 
   toggleDetailsSettingsMenu() {

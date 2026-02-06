@@ -26,15 +26,20 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import javafx.util.Duration
 import javafx.application.Platform
+import javafx.embed.swing.SwingFXUtils
+import javafx.stage.DirectoryChooser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.nio.file.Paths
+import javax.imageio.ImageIO
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -259,6 +264,83 @@ class BrowserApp(
             }
             latch.await(2, TimeUnit.SECONDS)
             return success
+        }
+
+        fun captureScreenshotToFile(
+            x: Double,
+            y: Double,
+            width: Double,
+            height: Double,
+            scale: Double,
+            folderPath: String?,
+            filename: String?
+        ): Boolean {
+            val scene = stage.scene ?: return false
+            if (folderPath.isNullOrBlank() || filename.isNullOrBlank()) return false
+            val latch = CountDownLatch(1)
+            var success = false
+            Platform.runLater {
+                try {
+                    val image = scene.snapshot(null)
+                    val pixelReader = image.pixelReader
+                    if (pixelReader == null) {
+                        latch.countDown()
+                        return@runLater
+                    }
+                    val imageWidth = image.width.toInt()
+                    val imageHeight = image.height.toInt()
+                    val scaledX = (x * scale).toInt()
+                    val scaledY = (y * scale).toInt()
+                    val scaledWidth = (width * scale).toInt()
+                    val scaledHeight = (height * scale).toInt()
+                    val safeX = scaledX.coerceAtLeast(0)
+                    val safeY = scaledY.coerceAtLeast(0)
+                    val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
+                    val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
+                    val cropped = javafx.scene.image.WritableImage(pixelReader, safeX, safeY, safeWidth, safeHeight)
+                    val folder = File(folderPath)
+                    if (!folder.exists()) {
+                        folder.mkdirs()
+                    }
+                    val targetFile = File(folder, filename)
+                    val buffered = SwingFXUtils.fromFXImage(cropped, null)
+                    success = ImageIO.write(buffered, "png", targetFile)
+                } catch (e: Exception) {
+                    logger.warn("Failed to capture screenshot to file", e)
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await(2, TimeUnit.SECONDS)
+            return success
+        }
+
+        fun getDefaultScreenshotFolder(): String {
+            val userHome = System.getProperty("user.home") ?: "."
+            return Paths.get(userHome, "Pictures", "AION2 DPS Meter").toString()
+        }
+
+        fun chooseScreenshotFolder(currentPath: String?): String? {
+            val latch = CountDownLatch(1)
+            var selectedPath: String? = null
+            Platform.runLater {
+                try {
+                    val chooser = DirectoryChooser()
+                    chooser.title = "Select screenshot folder"
+                    val initial = currentPath?.let { File(it) }
+                    if (initial?.exists() == true && initial.isDirectory) {
+                        chooser.initialDirectory = initial
+                    }
+                    val selected = chooser.showDialog(stage)
+                    selectedPath = selected?.absolutePath
+                } catch (e: Exception) {
+                    logger.warn("Failed to choose screenshot folder", e)
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await(10, TimeUnit.SECONDS)
+            return selectedPath
         }
 
         fun notifyUiReady() {

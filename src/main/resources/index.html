@@ -81,6 +81,8 @@
                 <button class="detailsSortBtn" data-sort="time" type="button">Time</button>
                 <button class="detailsSortBtn" data-sort="damage" type="button">Damage</button>
               </div>
+            </div>
+            <div class="detailsScreenshotBlock">
               <button class="detailsScreenshotBtn" type="button" aria-label="Save screenshot to clipboard">
                 <i data-lucide="camera"></i>
               </button>
@@ -116,6 +118,37 @@
                         step="5"
                         value="65" />
                       <span class="detailsOpacityValue">65%</span>
+                    </div>
+                    <div class="detailsSettingsLabel" data-i18n="details.screenshots.label">
+                      Screenshots
+                    </div>
+                    <label class="detailsSettingsToggle">
+                      <span
+                        class="detailsSettingsToggleLabel"
+                        data-i18n="details.screenshots.includeMeter">
+                        Include main DPS meter
+                      </span>
+                      <span class="detailsSettingsToggleControl">
+                        <input type="checkbox" class="detailsIncludeMeterCheckbox" />
+                        <span class="detailsSettingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="detailsSettingsToggle">
+                      <span
+                        class="detailsSettingsToggleLabel"
+                        data-i18n="details.screenshots.saveToFolder">
+                        Save screenshots to folder
+                      </span>
+                      <span class="detailsSettingsToggleControl">
+                        <input type="checkbox" class="detailsSaveScreenshotCheckbox" />
+                        <span class="detailsSettingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <div class="detailsSettingsFolder isHidden">
+                      <div class="detailsSettingsFolderPath">-</div>
+                      <button class="detailsSettingsFolderBtn" type="button">
+                        Select folder
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -157,18 +190,6 @@
             <div class="closeX settingsClose">×</div>
           </div>
           <div class="settingsBody">
-            <div class="settingsRow">
-              <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.lockedPort">Detected device/port</div>
-                <div class="settingsValue">
-                  <span class="lockedIp">-</span>
-                  <span class="lockedPort">-</span>
-                </div>
-              </div>
-              <button class="settingsAction resetDetectBtn" data-i18n="settings.resetDetection">
-                Reset detection
-              </button>
-            </div>
             <div class="settingsRow settingsRowInput">
               <label
                 class="settingsLabel"
@@ -227,10 +248,21 @@
             </div>
             <div class="settingsDivider"></div>
             <div class="settingsMiniTitle" data-i18n="settings.meterSettings">Meter Settings</div>
+            <div>
+              <label class="settingsToggle">
+                <span class="settingsToggleLabel" data-i18n="settings.pinMeToTop">
+                  Always show me at the top
+                </span>
+                <span class="settingsToggleControl">
+                  <input type="checkbox" class="pinMeToTopCheckbox" />
+                  <span class="settingsToggleTrack" aria-hidden="true"></span>
+                </span>
+              </label>
+            </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.allTargetsWindow.label">
-                  All Targets window
+                  All Targets time range
                 </div>
               </div>
               <div class="settingsDropdownWrapper allTargetsWindowDropdownWrapper">
@@ -243,7 +275,9 @@
             </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.trainingMode.label">Training Mode</div>
+                <div class="settingsLabel" data-i18n="settings.trainingMode.label">
+                  Training Mode target
+                </div>
               </div>
               <div class="settingsDropdownWrapper trainSelectionModeDropdownWrapper">
                 <button class="settingsDropdownBtn trainSelectionModeDropdownBtn" type="button">
@@ -253,16 +287,17 @@
                 <div class="settingsDropdownMenu trainSelectionModeDropdownMenu" role="menu"></div>
               </div>
             </div>
-            <div>
-              <label class="settingsToggle">
-                <span class="settingsToggleLabel" data-i18n="settings.pinMeToTop">
-                  Pin Me To Top
-                </span>
-                <span class="settingsToggleControl">
-                  <input type="checkbox" class="pinMeToTopCheckbox" />
-                  <span class="settingsToggleTrack" aria-hidden="true"></span>
-                </span>
-              </label>
+            <div class="settingsRow">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.lockedPort">Detected device/port</div>
+                <div class="settingsValue">
+                  <span class="lockedIp">-</span>
+                  <span class="lockedPort">-</span>
+                </div>
+              </div>
+              <button class="settingsAction resetDetectBtn" data-i18n="settings.resetDetection">
+                Reset
+              </button>
             </div>
             <div>
               <label class="settingsToggle">

@@ -16,6 +16,11 @@
       "ariaLabel": "Open details settings"
     },
     "panelBackground": "Panel background",
+    "screenshots": {
+      "label": "Screenshots",
+      "includeMeter": "Include main DPS meter",
+      "saveToFolder": "Save screenshots to folder"
+    },
     "screenshot": {
       "captured": "Captured Screenshot"
     },
@@ -49,10 +54,10 @@
   "settings": {
     "title": "Settings",
     "lockedPort": "Detected device/port",
-    "resetDetection": "Reset detection",
+    "resetDetection": "Reset",
     "characterName": "Character name",
     "characterNamePlaceholder": "Enter your character name",
-    "pinMeToTop": "Pin Me To Top",
+    "pinMeToTop": "Always show me at the top",
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
     "discord": "Get support on our Discord",
@@ -87,7 +92,7 @@
       "label": "Refresh keybind"
     },
     "allTargetsWindow": {
-      "label": "All Targets window",
+      "label": "All Targets time range",
       "options": {
         "30s": "30 seconds",
         "1m": "1 minute",
@@ -98,7 +103,7 @@
     },
     "meterSettings": "Meter Settings",
     "trainingMode": {
-      "label": "Training Mode",
+      "label": "Training Mode target",
       "options": {
         "all": "All",
         "highestDamage": "Highest Damage"
