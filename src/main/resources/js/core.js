@@ -928,32 +928,57 @@ class DpsApp {
 
     if (this.refreshKeybindInput) {
       let capturing = false;
-      const captureHandler = (event) => {
+      let pendingValue = "";
+      const startCapture = () => {
+        capturing = true;
+        pendingValue = "";
+        this.refreshKeybindInput.classList.add("isCapturing");
+        this.refreshKeybindInput.textContent = "Press Ctrl/Alt + key...";
+      };
+
+      const stopCapture = () => {
+        capturing = false;
+        pendingValue = "";
+        this.refreshKeybindInput.classList.remove("isCapturing");
+      };
+
+      const captureKeydown = (event) => {
         if (!capturing) return;
         event.preventDefault();
         event.stopPropagation();
         const key = event.key;
         const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
         if (isModifier) return;
+        if (!event.ctrlKey && !event.altKey) {
+          return;
+        }
         const parts = [];
         if (event.ctrlKey) parts.push("Ctrl");
         if (event.altKey) parts.push("Alt");
         if (event.shiftKey) parts.push("Shift");
         if (event.metaKey) parts.push("Meta");
         parts.push(key.length === 1 ? key.toUpperCase() : key.toUpperCase());
-        const nextValue = parts.join("+");
-        setKeybindValue(nextValue, { persist: true, syncBackend: true });
-        capturing = false;
-        this.refreshKeybindInput.classList.remove("isCapturing");
+        pendingValue = parts.join("+");
+        this.refreshKeybindInput.textContent = "Release to save...";
+      };
+
+      const captureKeyup = (event) => {
+        if (!capturing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!pendingValue) {
+          return;
+        }
+        setKeybindValue(pendingValue, { persist: true, syncBackend: true });
+        stopCapture();
       };
 
       this.refreshKeybindInput.addEventListener("click", () => {
-        capturing = true;
-        this.refreshKeybindInput.classList.add("isCapturing");
-        this.refreshKeybindInput.textContent = "Press keys...";
+        startCapture();
       });
 
-      window.addEventListener("keydown", captureHandler, true);
+      window.addEventListener("keydown", captureKeydown, true);
+      window.addEventListener("keyup", captureKeyup, true);
     }
 
     this.settingsBtn?.addEventListener("click", () => {
