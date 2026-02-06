@@ -188,11 +188,13 @@ class BrowserApp(
             PropertyHandler.setProperty("dpsMeter.refreshKeybind", normalized)
             refreshKeybindManager.updateKeybind(normalized)
             refreshKeybindValue = normalized.ifBlank { "Ctrl+R" }
+            refreshKeybindManager.start()
         }
 
         fun startRefreshKeybindCapture(): Boolean {
             keybindCaptureActive = true
             keybindCapturePending = null
+            refreshKeybindManager.start()
             return refreshKeybindManager.beginCapture { combo ->
                 notifyKeybindCaptured(combo)
             }
@@ -325,18 +327,25 @@ class BrowserApp(
         }
 
         fun chooseScreenshotFolder(currentPath: String?): String? {
+            val chooser = DirectoryChooser()
+            chooser.title = "Select screenshot folder"
+            val initial = currentPath?.let { File(it) }
+            if (initial?.exists() == true && initial.isDirectory) {
+                chooser.initialDirectory = initial
+            }
+            if (Platform.isFxApplicationThread()) {
+                return try {
+                    chooser.showDialog(stage)?.absolutePath
+                } catch (e: Exception) {
+                    logger.warn("Failed to choose screenshot folder", e)
+                    null
+                }
+            }
             val latch = CountDownLatch(1)
             var selectedPath: String? = null
             Platform.runLater {
                 try {
-                    val chooser = DirectoryChooser()
-                    chooser.title = "Select screenshot folder"
-                    val initial = currentPath?.let { File(it) }
-                    if (initial?.exists() == true && initial.isDirectory) {
-                        chooser.initialDirectory = initial
-                    }
-                    val selected = chooser.showDialog(stage)
-                    selectedPath = selected?.absolutePath
+                    selectedPath = chooser.showDialog(stage)?.absolutePath
                 } catch (e: Exception) {
                     logger.warn("Failed to choose screenshot folder", e)
                 } finally {
