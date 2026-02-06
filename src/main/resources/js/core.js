@@ -78,6 +78,8 @@ class DpsApp {
     this._lastRenderedRowsSummary = null;
     this.localPlayerId = null;
     this.trainSelectionMode = "all";
+    this._detailsFlashTimer = null;
+    this._meterFlashTimer = null;
 
     DpsApp.instance = this;
   }
@@ -153,10 +155,15 @@ class DpsApp {
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
-      onClickUserRow: (row) =>
+      onClickUserRow: (row) => {
+        const fallbackAllTargets =
+          this.lastTargetMode === "lastHitByMe" &&
+          (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
+          !this.lastTargetName;
         this.detailsUI.open(row, {
-          defaultTargetAll: this.lastTargetMode === "allTargets",
-        }),
+          defaultTargetAll: this.lastTargetMode === "allTargets" || fallbackAllTargets,
+        });
+      },
     });
 
     const withBacklog = (text) => {
@@ -231,7 +238,6 @@ class DpsApp {
     });
     if (this.detailsScreenshotBtn) {
       let screenshotNoteTimer = null;
-      let screenshotFlashTimer = null;
       this.detailsScreenshotBtn.addEventListener("click", () => {
         const tooltipText =
           this.i18n?.t("details.screenshot.captured", "Captured Screenshot") ?? "Captured Screenshot";
@@ -288,11 +294,10 @@ class DpsApp {
         }
         this.detailsScreenshotNote.classList.add("isVisible");
         if (this.detailsPanel) {
-          this.detailsPanel.classList.add("flash");
-          if (screenshotFlashTimer) window.clearTimeout(screenshotFlashTimer);
-          screenshotFlashTimer = window.setTimeout(() => {
-            this.detailsPanel?.classList.remove("flash");
-          }, 1000);
+          this.triggerDetailsFlash();
+        }
+        if (includeMeter && meterRect) {
+          this.triggerMeterFlash();
         }
         if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);
         screenshotNoteTimer = window.setTimeout(() => {
@@ -750,8 +755,11 @@ class DpsApp {
 
   triggerDetailsFlash() {
     if (!this.detailsPanel) return;
+    this.detailsPanel.classList.remove("flash");
+    void this.detailsPanel.offsetWidth;
     this.detailsPanel.classList.add("flash");
-    window.setTimeout(() => {
+    if (this._detailsFlashTimer) window.clearTimeout(this._detailsFlashTimer);
+    this._detailsFlashTimer = window.setTimeout(() => {
       this.detailsPanel?.classList.remove("flash");
     }, 1000);
   }
@@ -759,8 +767,11 @@ class DpsApp {
   triggerMeterFlash() {
     const meterEl = document.querySelector(".meter");
     if (!meterEl) return;
+    meterEl.classList.remove("flash");
+    void meterEl.offsetWidth;
     meterEl.classList.add("flash");
-    window.setTimeout(() => {
+    if (this._meterFlashTimer) window.clearTimeout(this._meterFlashTimer);
+    this._meterFlashTimer = window.setTimeout(() => {
       meterEl.classList.remove("flash");
     }, 1000);
   }
@@ -1241,6 +1252,9 @@ class DpsApp {
       this.applyMeterFillOpacity(resolvedOpacity, { persist: false });
       this.meterOpacityInput.value = String(resolvedOpacity);
       this.meterOpacityValue.textContent = `${resolvedOpacity}%`;
+      const stopDrag = (event) => event.stopPropagation();
+      this.meterOpacityInput.addEventListener("mousedown", stopDrag);
+      this.meterOpacityInput.addEventListener("touchstart", stopDrag, { passive: true });
       this.meterOpacityInput.addEventListener("input", (event) => {
         const value = Number(event.target?.value);
         const next = this.normalizeMeterOpacity(value, defaultOpacity);
@@ -1283,8 +1297,9 @@ class DpsApp {
       const computed = getComputedStyle(root);
       const textColor = computed.getPropertyValue("--text-color").trim() || "#ffffff";
       const nameShadow = computed.getPropertyValue("--player-name-shadow").trim() || "none";
+      const rowFill = computed.getPropertyValue("--row-fill").trim() || "#2f2f2f";
       root.dataset.theme = previous || "aion2";
-      return { textColor, nameShadow };
+      return { textColor, nameShadow, rowFill };
     };
 
     const closeAll = () => {
@@ -1420,7 +1435,8 @@ class DpsApp {
       {
         decorateItem: (item, value) => {
           const colors = previewThemeVars(value);
-          item.style.background = "transparent";
+          item.style.background = colors.rowFill;
+          item.style.opacity = "1";
           item.style.color = colors.textColor;
           item.style.textShadow = colors.nameShadow;
           item.style.fontWeight = "500";
@@ -1428,7 +1444,8 @@ class DpsApp {
         },
         decorateButton: (button, value) => {
           const colors = previewThemeVars(value);
-          button.style.background = "transparent";
+          button.style.background = colors.rowFill;
+          button.style.opacity = "1";
           button.style.color = colors.textColor;
           button.style.textShadow = colors.nameShadow;
           button.style.fontWeight = "500";

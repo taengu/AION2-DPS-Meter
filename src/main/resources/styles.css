@@ -373,7 +373,7 @@ html[lang="ko"] * {
     height: 24px;
     display: flex;
     align-items: center;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .headerBtns {
@@ -502,6 +502,14 @@ html[lang="ko"] * {
 
   .settingsRowInput {
     align-items: center;
+  }
+
+  .settingsRangeStack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    margin-left: auto;
   }
 
   .settingsInfo {
@@ -899,7 +907,7 @@ html[lang="ko"] * {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 700;
       flex-wrap: wrap;
     }
@@ -986,7 +994,7 @@ html[lang="ko"] * {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 4px 6px;
+      padding: 4px 6px 4px 150px;
       border-radius: 6px;
       border: none;
       background: transparent;
@@ -1310,10 +1318,10 @@ html[lang="ko"] * {
   height: 24px;
   display: flex;
   align-items: center;
-  font-size: 15px;
+  font-size: 18px;
 }
 .header .bossNames .bossName.isAllTargets {
-  font-size: 17px;
+  font-size: 19px;
 }
 .header .headerBtns {
   display: flex;
@@ -1421,6 +1429,16 @@ html[lang="ko"] * {
   margin-left: auto;
   max-width: 220px;
   accent-color: var(--isUser-fill);
+}
+.settingsPanel .settingsRangeStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+.settingsPanel .settingsRangeStack .settingsRange {
+  margin-left: 0;
 }
 .settingsPanel .settingsRowSelect {
   align-items: center;
@@ -1549,6 +1567,7 @@ html[lang="ko"] * {
 .settingsPanel .themeDropdownBtn {
   color: var(--dps-text);
   text-shadow: var(--dps-shadow, var(--text-shadow));
+  background: rgba(12, 22, 40, 1);
 }
 .settingsPanel .themeDropdownBtn .settingsDropdownText {
   color: var(--dps-text);
@@ -1556,6 +1575,9 @@ html[lang="ko"] * {
 }
 .settingsPanel .themeDropdownMenu .settingsDropdownItem {
   text-shadow: var(--dps-shadow, var(--text-shadow));
+}
+.settingsPanel .themeDropdownMenu {
+  background: rgba(12, 22, 40, 1);
 }
 .settingsPanel .settingsDropdownCaret {
   opacity: 0.6;
@@ -1759,7 +1781,7 @@ html[lang="ko"] * {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -1840,7 +1862,7 @@ html[lang="ko"] * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 6px 4px 200px;
+  padding: 4px 6px 4px 150px;
   border-radius: 6px;
   border: none;
   background: transparent;

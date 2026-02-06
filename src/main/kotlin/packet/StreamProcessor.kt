@@ -493,13 +493,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
-        if (parsingDamage(packet)) return true
-        if (parseActorNameBindingRules(packet)) return true
-        if (parseLootAttributionActorName(packet)) return true
-        if (parsingNickname(packet)) return true
-        if (parseSummonPacket(packet)) return false
-        parseDoTPacket(packet)
-        return false
+        val parsedDamage = parsingDamage(packet)
+        val parsedName = parseActorNameBindingRules(packet) ||
+            parseLootAttributionActorName(packet) ||
+            parsingNickname(packet)
+        val parsedSummon = parseSummonPacket(packet)
+        if (!parsedDamage && !parsedName && !parsedSummon) {
+            parseDoTPacket(packet)
+        }
+        return parsedDamage || parsedName
     }
 
     private fun parseDoTPacket(packet:ByteArray){
