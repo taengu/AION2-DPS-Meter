@@ -215,6 +215,7 @@ class DpsApp {
       this.refreshBossLabel();
     });
     window.ReleaseChecker?.start?.();
+    this.setupConsoleDebugging();
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
@@ -1094,6 +1095,39 @@ class DpsApp {
     });
   }
 
+  setupConsoleDebugging() {
+    if (this._consoleDebuggingEnabled) {
+      return;
+    }
+    this._consoleDebuggingEnabled = true;
+
+    window.addEventListener("error", (event) => {
+      console.error("[UI Error]", event.error || event.message, event);
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      console.error("[UI Promise Rejection]", event.reason || event);
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || typeof target.closest !== "function") return;
+      const menuTarget =
+        target.closest("[role='menu']") ||
+        target.closest(".detailsSettingsMenu") ||
+        target.closest(".detailsDropdownMenu") ||
+        target.closest(".settingsPanel");
+      if (!menuTarget) return;
+      const menuClass = menuTarget.className || menuTarget.getAttribute?.("role") || "menu";
+      const targetLabel =
+        target.getAttribute?.("aria-label") ||
+        target.getAttribute?.("data-i18n") ||
+        target.textContent?.trim() ||
+        target.tagName;
+      console.log("[UI Menu Click]", { menu: menuClass, target: targetLabel });
+    });
+  }
+
   parseDetailsOpacity(value) {
     if (value === null || value === undefined || value === "") {
       return 0.65;
@@ -1280,10 +1314,6 @@ class DpsApp {
     }
 
     window.javaBridge?.resetDps?.();
-    this.renderCurrentRows();
-    if (!this.isCollapse) {
-      this.fetchDps();
-    }
     this.logDebug(`Damage data refreshed (${reason}).`);
   }
 
