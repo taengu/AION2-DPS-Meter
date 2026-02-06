@@ -1953,6 +1953,7 @@ class DpsApp {
       return;
     }
     const info = this.safeParseJSON(raw, {});
+    const previousLocalId = this.localPlayerId;
     const deviceName = typeof info?.device === "string" && info.device.trim() ? info.device : "";
     const rawIp = info?.ip || "-";
     const ip =
@@ -1979,6 +1980,9 @@ class DpsApp {
     if (this.characterNameInput) {
       const nickname = String(info?.characterName || this.USER_NAME || "").trim();
       this.characterNameInput.value = nickname;
+    }
+    if (this.localPlayerId && this.localPlayerId !== previousLocalId) {
+      this.reinitTargetSelection("local id update");
     }
     this.updateConnectionStatusUi();
     if (!skipSettingsRefresh) {
