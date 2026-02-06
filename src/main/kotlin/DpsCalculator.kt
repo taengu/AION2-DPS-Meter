@@ -912,6 +912,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private var lastDpsSnapshot: DpsData? = null
     @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
     private val targetSwitchStaleMs = 10_000L
+    @Volatile private var targetSelectionWindowMs = 5_000L
     private var lastLocalHitTime: Long = -1L
     @Volatile private var allTargetsWindowMs = 120_000L
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
@@ -931,6 +932,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     fun setTrainSelectionModeById(id: String?) {
         trainSelectionMode = TrainSelectionMode.fromId(id)
+    }
+
+    fun setTargetSelectionWindowMs(windowMs: Long) {
+        targetSelectionWindowMs = windowMs.coerceIn(5_000L, 60_000L)
     }
 
     fun bindLocalActorId(actorId: Long) {
@@ -1096,11 +1101,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val actorDamage = mutableMapOf<Int, Int>()
 
             pdps.forEach { pdp ->
-            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
-            if (uid <= 0) return@forEach
-            val damage = pdp.getDamage()
-            totalDamage += damage
-            actorDamage[uid] = (actorDamage[uid] ?: 0) + damage
+                val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+                if (uid <= 0) return@forEach
+                val damage = pdp.getDamage()
+                totalDamage += damage
+                actorDamage[uid] = (actorDamage[uid] ?: 0) + damage
 
                 val meta = actorMeta.getOrPut(uid) { ActorMetaBuilder(resolveNickname(uid, nicknameData)) }
                 if (meta.job.isEmpty()) {
@@ -1392,7 +1397,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun selectTargetLastHitByMe(localActorIds: Set<Int>, fallbackTarget: Int): Int {
         val actorData = dataStorage.getActorData()
         val now = System.currentTimeMillis()
-        val cutoff = now - 5_000L
+        val cutoff = now - targetSelectionWindowMs
         val wasIdle = lastLocalHitTime < 0 || now - lastLocalHitTime > 5_000L
         var mostRecentTarget = fallbackTarget
         var mostRecentTime = -1L

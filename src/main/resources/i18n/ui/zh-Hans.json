@@ -57,7 +57,7 @@
     "title": "设置",
     "lockedPort": "检测到的设备/端口",
     "resetDetection": "重置检测",
-    "characterName": "角色名称",
+    "characterName": "Name#ID",
     "characterNamePlaceholder": "输入你的角色名称",
     "pinMeToTop": "将我置顶",
     "debugLogging": "启用调试日志",
@@ -80,6 +80,19 @@
     },
     "language": {
       "label": "语言"
+    },
+    "meterOpacity": {
+      "label": "Meter opacity"
+    },
+    "targetWindow": {
+      "label": "Target time range",
+      "options": {
+        "5s": "5 seconds",
+        "10s": "10 seconds",
+        "15s": "15 seconds",
+        "20s": "20 seconds",
+        "30s": "30 seconds"
+      }
     },
     "targetSelection": {
       "label": "目标选择（实验性）",

@@ -2,6 +2,7 @@
   /* Bars */
   --row-fill: #5fbf87;
   --isUser-fill: #6aa6ff;
+  --meter-fill-opacity: 0.8;
 
   /* Status */
   --warning-fill: #f2b94f;
@@ -222,36 +223,36 @@
 }
 
 :root[data-theme="elyos"] {
-  --row-fill: #d8ecff;
-  --isUser-fill: #6bbcff;
+  --row-fill: #9bbef6;
+  --isUser-fill: #4a9cff;
 
-  --warning-fill: #f6d77a;
-  --error-fill: #e36b6b;
+  --warning-fill: #ffd98b;
+  --error-fill: #f36f8a;
 
-  --text-color: #ffffff;
-  --dps: #8fd6ff;
-  --dps-text: #8fd6ff;
+  --text-color: #f8fbff;
+  --dps: #d7ecff;
+  --dps-text: #d7ecff;
 
-  --panel-border: rgba(140, 200, 255, 0.60);
-  --title: rgba(240, 250, 255, 0.98);
+  --panel-border: rgba(150, 210, 255, 0.7);
+  --title: rgba(244, 252, 255, 0.98);
 
   --text-shadow:
     0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.85),
-    0 2px 4px rgba(0,0,0,0.75);
+    0 1px 2px rgba(0,0,0,0.9),
+    0 2px 6px rgba(0,0,0,0.8);
 
   --dps-shadow:
     0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.86),
-    0 2px 4px rgba(0,0,0,0.7);
+    0 1px 2px rgba(0,0,0,0.9),
+    0 2px 6px rgba(0,0,0,0.8);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.90),
-     1px  0   0 rgba(0,0,0,0.90),
-     0   -1px 0 rgba(0,0,0,0.90),
-     0    1px 0 rgba(0,0,0,0.90),
-     0    2px 4px rgba(0,0,0,0.75),
-     0    0  10px rgba(120,190,255,0.35);
+    -1px  0   0 rgba(0,0,0,0.95),
+     1px  0   0 rgba(0,0,0,0.95),
+     0   -1px 0 rgba(0,0,0,0.95),
+     0    1px 0 rgba(0,0,0,0.95),
+     0    3px 6px rgba(0,0,0,0.8),
+     0    0  12px rgba(140,205,255,0.4);
 }
 
 :root[data-theme="obsidian"] {
@@ -1411,6 +1412,12 @@ html[lang="ko"] * {
   justify-content: space-between;
   gap: 12px;
 }
+.settingsPanel .settingsRange {
+  flex: 1;
+  margin-left: auto;
+  max-width: 220px;
+  accent-color: var(--isUser-fill);
+}
 .settingsPanel .settingsRowSelect {
   align-items: center;
 }
@@ -1641,7 +1648,7 @@ html[lang="ko"] * {
   position: absolute;
   inset: 0;
   background: var(--row-fill);
-  opacity: 0.8;
+  opacity: var(--meter-fill-opacity, 0.8);
   transform-origin: left center;
   transform: scaleX(0);
   transition: transform 150ms ease;

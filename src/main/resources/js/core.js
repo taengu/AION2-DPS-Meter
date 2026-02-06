@@ -16,6 +16,8 @@ class DpsApp {
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
+      targetSelectionWindowMs: "dpsMeter.targetSelectionWindowMs",
+      meterFillOpacity: "dpsMeter.meterFillOpacity",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       detailsIncludeMeterScreenshot: "dpsMeter.detailsIncludeMeterScreenshot",
       detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
@@ -707,6 +709,29 @@ class DpsApp {
     });
   }
 
+  getDefaultMeterFillOpacity() {
+    const raw = getComputedStyle(document.documentElement)
+      .getPropertyValue("--meter-fill-opacity")
+      .trim();
+    const value = Number.parseFloat(raw);
+    if (!Number.isFinite(value)) return 80;
+    return Math.round(value * 100);
+  }
+
+  normalizeMeterOpacity(value, fallback = 80) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(100, Math.max(10, Math.round(numeric)));
+  }
+
+  applyMeterFillOpacity(percent, { persist } = {}) {
+    const normalized = this.normalizeMeterOpacity(percent, 80);
+    document.documentElement.style.setProperty("--meter-fill-opacity", String(normalized / 100));
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.meterFillOpacity, String(normalized));
+    }
+  }
+
   updateLocalPlayerIdentity(rows = []) {
     if (!Array.isArray(rows) || !rows.length || !this.USER_NAME) {
       return;
@@ -1029,12 +1054,16 @@ class DpsApp {
     this.localActorIdInput = document.querySelector(".localActorIdInput");
     this.allTargetsWindowDropdownBtn = document.querySelector(".allTargetsWindowDropdownBtn");
     this.allTargetsWindowDropdownMenu = document.querySelector(".allTargetsWindowDropdownMenu");
+    this.targetWindowDropdownBtn = document.querySelector(".targetWindowDropdownBtn");
+    this.targetWindowDropdownMenu = document.querySelector(".targetWindowDropdownMenu");
     this.trainSelectionModeDropdownBtn = document.querySelector(".trainSelectionModeDropdownBtn");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
+    this.meterOpacityInput = document.querySelector(".meterOpacityInput");
+    this.meterOpacityValue = document.querySelector(".meterOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
     this.languageDropdownBtn = document.querySelector(".languageDropdownBtn");
@@ -1046,6 +1075,7 @@ class DpsApp {
       theme: this.theme,
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
+      targetSelectionWindowMs: "5000",
     };
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
@@ -1055,6 +1085,11 @@ class DpsApp {
     const storedTrainSelectionMode = this.safeGetSetting(this.storageKeys.trainSelectionMode) ||
       this.safeGetStorage(this.storageKeys.trainSelectionMode) ||
       "all";
+    const storedTargetSelectionWindowMs = this.safeGetSetting(this.storageKeys.targetSelectionWindowMs) ||
+      this.safeGetStorage(this.storageKeys.targetSelectionWindowMs) ||
+      "5000";
+    const storedMeterOpacity = this.safeGetSetting(this.storageKeys.meterFillOpacity) ||
+      this.safeGetStorage(this.storageKeys.meterFillOpacity);
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
@@ -1108,6 +1143,14 @@ class DpsApp {
     this.safeSetSetting(this.storageKeys.allTargetsWindowMs, selectedWindow);
     window.javaBridge?.setAllTargetsWindowMs?.(selectedWindow);
 
+    const allowedTargetWindows = ["5000", "10000", "15000", "20000", "30000"];
+    const selectedTargetWindow = allowedTargetWindows.includes(String(storedTargetSelectionWindowMs))
+      ? String(storedTargetSelectionWindowMs)
+      : "5000";
+    this.settingsSelections.targetSelectionWindowMs = selectedTargetWindow;
+    this.safeSetSetting(this.storageKeys.targetSelectionWindowMs, selectedTargetWindow);
+    window.javaBridge?.setTargetSelectionWindowMs?.(selectedTargetWindow);
+
     const allowedModes = ["all", "highestDamage"];
     const selectedMode = allowedModes.includes(String(storedTrainSelectionMode))
       ? String(storedTrainSelectionMode)
@@ -1129,6 +1172,19 @@ class DpsApp {
       this.pinMeToTopCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setPinMeToTop(isChecked, { persist: true });
+      });
+    }
+    if (this.meterOpacityInput && this.meterOpacityValue) {
+      const defaultOpacity = this.getDefaultMeterFillOpacity();
+      const resolvedOpacity = this.normalizeMeterOpacity(storedMeterOpacity, defaultOpacity);
+      this.applyMeterFillOpacity(resolvedOpacity, { persist: false });
+      this.meterOpacityInput.value = String(resolvedOpacity);
+      this.meterOpacityValue.textContent = `${resolvedOpacity}%`;
+      this.meterOpacityInput.addEventListener("input", (event) => {
+        const value = Number(event.target?.value);
+        const next = this.normalizeMeterOpacity(value, defaultOpacity);
+        this.meterOpacityValue.textContent = `${next}%`;
+        this.applyMeterFillOpacity(next, { persist: true });
       });
     }
 
@@ -1164,11 +1220,10 @@ class DpsApp {
       const previous = root.dataset.theme;
       root.dataset.theme = themeId;
       const computed = getComputedStyle(root);
-      const rowFill = computed.getPropertyValue("--row-fill").trim() || "rgba(255,255,255,0.08)";
-      const dpsText = computed.getPropertyValue("--dps-text").trim() || "#ffffff";
-      const dpsShadow = computed.getPropertyValue("--dps-shadow").trim() || "none";
+      const textColor = computed.getPropertyValue("--text-color").trim() || "#ffffff";
+      const nameShadow = computed.getPropertyValue("--player-name-shadow").trim() || "none";
       root.dataset.theme = previous || "aion2";
-      return { rowFill, dpsText, dpsShadow };
+      return { textColor, nameShadow };
     };
 
     const closeAll = () => {
@@ -1254,6 +1309,14 @@ class DpsApp {
 
     themeOptions.sort((a, b) => a.label.localeCompare(b.label));
 
+    const targetWindowOptions = [
+      { value: "5000", label: this.i18n?.t("settings.targetWindow.options.5s", "5 seconds") },
+      { value: "10000", label: this.i18n?.t("settings.targetWindow.options.10s", "10 seconds") },
+      { value: "15000", label: this.i18n?.t("settings.targetWindow.options.15s", "15 seconds") },
+      { value: "20000", label: this.i18n?.t("settings.targetWindow.options.20s", "20 seconds") },
+      { value: "30000", label: this.i18n?.t("settings.targetWindow.options.30s", "30 seconds") },
+    ];
+
     const allTargetsWindowOptions = [
       { value: "30000", label: this.i18n?.t("settings.allTargetsWindow.options.30s", "30 seconds") },
       { value: "60000", label: this.i18n?.t("settings.allTargetsWindow.options.1m", "1 minute") },
@@ -1296,20 +1359,38 @@ class DpsApp {
       {
         decorateItem: (item, value) => {
           const colors = previewThemeVars(value);
-          item.style.background = colors.rowFill;
-          item.style.color = colors.dpsText;
-          item.style.textShadow = colors.dpsShadow;
+          item.style.background = "transparent";
+          item.style.color = colors.textColor;
+          item.style.textShadow = colors.nameShadow;
+          item.style.fontWeight = "500";
+          item.style.fontSize = "18px";
         },
         decorateButton: (button, value) => {
           const colors = previewThemeVars(value);
-          button.style.background = colors.rowFill;
-          button.style.color = colors.dpsText;
-          button.style.textShadow = colors.dpsShadow;
+          button.style.background = "transparent";
+          button.style.color = colors.textColor;
+          button.style.textShadow = colors.nameShadow;
+          button.style.fontWeight = "500";
+          button.style.fontSize = "18px";
           const textEl = button.querySelector(".settingsDropdownText");
           if (textEl) {
-            textEl.style.textShadow = colors.dpsShadow;
+            textEl.style.textShadow = colors.nameShadow;
           }
         },
+      }
+    );
+
+    setupDropdown(
+      this.targetWindowDropdownBtn,
+      this.targetWindowDropdownMenu,
+      targetWindowOptions,
+      this.settingsSelections.targetSelectionWindowMs,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.targetSelectionWindowMs = value;
+        this.safeSetSetting(this.storageKeys.targetSelectionWindowMs, value);
+        window.javaBridge?.setTargetSelectionWindowMs?.(value);
+        if (!this.isCollapse) this.fetchDps();
       }
     );
 

@@ -62,7 +62,7 @@
     "title": "Settings",
     "lockedPort": "Detected device/port",
     "resetDetection": "Reset",
-    "characterName": "Character name",
+    "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
     "pinMeToTop": "Always show me at the top",
     "debugLogging": "Enable debug logging",
@@ -85,6 +85,19 @@
     },
     "language": {
       "label": "Language"
+    },
+    "meterOpacity": {
+      "label": "Meter opacity"
+    },
+    "targetWindow": {
+      "label": "Target time range",
+      "options": {
+        "5s": "5 seconds",
+        "10s": "10 seconds",
+        "15s": "15 seconds",
+        "20s": "20 seconds",
+        "30s": "30 seconds"
+      }
     },
     "targetSelection": {
       "label": "Target selection (experimental)",

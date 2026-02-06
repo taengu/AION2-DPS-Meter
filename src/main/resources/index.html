@@ -201,7 +201,7 @@
                 class="settingsLabel"
                 for="characterNameInput"
                 data-i18n="settings.characterName">
-                Character name
+                Name#ID
               </label>
               <div class="settingsCharacterIdentity">
                 <input
@@ -222,6 +222,18 @@
             </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.language.label">Language</div>
+              </div>
+              <div class="settingsDropdownWrapper languageDropdownWrapper">
+                <button class="settingsDropdownBtn languageDropdownBtn" type="button">
+                  <span class="settingsDropdownText">-</span>
+                  <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                </button>
+                <div class="settingsDropdownMenu languageDropdownMenu" role="menu"></div>
+              </div>
+            </div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.theme.label">Theme</div>
               </div>
               <div class="settingsDropdownWrapper themeDropdownWrapper">
@@ -232,17 +244,18 @@
                 <div class="settingsDropdownMenu themeDropdownMenu" role="menu"></div>
               </div>
             </div>
-            <div class="settingsRow settingsRowSelect">
+            <div class="settingsRow settingsRowInput">
               <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.language.label">Language</div>
+                <div class="settingsLabel" data-i18n="settings.meterOpacity.label">Meter opacity</div>
+                <div class="settingsValue meterOpacityValue">80%</div>
               </div>
-              <div class="settingsDropdownWrapper languageDropdownWrapper">
-                <button class="settingsDropdownBtn languageDropdownBtn" type="button">
-                  <span class="settingsDropdownText">-</span>
-                  <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
-                </button>
-                <div class="settingsDropdownMenu languageDropdownMenu" role="menu"></div>
-              </div>
+              <input
+                class="settingsRange meterOpacityInput"
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value="80" />
             </div>
             <div class="settingsDivider"></div>
             <div class="settingsMiniTitle" data-i18n="settings.meterSettings">Meter Settings</div>
@@ -256,6 +269,20 @@
                   <span class="settingsToggleTrack" aria-hidden="true"></span>
                 </span>
               </label>
+            </div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.targetWindow.label">
+                  Target time range
+                </div>
+              </div>
+              <div class="settingsDropdownWrapper targetWindowDropdownWrapper">
+                <button class="settingsDropdownBtn targetWindowDropdownBtn" type="button">
+                  <span class="settingsDropdownText">-</span>
+                  <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                </button>
+                <div class="settingsDropdownMenu targetWindowDropdownMenu" role="menu"></div>
+              </div>
             </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">

@@ -57,7 +57,7 @@
     "title": "설정",
     "lockedPort": "감지된 장치/포트",
     "resetDetection": "감지 초기화",
-    "characterName": "캐릭터 이름",
+    "characterName": "Name#ID",
     "characterNamePlaceholder": "캐릭터 이름 입력",
     "pinMeToTop": "내 캐릭터를 맨 위에 고정",
     "debugLogging": "디버그 로그 활성화",
@@ -80,6 +80,19 @@
     },
     "language": {
       "label": "언어"
+    },
+    "meterOpacity": {
+      "label": "Meter opacity"
+    },
+    "targetWindow": {
+      "label": "Target time range",
+      "options": {
+        "5s": "5 seconds",
+        "10s": "10 seconds",
+        "15s": "15 seconds",
+        "20s": "20 seconds",
+        "30s": "30 seconds"
+      }
     },
     "targetSelection": {
       "label": "대상 선택 (실험적)",

@@ -113,6 +113,11 @@ class BrowserApp(
             dpsCalculator.setTrainSelectionModeById(mode)
         }
 
+        fun setTargetSelectionWindowMs(value: String?) {
+            val parsed = value?.trim()?.toLongOrNull() ?: return
+            dpsCalculator.setTargetSelectionWindowMs(parsed)
+        }
+
         fun bindLocalActorId(actorId: String?) {
             val parsed = actorId?.trim()?.toLongOrNull() ?: return
             dpsCalculator.bindLocalActorId(parsed)

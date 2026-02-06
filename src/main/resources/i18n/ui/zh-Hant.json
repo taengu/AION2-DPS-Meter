@@ -57,7 +57,7 @@
     "title": "設定",
     "lockedPort": "偵測到的裝置/連接埠",
     "resetDetection": "重置偵測",
-    "characterName": "角色名稱",
+    "characterName": "Name#ID",
     "characterNamePlaceholder": "輸入你的角色名稱",
     "pinMeToTop": "將我置頂",
     "debugLogging": "啟用除錯記錄",
@@ -80,6 +80,19 @@
     },
     "language": {
       "label": "語言"
+    },
+    "meterOpacity": {
+      "label": "Meter opacity"
+    },
+    "targetWindow": {
+      "label": "Target time range",
+      "options": {
+        "5s": "5 seconds",
+        "10s": "10 seconds",
+        "15s": "15 seconds",
+        "20s": "20 seconds",
+        "30s": "30 seconds"
+      }
     },
     "targetSelection": {
       "label": "目標選擇（實驗性）",
