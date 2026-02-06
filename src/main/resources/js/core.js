@@ -194,6 +194,8 @@ class DpsApp {
     this.detailsTargetBtn = document.querySelector(".detailsTargetBtn");
     this.detailsTargetMenu = document.querySelector(".detailsTargetMenu");
     this.detailsSortButtons = document.querySelectorAll(".detailsSortBtn");
+    this.detailsScreenshotBtn = document.querySelector(".detailsScreenshotBtn");
+    this.detailsScreenshotNote = document.querySelector(".detailsScreenshotNote");
     this.detailsRefreshBtn = document.querySelector(".detailsRefreshBtn");
     this.detailsStatsEl = document.querySelector(".detailsStats");
     this.skillsListEl = document.querySelector(".skills");
@@ -216,6 +218,20 @@ class DpsApp {
     this.detailsRefreshBtn?.addEventListener("click", () => {
       this.detailsUI?.refresh?.();
     });
+    if (this.detailsScreenshotBtn) {
+      let screenshotNoteTimer = null;
+      this.detailsScreenshotBtn.addEventListener("click", () => {
+        const success = window.javaBridge?.captureScreenshotToClipboard?.();
+        if (!success || !this.detailsScreenshotNote) return;
+        this.detailsScreenshotNote.textContent = "Saved to clipboard";
+        this.detailsScreenshotNote.classList.add("isVisible");
+        if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);
+        screenshotNoteTimer = window.setTimeout(() => {
+          this.detailsScreenshotNote?.classList.remove("isVisible");
+          this.detailsScreenshotNote.textContent = "";
+        }, 2000);
+      });
+    }
     this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
     this.detailsUI?.updateLabels?.();
@@ -1020,8 +1036,28 @@ class DpsApp {
       return modText.join("+");
     };
 
+    const parseKeybindParts = (value) => {
+      const normalized = normalizeKeybind(value);
+      const parts = normalized.split("+").filter(Boolean);
+      const key = parts.pop() || "";
+      const mods = new Set(parts);
+      return { mods, key };
+    };
+
+    const matchesKeybindEvent = (event, keybindValue) => {
+      const { mods, key } = parseKeybindParts(keybindValue);
+      if (!key) return false;
+      if (!!event.ctrlKey !== mods.has("Ctrl")) return false;
+      if (!!event.altKey !== mods.has("Alt")) return false;
+      if (!!event.shiftKey !== mods.has("Shift")) return false;
+      if (!!event.metaKey !== mods.has("Meta")) return false;
+      const eventKey = String(event.key || event.code || "").toUpperCase();
+      return eventKey === key || eventKey === `KEY${key}` || eventKey === `DIGIT${key}`;
+    };
+
     const setKeybindValue = (value, { persist = true, syncBackend = true } = {}) => {
       const normalized = normalizeKeybind(value || "Ctrl+R");
+      this._refreshKeybindValue = normalized || "Ctrl+R";
       if (this.refreshKeybindInput) {
         this.refreshKeybindInput.textContent = normalized || "Ctrl+R";
         this.refreshKeybindInput.dataset.value = normalized || "Ctrl+R";
@@ -1035,6 +1071,16 @@ class DpsApp {
     };
 
     setKeybindValue(storedKeybind || "Ctrl+R", { persist: !storedKeybind, syncBackend: true });
+
+    if (!this._refreshKeybindListenerBound) {
+      document.addEventListener("keydown", (event) => {
+        if (this.refreshKeybindInput?.classList?.contains("isCapturing")) return;
+        if (!matchesKeybindEvent(event, this._refreshKeybindValue || "Ctrl+R")) return;
+        event.preventDefault();
+        this.triggerRefreshFromKeybind();
+      });
+      this._refreshKeybindListenerBound = true;
+    }
 
     if (this.refreshKeybindInput) {
       let capturing = false;

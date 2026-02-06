@@ -904,6 +904,35 @@ html[lang="ko"] * {
       margin-left: 4px;
     }
 
+    .detailsScreenshotBtn {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      color: inherit;
+      width: 28px;
+      height: 26px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .detailsScreenshotBtn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .detailsScreenshotNote {
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 150ms ease;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .detailsScreenshotNote.isVisible {
+      opacity: 1;
+    }
+
     .detailsSortBtn {
       border: 1px solid rgba(255, 255, 255, 0.2);
       background: transparent;
@@ -1728,6 +1757,31 @@ html[lang="ko"] * {
   align-items: center;
   gap: 4px;
   margin-left: 4px;
+}
+.detailsPanel .detailsHeader .detailsScreenshotBtn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  width: 28px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.detailsPanel .detailsHeader .detailsScreenshotBtn svg {
+  width: 16px;
+  height: 16px;
+}
+.detailsPanel .detailsHeader .detailsScreenshotNote {
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  color: rgba(255, 255, 255, 0.75);
+}
+.detailsPanel .detailsHeader .detailsScreenshotNote.isVisible {
+  opacity: 1;
 }
 .detailsPanel .detailsHeader .detailsSortBtn {
   border: 1px solid rgba(255, 255, 255, 0.2);

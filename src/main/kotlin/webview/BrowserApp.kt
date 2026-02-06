@@ -16,6 +16,8 @@ import javafx.application.HostServices
 import javafx.concurrent.Worker
 import javafx.scene.Scene
 import javafx.scene.paint.Color
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
 import javafx.scene.web.WebView
 import javafx.scene.web.WebEngine
 import javafx.stage.Stage
@@ -29,6 +31,8 @@ import kotlinx.serialization.json.Json
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -205,6 +209,27 @@ class BrowserApp(
         fun exitApp() {
           Platform.exit()     
           exitProcess(0)       
+        }
+
+        fun captureScreenshotToClipboard(): Boolean {
+            val scene = stage.scene ?: return false
+            val latch = CountDownLatch(1)
+            var success = false
+            Platform.runLater {
+                try {
+                    val image = scene.snapshot(null)
+                    val clipboard = Clipboard.getSystemClipboard()
+                    val content = ClipboardContent()
+                    content.putImage(image)
+                    success = clipboard.setContent(content)
+                } catch (e: Exception) {
+                    logger.warn("Failed to capture screenshot", e)
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await(2, TimeUnit.SECONDS)
+            return success
         }
 
         fun notifyUiReady() {
