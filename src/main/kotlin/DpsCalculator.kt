@@ -1247,22 +1247,25 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun resolveConfirmedLocalActorIds(): Set<Int>? {
         val localName = LocalPlayer.characterName?.trim().orEmpty()
-        if (localName.isBlank()) return null
+        val normalizedLocalName = localName.lowercase()
 
         val nicknameData = dataStorage.getNickname()
         val localActorIds = mutableSetOf<Int>()
         val localPlayerId = LocalPlayer.playerId?.toInt()
         if (localPlayerId != null) {
-            val recordedName = nicknameData[localPlayerId]
-            if (recordedName != null && recordedName == localName) {
-                localActorIds.add(localPlayerId)
-            }
+            // If packet parsing has confirmed local player ID, trust it directly.
+            // Nickname mapping may appear later or differ temporarily.
+            localActorIds.add(localPlayerId)
         }
-        localActorIds.addAll(
-            nicknameData
-                .filterValues { it == localName }
-                .keys
-        )
+
+        if (normalizedLocalName.isNotBlank()) {
+            localActorIds.addAll(
+                nicknameData
+                    .filterValues { it.trim().lowercase() == normalizedLocalName }
+                    .keys
+            )
+        }
+
         if (localActorIds.isEmpty()) return null
         val summonData = dataStorage.getSummonData()
         if (summonData.isNotEmpty()) {
