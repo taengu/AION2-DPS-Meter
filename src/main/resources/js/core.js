@@ -45,6 +45,7 @@ class DpsApp {
     this.lastSnapshot = null;
     // reset 직후 서버가 구 데이터 계속 주는 현상 방지
     this.resetPending = false;
+    this.refreshPending = false;
 
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
@@ -223,6 +224,7 @@ class DpsApp {
     });
     if (this.detailsScreenshotBtn) {
       let screenshotNoteTimer = null;
+      let screenshotFlashTimer = null;
       this.detailsScreenshotBtn.addEventListener("click", () => {
         const tooltipText =
           this.i18n?.t("details.screenshot.captured", "Captured Screenshot") ?? "Captured Screenshot";
@@ -247,8 +249,16 @@ class DpsApp {
         );
         if (!success || !this.detailsScreenshotNote) return;
         this.detailsScreenshotBtn.setAttribute("title", tooltipText);
-        this.detailsScreenshotNote.textContent = "Saved to clipboard";
+        this.detailsScreenshotNote.textContent =
+          this.i18n?.t("details.screenshot.savedToClipboard", "Saved to clipboard") ?? "Saved to clipboard";
         this.detailsScreenshotNote.classList.add("isVisible");
+        if (this.detailsPanel) {
+          this.detailsPanel.classList.add("flash");
+          if (screenshotFlashTimer) window.clearTimeout(screenshotFlashTimer);
+          screenshotFlashTimer = window.setTimeout(() => {
+            this.detailsPanel?.classList.remove("flash");
+          }, 1000);
+        }
         if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);
         screenshotNoteTimer = window.setTimeout(() => {
           this.detailsScreenshotNote?.classList.remove("isVisible");
@@ -416,7 +426,7 @@ class DpsApp {
       return;
     }
 
-    if (raw === this.lastJson) {
+    if (raw === this.lastJson && !this.refreshPending) {
       const shouldBeVisible = this._battleTimeVisible && !this.isCollapse;
 
       this.battleTime.setVisible(shouldBeVisible);
@@ -428,12 +438,24 @@ class DpsApp {
       return;
     }
 
-    this.lastJson = raw;
-
     const previousTargetName = this.lastTargetName;
     const previousTargetMode = this.lastTargetMode;
     const previousTargetId = this.lastTargetId;
     const { rows, targetName, targetMode, battleTimeMs, targetId } = this.buildRowsFromPayload(raw);
+    if (this.refreshPending) {
+      if (rows.length > 0) {
+        return;
+      }
+      this.refreshPending = false;
+      this.lastJson = raw;
+      this.lastSnapshot = [];
+      this._lastRenderedListSignature = "";
+      this._lastRenderedRowsSummary = null;
+      this.meterUI?.onResetMeterUi?.();
+      return;
+    }
+
+    this.lastJson = raw;
     this.updateLocalPlayerIdentity(rows);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
@@ -1706,6 +1728,7 @@ class DpsApp {
   }
 
   refreshDamageData({ reason = "refresh" } = {}) {
+    this.refreshPending = true;
     this.lastSnapshot = null;
     this.lastJson = null;
     this.lastTargetMode = "";
@@ -1714,25 +1737,12 @@ class DpsApp {
     this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastRenderedRowsSummary = null;
-    this._battleTimeVisible = false;
-    this._lastBattleTimeMs = null;
-    this.battleTime?.reset?.();
-    this.battleTime?.setVisible?.(false);
     this.detailsUI?.close?.();
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
     this._lastRenderedListSignature = "";
     this.meterUI?.onResetMeterUi?.();
     this.renderCurrentRows();
-
-    if (this.battleTimeRoot) {
-      this.battleTimeRoot.classList.add("isVisible");
-    }
-    if (this.analysisStatusEl) {
-      this.analysisStatusEl.textContent =
-        this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
-      this.analysisStatusEl.style.display = "";
-    }
 
     if (this.elBossName) {
       this.elBossName.textContent = this.getDefaultTargetLabel(this.targetSelection);
