@@ -39,7 +39,7 @@ class CaptureDispatcher(
             // "Lock" is informational for now; don't filter until parsing confirmed stable
             if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(cap.data)) {
                 // Choose srcPort for now (since magic typically comes from the sender)
-                CombatPortDetector.registerCandidate(cap.srcPort, cap.deviceName)
+                CombatPortDetector.registerCandidate(cap.srcPort, key, cap.deviceName)
                 logger.info(
                     "Magic seen on flow {}-{} (src={}, dst={}, device={})",
                     a,
