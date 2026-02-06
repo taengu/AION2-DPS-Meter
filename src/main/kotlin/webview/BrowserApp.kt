@@ -241,15 +241,21 @@ class BrowserApp(
         val webView = WebView()
         val engine = webView.engine
         webEngine = engine
-        engine.load(javaClass.getResource("/index.html")?.toExternalForm())
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier)
+        val injectBridge = {
+            val window = engine.executeScript("window") as JSObject
+            window.setMember("javaBridge", bridge)
+            window.setMember("dpsData", this)
+        }
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
-                val window = engine.executeScript("window") as JSObject
-                window.setMember("javaBridge", bridge)
-                window.setMember("dpsData", this)
+                injectBridge()
             }
+        }
+        engine.load(javaClass.getResource("/index.html")?.toExternalForm())
+        if (engine.loadWorker.state == Worker.State.SUCCEEDED) {
+            injectBridge()
         }
 
         val storedKeybind = PropertyHandler.getProperty("dpsMeter.refreshKeybind") ?: "Ctrl+R"

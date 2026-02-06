@@ -141,7 +141,6 @@
 * {
   font-family:
           "Pretendard",
-          "Noto Sans KR",
           "Noto Sans SC",
           "Noto Sans TC",
           "Microsoft YaHei UI",
@@ -160,6 +159,29 @@
   padding: 0;
   -webkit-user-select: none;
   user-select: none;
+}
+
+
+:root:lang(ko) *,
+html[lang="ko"] * {
+  font-family:
+          "Spoqa Han Sans Neo",
+          "Spoqa Han Sans",
+          "Pretendard",
+          "Noto Sans SC",
+          "Noto Sans TC",
+          "Microsoft YaHei UI",
+          "Microsoft YaHei",
+          "Microsoft JhengHei UI",
+          "Microsoft JhengHei",
+          "PingFang SC",
+          "PingFang TC",
+          "Heiti SC",
+          "Heiti TC",
+          "SimHei",
+          "Segoe UI",
+          "Arial Unicode MS",
+          sans-serif;
 }
 
 .container {

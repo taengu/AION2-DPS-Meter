@@ -169,6 +169,7 @@ const createI18n = ({
 
     uiStrings = ui || {};
     skillStrings = skills || {};
+    document.documentElement.setAttribute("lang", currentLanguage);
     applyTranslations();
     listeners.forEach((listener) => listener(currentLanguage));
   };
