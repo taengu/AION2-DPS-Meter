@@ -124,17 +124,9 @@ class RefreshKeybindManager(
         private fun isModifierKey(keyCode: Int): Boolean {
             return when (keyCode) {
                 NativeKeyEvent.VC_CONTROL,
-                NativeKeyEvent.VC_CONTROL_L,
-                NativeKeyEvent.VC_CONTROL_R,
                 NativeKeyEvent.VC_SHIFT,
-                NativeKeyEvent.VC_SHIFT_L,
-                NativeKeyEvent.VC_SHIFT_R,
                 NativeKeyEvent.VC_ALT,
-                NativeKeyEvent.VC_ALT_L,
-                NativeKeyEvent.VC_ALT_R,
-                NativeKeyEvent.VC_META,
-                NativeKeyEvent.VC_META_L,
-                NativeKeyEvent.VC_META_R -> true
+                NativeKeyEvent.VC_META -> true
                 else -> false
             }
         }
