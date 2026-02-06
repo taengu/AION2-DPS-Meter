@@ -598,7 +598,7 @@ const createDetailsUI = ({
     }
     const target = getTargetById(selectedTargetId);
     const actorIds = getTargetActorIds(target);
-    if (selectedAttackerIds && selectedAttackerIds.length > 0) {
+    if (targetId !== "all" && selectedAttackerIds && selectedAttackerIds.length > 0) {
       const stillValid = selectedAttackerIds.some((id) => actorIds.includes(id));
       if (!stillValid) {
         selectedAttackerIds = null;
