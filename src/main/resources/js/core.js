@@ -682,7 +682,23 @@ class DpsApp {
       });
     }
 
-    return rows;
+    const dedupedByName = new Map();
+    for (const row of rows) {
+      const key = String(row.name ?? "");
+      if (!key) continue;
+      const existing = dedupedByName.get(key);
+      if (!existing) {
+        dedupedByName.set(key, row);
+        continue;
+      }
+      const existingId = Number(existing.id);
+      const nextId = Number(row.id);
+      if (!Number.isFinite(existingId) || (Number.isFinite(nextId) && nextId > existingId)) {
+        dedupedByName.set(key, row);
+      }
+    }
+
+    return Array.from(dedupedByName.values());
   }
 
   isOutOfCombatState() {
@@ -1783,7 +1799,7 @@ class DpsApp {
     const lastParsedAtMs = Number(window.javaBridge?.getLastParsedAtMs?.());
     if (Number.isFinite(lastParsedAtMs) && lastParsedAtMs > 0) {
       const idleMs = Date.now() - lastParsedAtMs;
-      if (idleMs > 60_000) {
+      if (idleMs > 30_000) {
         window.javaBridge?.resetAutoDetection?.();
       }
     }
