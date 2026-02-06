@@ -1123,6 +1123,10 @@ class DpsApp {
         }
         stopCapture({ cancelNative: false });
       };
+      this.cancelKeybindCapture = () => {
+        if (!capturing) return;
+        stopCapture({ cancelNative: true });
+      };
 
       this.refreshKeybindInput.addEventListener("click", () => {
         startCapture();
@@ -1134,6 +1138,14 @@ class DpsApp {
       });
       document.addEventListener("keydown", captureKeydown, true);
       document.addEventListener("keyup", captureKeyup, true);
+      document.addEventListener("keydown", (event) => {
+        if (!capturing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          stopCapture({ cancelNative: true });
+        }
+      }, true);
       window.addEventListener("blur", () => {
         if (capturing && captureMode === "dom") stopCapture();
       });
@@ -1478,6 +1490,7 @@ class DpsApp {
 
   closeSettingsPanel() {
     this.settingsPanel?.classList.remove("isOpen");
+    this.cancelKeybindCapture?.();
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {
