@@ -376,11 +376,32 @@ class DpsApp {
 
     const previousTargetName = this.lastTargetName;
     const previousTargetMode = this.lastTargetMode;
+    const previousTargetId = this.lastTargetId;
     const { rows, targetName, targetMode, battleTimeMs, targetId } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
     this.lastTargetName = targetName;
     this.lastTargetId = targetId;
+
+    if (
+      targetId !== this._lastLoggedTargetId ||
+      targetMode !== this._lastLoggedTargetMode ||
+      targetName !== this._lastLoggedTargetName
+    ) {
+      const reasons = [];
+      if (targetId !== this._lastLoggedTargetId) reasons.push("targetId changed");
+      if (targetMode !== this._lastLoggedTargetMode) reasons.push("mode changed");
+      if (targetName !== this._lastLoggedTargetName) reasons.push("name changed");
+      console.log("[Target Lock]", {
+        targetId,
+        targetName,
+        targetMode,
+        reason: reasons.join(", ") || "initial",
+      });
+      this._lastLoggedTargetId = targetId;
+      this._lastLoggedTargetMode = targetMode;
+      this._lastLoggedTargetName = targetName;
+    }
 
 
     const showByServer = rows.length > 0;
@@ -414,7 +435,17 @@ class DpsApp {
     const showByRender = rowsToRender.length > 0;
     const showBattleTime = this.BATTLE_TIME_BASIS === "server" ? showByServer : showByRender;
 
-    const eligible = showBattleTime && Number.isFinite(Number(battleTimeMs));
+    let nextBattleTimeMs = battleTimeMs;
+    if (
+      Number.isFinite(Number(nextBattleTimeMs)) &&
+      Number.isFinite(Number(this._lastBattleTimeMs)) &&
+      targetId === previousTargetId &&
+      Number(nextBattleTimeMs) < Number(this._lastBattleTimeMs)
+    ) {
+      nextBattleTimeMs = this._lastBattleTimeMs;
+    }
+
+    const eligible = showBattleTime && Number.isFinite(Number(nextBattleTimeMs));
 
     this._battleTimeVisible = eligible;
     const shouldBeVisible = eligible && !this.isCollapse;
@@ -422,7 +453,7 @@ class DpsApp {
     this.battleTime.setVisible(shouldBeVisible);
 
     if (shouldBeVisible) {
-      this.battleTime.update(now, battleTimeMs);
+      this.battleTime.update(now, nextBattleTimeMs);
     }
 
     this.updateConnectionStatusUi();
@@ -788,6 +819,10 @@ class DpsApp {
     });
     this.targetModeBtn?.addEventListener("click", () => {
       const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
+      console.log("[Target Mode Toggle]", {
+        from: this.targetSelection,
+        to: nextMode,
+      });
       this.setTargetSelection(nextMode, {
         persist: true,
         syncBackend: true,
@@ -971,7 +1006,7 @@ class DpsApp {
         const key = event.key;
         const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
         if (!captureStarted) {
-          if (key !== "Control" && key !== "Alt") {
+          if (key !== "Control" && key !== "Alt" && !event.ctrlKey && !event.altKey) {
             return;
           }
           captureStarted = true;
@@ -1308,6 +1343,11 @@ class DpsApp {
     this.battleTime?.reset?.();
     this.battleTime?.setVisible?.(false);
     this.detailsUI?.close?.();
+    this.lastSnapshot = [];
+    this._lastRenderedRowsSummary = null;
+    this._lastRenderedListSignature = "";
+    this.meterUI?.onResetMeterUi?.();
+    this.renderCurrentRows();
 
     if (this.elBossName) {
       this.elBossName.textContent = this.getDefaultTargetLabel(this.targetSelection);
