@@ -6,6 +6,7 @@ import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener
 import org.slf4j.LoggerFactory
 import java.util.Locale
+import java.util.concurrent.Executors
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -35,11 +36,17 @@ class RefreshKeybindManager(
 
     @Volatile
     private var captureCallback: ((String) -> Unit)? = null
+    private val eventExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "keybind-dispatcher").apply { isDaemon = true }
+    }
 
     fun start() {
         try {
             Logger.getLogger(GlobalScreen::class.java.packageName).level = Level.OFF
             Logger.getLogger(GlobalScreen::class.java.packageName).useParentHandlers = false
+            GlobalScreen.setEventDispatcher { runnable ->
+                eventExecutor.execute(runnable)
+            }
             if (!GlobalScreen.isNativeHookRegistered()) {
                 GlobalScreen.registerNativeHook()
             }
@@ -55,6 +62,8 @@ class RefreshKeybindManager(
             GlobalScreen.unregisterNativeHook()
         } catch (e: NativeHookException) {
             logger.warn("Failed to unregister global keybind hook", e)
+        } finally {
+            eventExecutor.shutdownNow()
         }
     }
 
