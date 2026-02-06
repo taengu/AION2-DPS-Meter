@@ -139,8 +139,8 @@ const createDetailsUI = ({
   };
 
   const jobColorMap = {
-    정령성: "#4FD1C5",
-    Spiritmaster: "#4FD1C5",
+    정령성: "#E06BFF",
+    Spiritmaster: "#E06BFF",
     궁성: "#41D98A",
     Ranger: "#41D98A",
     살성: "#7BE35A",
@@ -149,12 +149,12 @@ const createDetailsUI = ({
     Templar: "#5F8CFF",
     마도성: "#9A6BFF",
     Sorcerer: "#9A6BFF",
-    호법성: "#E06BFF",
-    Chanter: "#E06BFF",
+    호법성: "#FF9A3D",
+    Chanter: "#FF9A3D",
     치유성: "#F2C15A",
     Cleric: "#F2C15A",
-    검성: "#FF9A3D",
-    Gladiator: "#FF9A3D",
+    검성: "#4FD1C5",
+    Gladiator: "#4FD1C5",
   };
 
   const getJobColor = (job) => jobColorMap[job] || "";
