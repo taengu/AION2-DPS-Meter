@@ -1147,10 +1147,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 return@forEach
             }
             val timestamp = pdp.getTimeStamp()
-            if (startTime == null || timestamp < startTime) {
+            val currentStart = startTime
+            if (currentStart == null || timestamp < currentStart) {
                 startTime = timestamp
             }
-            if (endTime == null || timestamp > endTime) {
+            val currentEnd = endTime
+            if (currentEnd == null || timestamp > currentEnd) {
                 endTime = timestamp
             }
 
@@ -1359,10 +1361,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             pdps.forEach { pdp ->
                 if (pdp.getTargetId() != targetId) return@forEach
                 val timestamp = pdp.getTimeStamp()
-                if (startTime == null || timestamp < startTime) {
+                val currentStart = startTime
+                if (currentStart == null || timestamp < currentStart) {
                     startTime = timestamp
                 }
-                if (endTime == null || timestamp > endTime) {
+                val currentEnd = endTime
+                if (currentEnd == null || timestamp > currentEnd) {
                     endTime = timestamp
                 }
             }
