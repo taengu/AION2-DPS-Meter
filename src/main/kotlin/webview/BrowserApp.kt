@@ -18,6 +18,8 @@ import javafx.scene.Scene
 import javafx.scene.paint.Color
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.web.WebView
 import javafx.scene.web.WebEngine
 import javafx.stage.Stage
@@ -45,6 +47,12 @@ class BrowserApp(
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
     private var webEngine: WebEngine? = null
     private val refreshKeybindManager = RefreshKeybindManager({ triggerRefreshFromKeybind() })
+    @Volatile
+    private var refreshKeybindValue: String = "Ctrl+R"
+    @Volatile
+    private var keybindCaptureActive: Boolean = false
+    @Volatile
+    private var keybindCapturePending: String? = null
     override fun stop() {
         refreshKeybindManager.stop()
         super.stop()
@@ -173,15 +181,20 @@ class BrowserApp(
             val normalized = value?.trim().orEmpty()
             PropertyHandler.setProperty("dpsMeter.refreshKeybind", normalized)
             refreshKeybindManager.updateKeybind(normalized)
+            refreshKeybindValue = normalized.ifBlank { "Ctrl+R" }
         }
 
         fun startRefreshKeybindCapture(): Boolean {
+            keybindCaptureActive = true
+            keybindCapturePending = null
             return refreshKeybindManager.beginCapture { combo ->
                 notifyKeybindCaptured(combo)
             }
         }
 
         fun cancelRefreshKeybindCapture() {
+            keybindCaptureActive = false
+            keybindCapturePending = null
             refreshKeybindManager.cancelCapture()
         }
 
@@ -295,6 +308,59 @@ class BrowserApp(
         }
     }
 
+    private fun parseKeybindParts(value: String): Pair<Set<String>, String> {
+        val cleaned = value.replace("\\s+".toRegex(), "").uppercase()
+        if (cleaned.isBlank()) return emptySet<String>() to ""
+        val parts = cleaned.split("+").filter { it.isNotBlank() }.toMutableList()
+        var key = ""
+        val mods = mutableSetOf<String>()
+        parts.forEach { part ->
+            when (part) {
+                "CTRL", "CONTROL" -> mods.add("Ctrl")
+                "ALT" -> mods.add("Alt")
+                "SHIFT" -> mods.add("Shift")
+                "META", "CMD", "WIN" -> mods.add("Meta")
+                else -> key = part
+            }
+        }
+        return mods to key
+    }
+
+    private fun matchesKeybind(event: KeyEvent, keybindValue: String): Boolean {
+        val (mods, key) = parseKeybindParts(keybindValue)
+        if (key.isBlank()) return false
+        if (event.isControlDown != mods.contains("Ctrl")) return false
+        if (event.isAltDown != mods.contains("Alt")) return false
+        if (event.isShiftDown != mods.contains("Shift")) return false
+        if (event.isMetaDown != mods.contains("Meta")) return false
+        val code = event.code
+        val keyText = when {
+            code.isDigitKey -> code.name.removePrefix("DIGIT")
+            code.isLetterKey -> code.name.removePrefix("KEY")
+            else -> code.name
+        }
+        return keyText.equals(key, ignoreCase = true)
+    }
+
+    private fun buildCombo(event: KeyEvent): String {
+        if (event.code.isModifierKey) return ""
+        if (!event.isControlDown && !event.isAltDown && !event.isMetaDown) return ""
+        val parts = mutableListOf<String>()
+        if (event.isControlDown) parts.add("Ctrl")
+        if (event.isAltDown) parts.add("Alt")
+        if (event.isShiftDown) parts.add("Shift")
+        if (event.isMetaDown) parts.add("Meta")
+        val code = event.code
+        val keyText = when {
+            code.isDigitKey -> code.name.removePrefix("DIGIT")
+            code.isLetterKey -> code.name.removePrefix("KEY")
+            else -> code.name
+        }
+        if (keyText.isBlank()) return ""
+        parts.add(keyText.uppercase())
+        return parts.joinToString("+")
+    }
+
     private fun notifyKeybindCaptured(combo: String) {
         val engine = webEngine ?: return
         Platform.runLater {
@@ -352,12 +418,35 @@ class BrowserApp(
         }
 
         val storedKeybind = PropertyHandler.getProperty("dpsMeter.refreshKeybind") ?: "Ctrl+R"
+        refreshKeybindValue = storedKeybind
         refreshKeybindManager.updateKeybind(storedKeybind)
         refreshKeybindManager.start()
 
 
         val scene = Scene(webView, 1600.0, 1000.0)
         scene.fill = Color.TRANSPARENT
+        scene.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            if (keybindCaptureActive) {
+                keybindCapturePending = buildCombo(event).ifBlank { keybindCapturePending }
+                event.consume()
+                return@addEventFilter
+            }
+            if (matchesKeybind(event, refreshKeybindValue)) {
+                triggerRefreshFromKeybind()
+                event.consume()
+            }
+        }
+        scene.addEventFilter(KeyEvent.KEY_RELEASED) { event ->
+            if (!keybindCaptureActive) return@addEventFilter
+            if (event.code.isModifierKey) return@addEventFilter
+            val captured = keybindCapturePending
+            if (!captured.isNullOrBlank()) {
+                notifyKeybindCaptured(captured)
+            }
+            keybindCaptureActive = false
+            keybindCapturePending = null
+            event.consume()
+        }
 
         try {
             val pageField = engine.javaClass.getDeclaredField("page")

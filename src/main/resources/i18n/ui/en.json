@@ -16,6 +16,9 @@
       "ariaLabel": "Open details settings"
     },
     "panelBackground": "Panel background",
+    "screenshot": {
+      "captured": "Captured Screenshot"
+    },
     "skills": {
       "skill": "Skill",
       "hits": "Hits",

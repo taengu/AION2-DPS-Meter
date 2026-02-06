@@ -905,21 +905,21 @@ html[lang="ko"] * {
     }
 
     .detailsScreenshotBtn {
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.08);
-      color: inherit;
-      width: 28px;
-      height: 26px;
-      border-radius: 6px;
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      transition: 0.2s;
     }
 
     .detailsScreenshotBtn svg {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
     }
 
     .detailsScreenshotNote {
@@ -1759,20 +1759,20 @@ html[lang="ko"] * {
   margin-left: 4px;
 }
 .detailsPanel .detailsHeader .detailsScreenshotBtn {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
-  width: 28px;
-  height: 26px;
-  border-radius: 6px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  transition: 0.2s;
 }
 .detailsPanel .detailsHeader .detailsScreenshotBtn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 .detailsPanel .detailsHeader .detailsScreenshotNote {
   font-size: 12px;

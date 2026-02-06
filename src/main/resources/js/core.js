@@ -221,6 +221,8 @@ class DpsApp {
     if (this.detailsScreenshotBtn) {
       let screenshotNoteTimer = null;
       this.detailsScreenshotBtn.addEventListener("click", () => {
+        const tooltipText =
+          this.i18n?.t("details.screenshot.captured", "Captured Screenshot") ?? "Captured Screenshot";
         const meterRect = document.querySelector(".meter")?.getBoundingClientRect?.();
         const detailsRect = this.detailsPanel?.classList?.contains("open")
           ? this.detailsPanel.getBoundingClientRect()
@@ -241,6 +243,7 @@ class DpsApp {
           scale
         );
         if (!success || !this.detailsScreenshotNote) return;
+        this.detailsScreenshotBtn.setAttribute("title", tooltipText);
         this.detailsScreenshotNote.textContent = "Saved to clipboard";
         this.detailsScreenshotNote.classList.add("isVisible");
         if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);

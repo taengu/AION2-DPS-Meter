@@ -16,6 +16,9 @@
       "ariaLabel": "상세 설정 열기"
     },
     "panelBackground": "패널 배경",
+    "screenshot": {
+      "captured": "스크린샷 캡처됨"
+    },
     "skills": {
       "skill": "스킬",
       "hits": "타수",
