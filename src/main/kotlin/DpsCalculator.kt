@@ -1460,6 +1460,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         dataStorage.flushDamageStorage()
         targetInfoMap.clear()
         lastLocalHitTime = -1L
+        currentTarget = 0
+        lastDpsSnapshot = null
+        dataStorage.setCurrentTarget(0)
         logger.info("Target damage accumulation reset")
     }
 

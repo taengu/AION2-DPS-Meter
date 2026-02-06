@@ -783,7 +783,7 @@ class DpsApp {
       window.lucide?.createIcons?.({ root: this.collapseBtn });
     });
     this.resetBtn?.addEventListener("click", () => {
-      this.resetAll({ callBackend: true });
+      this.refreshDamageData({ reason: "manual refresh" });
     });
     this.targetModeBtn?.addEventListener("click", () => {
       const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
@@ -1189,7 +1189,30 @@ class DpsApp {
   }
 
   triggerRefreshFromKeybind() {
-    this.resetAll({ callBackend: true });
+    this.refreshDamageData({ reason: "keybind refresh" });
+  }
+
+  refreshDamageData({ reason = "refresh" } = {}) {
+    this.lastSnapshot = null;
+    this.lastJson = null;
+    this.lastTargetMode = "";
+    this.lastTargetName = "";
+    this.lastTargetId = 0;
+    this._lastRenderedListSignature = "";
+    this._lastRenderedTargetLabel = "";
+    this._lastRenderedRowsSummary = null;
+    this._battleTimeVisible = false;
+    this._lastBattleTimeMs = null;
+    this.battleTime?.reset?.();
+    this.battleTime?.setVisible?.(false);
+    this.detailsUI?.close?.();
+
+    if (this.elBossName) {
+      this.elBossName.textContent = this.getDefaultTargetLabel(this.targetSelection);
+    }
+
+    window.javaBridge?.resetDps?.();
+    this.logDebug(`Damage data refreshed (${reason}).`);
   }
 
   getMetricForRow(row) {
