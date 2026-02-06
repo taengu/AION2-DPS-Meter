@@ -887,6 +887,7 @@ class DpsApp {
     this.languageSelect = document.querySelector(".languageSelect");
     this.themeSelect = document.querySelector(".themeSelect");
     this.refreshKeybindInput = document.querySelector(".settingsKeybindInput");
+    this._settingsDropdownDisposers = [];
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedAllTargetsWindowMs = this.safeGetSetting(this.storageKeys.allTargetsWindowMs) ||
@@ -1002,9 +1003,14 @@ class DpsApp {
         const value = event.target?.value;
         if (value) {
           this.applyTheme(value, { persist: true });
+          this._settingsDropdownDisposers.forEach((fn) => fn?.());
+          this._settingsDropdownDisposers = [];
+          this.initializeSettingsDropdowns();
         }
       });
     }
+
+    this.initializeSettingsDropdowns();
 
     const normalizeKeybind = (value) => {
       if (!value) return "";
@@ -1104,11 +1110,22 @@ class DpsApp {
         return parts.join("+");
       };
 
+      const normalizeEventKey = (event) => {
+        const rawKey = String(event?.key || "");
+        if (rawKey && rawKey !== "Unidentified") return rawKey;
+        const code = String(event?.code || "");
+        if (code.startsWith("Key")) return code.slice(3);
+        if (code.startsWith("Digit")) return code.slice(5);
+        if (code) return code;
+        return "";
+      };
+
       const captureKeydown = (event) => {
         if (!capturing) return;
         event.preventDefault();
         event.stopPropagation();
-        const key = event.key;
+        const key = normalizeEventKey(event);
+        if (!key) return;
         const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
         if (!captureStarted) {
           captureStarted = true;
@@ -1141,7 +1158,8 @@ class DpsApp {
         if (!capturing) return;
         event.preventDefault();
         event.stopPropagation();
-        const key = event.key;
+        const key = normalizeEventKey(event);
+        if (!key) return;
         if (!captureStarted) {
           return;
         }
@@ -1191,6 +1209,108 @@ class DpsApp {
 
     this.quitButton?.addEventListener("click", () => {
       window.javaBridge?.exitApp?.();
+    });
+  }
+
+  initializeSettingsDropdowns() {
+    const previewThemeVars = (themeId) => {
+      const root = document.documentElement;
+      const previous = root.dataset.theme;
+      root.dataset.theme = themeId;
+      const computed = getComputedStyle(root);
+      const rowFill = computed.getPropertyValue("--row-fill").trim() || "rgba(255,255,255,0.08)";
+      const dpsText = computed.getPropertyValue("--dps-text").trim() || "#ffffff";
+      root.dataset.theme = previous || "aion2";
+      return { rowFill, dpsText };
+    };
+
+    const closeAll = () => {
+      document.querySelectorAll(".settingsDropdownMenu.isOpen").forEach((menu) => {
+        menu.classList.remove("isOpen");
+      });
+    };
+
+    const enhanceSelect = (selectEl, { decorateItem = null, decorateButton = null } = {}) => {
+      if (!selectEl || selectEl.dataset.enhancedDropdown === "true") return;
+      selectEl.dataset.enhancedDropdown = "true";
+      selectEl.style.display = "none";
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "settingsDropdownWrapper";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "settingsDropdownBtn";
+      const text = document.createElement("span");
+      text.className = "settingsDropdownText";
+      const caret = document.createElement("span");
+      caret.className = "settingsDropdownCaret";
+      caret.textContent = "▾";
+      btn.append(text, caret);
+      const menu = document.createElement("div");
+      menu.className = "settingsDropdownMenu";
+      wrapper.append(btn, menu);
+      selectEl.insertAdjacentElement("afterend", wrapper);
+
+      const render = () => {
+        menu.innerHTML = "";
+        [...selectEl.options].forEach((opt) => {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "settingsDropdownItem";
+          item.dataset.value = opt.value;
+          item.textContent = opt.textContent;
+          if (opt.value === selectEl.value) item.classList.add("isActive");
+          decorateItem?.(item, opt.value);
+          item.addEventListener("click", () => {
+            selectEl.value = opt.value;
+            selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+            menu.classList.remove("isOpen");
+            render();
+          });
+          menu.appendChild(item);
+        });
+        const selectedOption = selectEl.options[selectEl.selectedIndex];
+        text.textContent = selectedOption?.textContent || "-";
+        btn.style.background = "";
+        btn.style.color = "";
+        decorateButton?.(btn, selectEl.value);
+      };
+
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const wasOpen = menu.classList.contains("isOpen");
+        closeAll();
+        menu.classList.toggle("isOpen", !wasOpen);
+      });
+      document.addEventListener("click", (event) => {
+        if (!wrapper.contains(event.target)) {
+          menu.classList.remove("isOpen");
+        }
+      });
+      selectEl.addEventListener("change", render);
+      render();
+
+      this._settingsDropdownDisposers.push(() => {
+        wrapper.remove();
+        selectEl.style.display = "";
+        delete selectEl.dataset.enhancedDropdown;
+      });
+    };
+
+    enhanceSelect(this.languageSelect);
+    enhanceSelect(this.allTargetsWindowSelect);
+    enhanceSelect(this.trainSelectionModeSelect);
+    enhanceSelect(this.themeSelect, {
+      decorateItem: (item, value) => {
+        const colors = previewThemeVars(value);
+        item.style.background = colors.rowFill;
+        item.style.color = colors.dpsText;
+      },
+      decorateButton: (button, value) => {
+        const colors = previewThemeVars(value);
+        button.style.background = colors.rowFill;
+        button.style.color = colors.dpsText;
+      },
     });
   }
 
