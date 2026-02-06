@@ -28,6 +28,13 @@
           </div>
 
           <div class="headerBtns">
+            <div
+              class="headerBtn targetModeBtn"
+              role="button"
+              aria-label="Target mode">
+              <span class="targetModeIcon"><i data-lucide="target"></i></span>
+              <span class="targetModeLabel">ALL</span>
+            </div>
             <div class="headerBtn resetBtn"><i data-lucide="rotate-ccw"></i></div>
             <div class="headerBtn settingsBtn"><i data-lucide="settings"></i></div>
           </div>
@@ -51,12 +58,39 @@
           role="dialog"
           aria-modal="true">
           <div class="detailsHeader">
-            <div class="detailsTitle" data-i18n="details.header">Details</div>
-            <div class="tooltip" data-i18n="details.tooltip">
-              Damage over time hits are not included in total crit, double, perfect, back attack, or
-              parry ratios.
+            <div class="detailsTitle">
+              <span class="detailsTitleLabel" data-i18n="details.header">Details</span>
+              <span class="detailsTitleSeparator">for</span>
+              <div class="detailsDropdownWrapper detailsNicknameWrapper">
+                <button class="detailsDropdownBtn detailsNicknameBtn" type="button">
+                  <span class="detailsDropdownText">-</span>
+                  <span class="detailsDropdownCaret" aria-hidden="true">▾</span>
+                </button>
+                <div class="detailsDropdownMenu detailsNicknameMenu" role="menu"></div>
+              </div>
+              <span class="detailsTitleVs">vs</span>
+              <div class="detailsDropdownWrapper detailsTargetWrapper">
+                <button class="detailsDropdownBtn detailsTargetBtn" type="button">
+                  <span class="detailsDropdownText">-</span>
+                  <span class="detailsDropdownCaret" aria-hidden="true">▾</span>
+                </button>
+                <div class="detailsDropdownMenu detailsTargetMenu" role="menu"></div>
+              </div>
+              <span class="detailsTargetSuffix"></span>
+              <div class="detailsTargetSort">
+                <button class="detailsSortBtn" data-sort="recent" type="button">Recent</button>
+                <button class="detailsSortBtn" data-sort="time" type="button">Time</button>
+                <button class="detailsSortBtn" data-sort="damage" type="button">Damage</button>
+              </div>
             </div>
             <div class="detailsHeaderControls">
+              <button
+                class="detailsRefreshBtn"
+                type="button"
+                aria-label="Refresh details"
+                data-i18n-aria-label="details.refresh.ariaLabel">
+                <i data-lucide="rotate-ccw"></i>
+              </button>
               <div class="detailsSettingsMenuWrapper">
                 <button
                   class="detailsSettingsBtn"
@@ -104,6 +138,10 @@
               </div>
 
               <div class="skills"></div>
+              <div class="detailsFootnote" data-i18n="details.tooltip">
+                Damage over time hits are not included in total crit, double, perfect, back attack,
+                or parry ratios.
+              </div>
             </div>
           </div>
         </div>
@@ -176,27 +214,14 @@
                 <option value="zh-Hans">简体中文</option>
               </select>
             </div>
-            <div class="settingsRow settingsRowSelect">
+            <div class="settingsRow settingsRowInput">
               <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.targetSelection.label">
-                  Target selection (experimental)
+                <div class="settingsLabel" data-i18n="settings.refreshKeybind.label">
+                  Refresh keybind
                 </div>
               </div>
-              <select class="settingsSelect targetSelect">
-                <option value="mostDamage" data-i18n="settings.targetSelection.options.mostDamage">
-                  Most damage (current)
-                </option>
-                <option value="mostRecent" data-i18n="settings.targetSelection.options.mostRecent">
-                  Most recently damaged
-                </option>
-                <option value="lastHitByMe" data-i18n="settings.targetSelection.options.lastHitByMe">
-                  Last hit by me
-                </option>
-                <option value="allTargets" data-i18n="settings.targetSelection.options.allTargets">
-                  All targets combined
-                </option>
-              </select>
-              </div>
+              <button class="settingsKeybindInput" type="button">Ctrl+R</button>
+            </div>
             <div>
               <label class="settingsCheckbox">
                 <input

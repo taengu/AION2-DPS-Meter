@@ -526,6 +526,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (unknownInfo.length <0) return
         offset += unknownInfo.length
 
+        if (offset + 4 > packet.size) return
         val skillCode:Int = parseUInt32le(packet,offset) / 100
         offset += 4
         if (packet.size <= offset) return

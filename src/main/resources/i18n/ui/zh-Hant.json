@@ -93,7 +93,7 @@
   },
   "connection": {
     "auto": "自動",
-    "detecting": "Detecting device/port...",
+    "detecting": "Detecting AION2 connection...",
     "loopback": "本地回環"
   },
   "target": {

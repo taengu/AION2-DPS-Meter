@@ -16,6 +16,7 @@ class DpsApp {
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
       theme: "dpsMeter.theme",
+      refreshKeybind: "dpsMeter.refreshKeybind",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -53,9 +54,11 @@ class DpsApp {
     this._windowTitleTimer = null;
 
     this.i18n = window.i18n;
-    this.targetSelection = "mostDamage";
+    this.targetSelection = "lastHitByMe";
+    this.listSortDirection = "desc";
     this.lastTargetMode = "";
     this.lastTargetName = "";
+    this.lastTargetId = 0;
     this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastTargetSelection = this.targetSelection;
@@ -120,6 +123,7 @@ class DpsApp {
     this._connectionStatusOverride = false;
 
     this.resetBtn = document.querySelector(".resetBtn");
+    this.targetModeBtn = document.querySelector(".targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
     this.metricToggleBtn = document.querySelector(".metricToggleBtn");
 
@@ -132,6 +136,7 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getUserName: () => this.USER_NAME,
       getMetric: (row) => this.getMetricForRow(row),
+      getSortDirection: () => this.listSortDirection,
       onClickUserRow: (row) => this.detailsUI.open(row),
     });
 
@@ -140,8 +145,8 @@ class DpsApp {
         return this.i18n?.t("battleTime.notRunning", "AION2 not running") ?? "AION2 not running";
       }
       if (this.isDetectingPort) {
-        return this.i18n?.t("connection.detecting", "Detecting device/port...") ??
-          "Detecting device/port...";
+        return this.i18n?.t("connection.detecting", "Detecting AION2 connection...") ??
+          "Detecting AION2 connection...";
       }
       if (this.battleTime?.getState?.() === "state-idle") {
         return this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
@@ -166,6 +171,12 @@ class DpsApp {
     this.detailsPanel = document.querySelector(".detailsPanel");
     this.detailsClose = document.querySelector(".detailsClose");
     this.detailsTitle = document.querySelector(".detailsTitle");
+    this.detailsNicknameBtn = document.querySelector(".detailsNicknameBtn");
+    this.detailsNicknameMenu = document.querySelector(".detailsNicknameMenu");
+    this.detailsTargetBtn = document.querySelector(".detailsTargetBtn");
+    this.detailsTargetMenu = document.querySelector(".detailsTargetMenu");
+    this.detailsSortButtons = document.querySelectorAll(".detailsSortBtn");
+    this.detailsRefreshBtn = document.querySelector(".detailsRefreshBtn");
     this.detailsStatsEl = document.querySelector(".detailsStats");
     this.skillsListEl = document.querySelector(".skills");
 
@@ -173,10 +184,19 @@ class DpsApp {
       detailsPanel: this.detailsPanel,
       detailsClose: this.detailsClose,
       detailsTitle: this.detailsTitle,
+      detailsNicknameBtn: this.detailsNicknameBtn,
+      detailsNicknameMenu: this.detailsNicknameMenu,
+      detailsTargetBtn: this.detailsTargetBtn,
+      detailsTargetMenu: this.detailsTargetMenu,
+      detailsSortButtons: this.detailsSortButtons,
       detailsStatsEl: this.detailsStatsEl,
       skillsListEl: this.skillsListEl,
       dpsFormatter: this.dpsFormatter,
-      getDetails: (row) => this.getDetails(row),
+      getDetails: (row, options) => this.getDetails(row, options),
+      getDetailsContext: () => this.getDetailsContext(),
+    });
+    this.detailsRefreshBtn?.addEventListener("click", () => {
+      this.detailsUI?.refresh?.();
     });
     this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
@@ -195,6 +215,7 @@ class DpsApp {
       this.refreshBossLabel();
     });
     window.ReleaseChecker?.start?.();
+    this.setupConsoleDebugging();
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
@@ -206,6 +227,15 @@ class DpsApp {
 
   nowMs() {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
+  }
+
+  formatBattleTime(ms) {
+    const totalMs = Number(ms);
+    if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
+    const totalSeconds = Math.floor(totalMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
   safeParseJSON(raw, fallback = {}) {
@@ -274,6 +304,7 @@ class DpsApp {
     this.lastJson = null;
     this.lastTargetMode = "";
     this.lastTargetName = "";
+    this.lastTargetId = 0;
     this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastRenderedRowsSummary = null;
@@ -289,6 +320,16 @@ class DpsApp {
     if (this.elBossName) {
       this.elBossName.textContent = this.getDefaultTargetLabel();
     }
+    if (this.battleTimeRoot) {
+      this.battleTimeRoot.classList.add("isVisible");
+    }
+    if (this.analysisStatusEl) {
+      this.analysisStatusEl.textContent =
+        this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
+        "Ready - monitoring combat...";
+      this.analysisStatusEl.style.display = "";
+    }
+    this.updateConnectionStatusUi();
     this.logDebug("Target label reset: resetAll invoked.");
     this.logDebug("Meter list reset: resetAll invoked.");
     if (callBackend) {
@@ -335,10 +376,32 @@ class DpsApp {
 
     const previousTargetName = this.lastTargetName;
     const previousTargetMode = this.lastTargetMode;
-    const { rows, targetName, targetMode, battleTimeMs } = this.buildRowsFromPayload(raw);
+    const previousTargetId = this.lastTargetId;
+    const { rows, targetName, targetMode, battleTimeMs, targetId } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
     this.lastTargetName = targetName;
+    this.lastTargetId = targetId;
+
+    if (
+      targetId !== this._lastLoggedTargetId ||
+      targetMode !== this._lastLoggedTargetMode ||
+      targetName !== this._lastLoggedTargetName
+    ) {
+      const reasons = [];
+      if (targetId !== this._lastLoggedTargetId) reasons.push("targetId changed");
+      if (targetMode !== this._lastLoggedTargetMode) reasons.push("mode changed");
+      if (targetName !== this._lastLoggedTargetName) reasons.push("name changed");
+      console.log("[Target Lock]", {
+        targetId,
+        targetName,
+        targetMode,
+        reason: reasons.join(", ") || "initial",
+      });
+      this._lastLoggedTargetId = targetId;
+      this._lastLoggedTargetMode = targetMode;
+      this._lastLoggedTargetName = targetName;
+    }
 
 
     const showByServer = rows.length > 0;
@@ -372,7 +435,17 @@ class DpsApp {
     const showByRender = rowsToRender.length > 0;
     const showBattleTime = this.BATTLE_TIME_BASIS === "server" ? showByServer : showByRender;
 
-    const eligible = showBattleTime && Number.isFinite(Number(battleTimeMs));
+    let nextBattleTimeMs = battleTimeMs;
+    if (
+      Number.isFinite(Number(nextBattleTimeMs)) &&
+      Number.isFinite(Number(this._lastBattleTimeMs)) &&
+      targetId === previousTargetId &&
+      Number(nextBattleTimeMs) < Number(this._lastBattleTimeMs)
+    ) {
+      nextBattleTimeMs = this._lastBattleTimeMs;
+    }
+
+    const eligible = showBattleTime && Number.isFinite(Number(nextBattleTimeMs));
 
     this._battleTimeVisible = eligible;
     const shouldBeVisible = eligible && !this.isCollapse;
@@ -380,7 +453,7 @@ class DpsApp {
     this.battleTime.setVisible(shouldBeVisible);
 
     if (shouldBeVisible) {
-      this.battleTime.update(now, battleTimeMs);
+      this.battleTime.update(now, nextBattleTimeMs);
     }
 
     this.updateConnectionStatusUi();
@@ -390,7 +463,7 @@ class DpsApp {
     }
 
     // render
-    const nextTargetLabel = targetName ? targetName : this.getDefaultTargetLabel(targetMode);
+    const nextTargetLabel = this.getTargetLabel({ targetId, targetName, targetMode });
     if (this.elBossName) {
       this.elBossName.textContent = nextTargetLabel;
     }
@@ -432,6 +505,8 @@ class DpsApp {
     const payload = this.safeParseJSON(raw, {});
     const targetName = typeof payload?.targetName === "string" ? payload.targetName : "";
     const targetMode = typeof payload?.targetMode === "string" ? payload.targetMode : "";
+    const targetIdRaw = payload?.targetId;
+    const targetId = Number.isFinite(Number(targetIdRaw)) ? Number(targetIdRaw) : 0;
 
     const mapObj = payload?.map && typeof payload.map === "object" ? payload.map : {};
     const rows = this.buildRowsFromMapObject(mapObj);
@@ -439,7 +514,7 @@ class DpsApp {
     const battleTimeMsRaw = payload?.battleTime;
     const battleTimeMs = Number.isFinite(Number(battleTimeMsRaw)) ? Number(battleTimeMsRaw) : null;
 
-    return { rows, targetName, targetMode, battleTimeMs };
+    return { rows, targetName, targetMode, battleTimeMs, targetId };
   }
 
   buildRowsFromMapObject(mapObj) {
@@ -484,8 +559,23 @@ class DpsApp {
     return rows;
   }
 
-  async getDetails(row) {
-    const raw = await window.dpsData?.getBattleDetail?.(row.id);
+  getDetailsContext() {
+    const raw = window.dpsData?.getDetailsContext?.();
+    if (!raw) return null;
+    if (typeof raw === "string") {
+      return this.safeParseJSON(raw, null);
+    }
+    return raw;
+  }
+
+  async getDetails(row, { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false } = {}) {
+    let raw = null;
+    if (targetId && window.dpsData?.getTargetDetails) {
+      const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
+      raw = await window.dpsData.getTargetDetails(targetId, payload);
+    } else {
+      raw = await window.dpsData?.getBattleDetail?.(row.id);
+    }
     let detailObj = raw;
     // globalThis.uiDebug?.log?.("getBattleDetail", detailObj);
 
@@ -502,86 +592,127 @@ class DpsApp {
     let totalPerfect = 0;
     let totalDouble = 0;
 
-    for (const [code, value] of Object.entries(detailObj)) {
-      if (!value || typeof value !== "object") continue;
+    const pushSkill = ({
+      codeKey,
+      name,
+      time,
+      dmg,
+      crit = 0,
+      parry = 0,
+      back = 0,
+      perfect = 0,
+      double = 0,
+      heal = 0,
+      countForTotals = true,
+      job = "",
+      actorId = null,
+      isDot = false,
+    }) => {
+      const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
+      if (dmgInt <= 0) {
+        return;
+      }
 
-      const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
-      const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
-      const baseName =
-        translatedName ||
-        this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||
-        `Skill ${code}`;
-      const dotName =
-        this.i18n?.format?.("skills.dot", { name: baseName }, `${baseName} - DOT`) ||
-        `${baseName} - DOT`;
+      const t = Number(time) || 0;
 
-      // 공통
-      const pushSkill = ({
-        codeKey,
+      totalDmg += dmgInt;
+      if (countForTotals) {
+        totalTimes += t;
+        totalCrit += Number(crit) || 0;
+        totalParry += Number(parry) || 0;
+        totalBack += Number(back) || 0;
+        totalPerfect += Number(perfect) || 0;
+        totalDouble += Number(double) || 0;
+      }
+      skills.push({
+        code: String(codeKey),
         name,
-        time,
-        dmg,
-        crit = 0,
-        parry = 0,
-        back = 0,
-        perfect = 0,
-        double = 0,
-        heal = 0,
-        countForTotals = true,
-      }) => {
-        const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
-        if (dmgInt <= 0) {
-          return;
-        }
-
-        const t = Number(time) || 0;
-
-        totalDmg += dmgInt;
-        if (countForTotals) {
-          totalTimes += t;
-          totalCrit += Number(crit) || 0;
-          totalParry += Number(parry) || 0;
-          totalBack += Number(back) || 0;
-          totalPerfect += Number(perfect) || 0;
-          totalDouble += Number(double) || 0;
-        }
-        skills.push({
-          code: String(codeKey),
-          name,
-          time: t,
-          crit: Number(crit) || 0,
-          parry: Number(parry) || 0,
-          back: Number(back) || 0,
-          perfect: Number(perfect) || 0,
-          double: Number(double) || 0,
-          heal: Number(heal) || 0,
-          dmg: dmgInt,
-        });
-      };
-
-      // 일반 피해
-      pushSkill({
-        codeKey: code,
-        name: baseName,
-        time: value.times,
-        dmg: value.damageAmount,
-        crit: value.critTimes,
-        parry: value.parryTimes,
-        back: value.backTimes,
-        perfect: value.perfectTimes,
-        double: value.doubleTimes,
-        heal: value.healAmount,
+        time: t,
+        crit: Number(crit) || 0,
+        parry: Number(parry) || 0,
+        back: Number(back) || 0,
+        perfect: Number(perfect) || 0,
+        double: Number(double) || 0,
+        heal: Number(heal) || 0,
+        dmg: dmgInt,
+        job,
+        actorId,
+        isDot,
       });
+    };
 
-      // 도트피해
-      if (Number(String(value.dotDamageAmount ?? "").replace(/,/g, "")) > 0) {
+    const detailSkills = Array.isArray(detailObj?.skills) ? detailObj.skills : null;
+    if (detailSkills) {
+      for (const value of detailSkills) {
+        if (!value || typeof value !== "object") continue;
+        const code = String(value.code ?? "");
+        const nameRaw = typeof value.name === "string" ? value.name.trim() : "";
+        const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
+        const baseName =
+          translatedName ||
+          this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||
+          `Skill ${code}`;
+        const dotName =
+          this.i18n?.format?.("skills.dot", { name: baseName }, `${baseName} - DOT`) ||
+          `${baseName} - DOT`;
+        const isDot = !!value.isDot;
+        const actorId = Number(value.actorId);
+
         pushSkill({
-          codeKey: `${code}-dot`, // 유니크키
-          name: dotName,
-          time: value.dotTimes,
-          dmg: value.dotDamageAmount,
-          countForTotals: false,
+          codeKey: isDot ? `${code}-dot` : code,
+          name: isDot ? dotName : baseName,
+          time: value.time,
+          dmg: value.dmg,
+          crit: value.crit,
+          parry: value.parry,
+          back: value.back,
+          perfect: value.perfect,
+          double: value.double,
+          heal: value.heal,
+          job: value.job ?? "",
+          countForTotals: !isDot,
+          actorId: Number.isFinite(actorId) ? actorId : null,
+          isDot,
         });
+      }
+    } else {
+      for (const [code, value] of Object.entries(detailObj)) {
+        if (!value || typeof value !== "object") continue;
+
+        const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
+        const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
+        const baseName =
+          translatedName ||
+          this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||
+          `Skill ${code}`;
+        const dotName =
+          this.i18n?.format?.("skills.dot", { name: baseName }, `${baseName} - DOT`) ||
+          `${baseName} - DOT`;
+
+        // 일반 피해
+        pushSkill({
+          codeKey: code,
+          name: baseName,
+          time: value.times,
+          dmg: value.damageAmount,
+          crit: value.critTimes,
+          parry: value.parryTimes,
+          back: value.backTimes,
+          perfect: value.perfectTimes,
+          double: value.doubleTimes,
+          heal: value.healAmount,
+        });
+
+        // 도트피해
+        if (Number(String(value.dotDamageAmount ?? "").replace(/,/g, "")) > 0) {
+          pushSkill({
+            codeKey: `${code}-dot`, // 유니크키
+            name: dotName,
+            time: value.dotTimes,
+            dmg: value.dotDamageAmount,
+            countForTotals: false,
+          });
+        }
       }
     }
 
@@ -589,8 +720,66 @@ class DpsApp {
       if (den <= 0) return 0;
       return Math.round((num / den) * 1000) / 10;
     };
-    const contributionPct = Number(row?.damageContribution);
-    const combatTime = this.battleTime?.getCombatTimeText?.() ?? "00:00";
+    const perActorStatsMap = new Map();
+    for (const skill of skills) {
+      if (!Number.isFinite(Number(skill.actorId))) continue;
+      const actorId = Number(skill.actorId);
+      const entry =
+        perActorStatsMap.get(actorId) || {
+          actorId,
+          job: skill.job ?? "",
+          totalDmg: 0,
+          totalTimes: 0,
+          totalCrit: 0,
+          totalParry: 0,
+          totalBack: 0,
+          totalPerfect: 0,
+          totalDouble: 0,
+        };
+      entry.totalDmg += Number(skill.dmg) || 0;
+      if (!skill.isDot) {
+        entry.totalTimes += Number(skill.time) || 0;
+        entry.totalCrit += Number(skill.crit) || 0;
+        entry.totalParry += Number(skill.parry) || 0;
+        entry.totalBack += Number(skill.back) || 0;
+        entry.totalPerfect += Number(skill.perfect) || 0;
+        entry.totalDouble += Number(skill.double) || 0;
+      }
+      if (!entry.job && skill.job) {
+        entry.job = skill.job;
+      }
+      perActorStatsMap.set(actorId, entry);
+    }
+    const fallbackContribution = Number(row?.damageContribution);
+    const baseTotalDamage = Number.isFinite(Number(totalTargetDamage))
+      ? Number(totalTargetDamage)
+      : Number(detailObj?.totalTargetDamage);
+    const contributionPct =
+      Number.isFinite(baseTotalDamage) && baseTotalDamage > 0
+        ? (totalDmg / baseTotalDamage) * 100
+        : fallbackContribution;
+    const battleTimeMsRaw = Number(detailObj?.battleTime);
+    const combatTime = Number.isFinite(battleTimeMsRaw)
+      ? this.formatBattleTime(battleTimeMsRaw)
+      : this.battleTime?.getCombatTimeText?.() ?? "00:00";
+
+    const perActorStats = [...perActorStatsMap.values()]
+      .map((entry) => ({
+        actorId: entry.actorId,
+        job: entry.job,
+        totalDmg: entry.totalDmg,
+        contributionPct:
+          Number.isFinite(baseTotalDamage) && baseTotalDamage > 0
+            ? (entry.totalDmg / baseTotalDamage) * 100
+            : 0,
+        totalCritPct: pct(entry.totalCrit, entry.totalTimes),
+        totalParryPct: pct(entry.totalParry, entry.totalTimes),
+        totalBackPct: pct(entry.totalBack, entry.totalTimes),
+        totalPerfectPct: pct(entry.totalPerfect, entry.totalTimes),
+        totalDoublePct: pct(entry.totalDouble, entry.totalTimes),
+        combatTime,
+      }))
+      .sort((a, b) => b.totalDmg - a.totalDmg);
 
     return {
       totalDmg,
@@ -603,26 +792,19 @@ class DpsApp {
       combatTime,
 
       skills,
+      showSkillIcons,
+      perActorStats,
+      showCombinedTotals: !attackerIds || attackerIds.length === 0,
     };
   }
 
   bindHeaderButtons() {
     this.collapseBtn?.addEventListener("click", () => {
-      this.isCollapse = !this.isCollapse;
+      this.listSortDirection = this.listSortDirection === "asc" ? "desc" : "asc";
+      this.renderCurrentRows();
 
-      // 접히면 polling 멈추고 완전 초기화
-      if (this.isCollapse) {
-        this.stopPolling();
-        this.elList.style.display = "none";
-        this.resetAll({ callBackend: true });
-      } else {
-        // 펼치면 polling 재개하고 즉시 1회 fetch
-        this.elList.style.display = "grid";
-        this.startPolling();
-        this.fetchDps();
-      }
-
-      const iconName = this.isCollapse ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
+      const iconName =
+        this.listSortDirection === "asc" ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
       const iconEl =
         this.collapseBtn.querySelector("svg") || this.collapseBtn.querySelector("[data-lucide]");
       if (!iconEl) {
@@ -633,7 +815,22 @@ class DpsApp {
       window.lucide?.createIcons?.({ root: this.collapseBtn });
     });
     this.resetBtn?.addEventListener("click", () => {
-      this.resetAll({ callBackend: true });
+      this.refreshDamageData({ reason: "manual refresh" });
+    });
+    this.targetModeBtn?.addEventListener("click", () => {
+      const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
+      console.log("[Target Mode Toggle]", {
+        from: this.targetSelection,
+        to: nextMode,
+      });
+      this.setTargetSelection(nextMode, {
+        persist: true,
+        syncBackend: true,
+        reason: "header toggle",
+      });
+      if (!this.isCollapse) {
+        this.fetchDps();
+      }
     });
     this.metricToggleBtn?.addEventListener("click", () => {
       const nextMode = this.displayMode === "totalDamage" ? "dps" : "totalDamage";
@@ -655,8 +852,8 @@ class DpsApp {
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
     this.languageSelect = document.querySelector(".languageSelect");
-    this.targetSelect = document.querySelector(".targetSelect");
     this.themeSelect = document.querySelector(".themeSelect");
+    this.refreshKeybindInput = document.querySelector(".settingsKeybindInput");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
     const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
@@ -664,11 +861,16 @@ class DpsApp {
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
+    const storedKeybind =
+      this.safeGetSetting(this.storageKeys.refreshKeybind) ||
+      this.safeGetStorage(this.storageKeys.refreshKeybind);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
-    this.setTargetSelection(storedTargetSelection || this.targetSelection, {
+    const normalizedTargetSelection =
+      storedTargetSelection === "allTargets" ? "allTargets" : this.targetSelection;
+    this.setTargetSelection(normalizedTargetSelection, {
       persist: false,
       syncBackend: true,
       reason: storedTargetSelection ? "restore from storage" : "default selection",
@@ -724,18 +926,138 @@ class DpsApp {
       });
     }
 
-    if (this.targetSelect) {
-      this.targetSelect.value = this.targetSelection;
-      this.targetSelect.addEventListener("change", (event) => {
-        const value = event.target?.value;
-        if (value) {
-          this.setTargetSelection(value, {
-            persist: true,
-            syncBackend: true,
-            reason: "user selection",
-          });
-        }
+    const normalizeKeybind = (value) => {
+      if (!value) return "";
+      const cleaned = String(value).replace(/\s+/g, "").toUpperCase();
+      const parts = cleaned.split("+").filter(Boolean);
+      const mods = new Set();
+      let key = "";
+      parts.forEach((part) => {
+        if (part === "CTRL" || part === "CONTROL") mods.add("Ctrl");
+        else if (part === "ALT") mods.add("Alt");
+        else if (part === "SHIFT") mods.add("Shift");
+        else if (part === "META" || part === "CMD" || part === "WIN") mods.add("Meta");
+        else key = part;
       });
+      const modText = ["Ctrl", "Alt", "Shift", "Meta"].filter((m) => mods.has(m));
+      if (key) {
+        modText.push(key.length === 1 ? key.toUpperCase() : key);
+      }
+      return modText.join("+");
+    };
+
+    const setKeybindValue = (value, { persist = true, syncBackend = true } = {}) => {
+      const normalized = normalizeKeybind(value || "Ctrl+R");
+      if (this.refreshKeybindInput) {
+        this.refreshKeybindInput.textContent = normalized || "Ctrl+R";
+        this.refreshKeybindInput.dataset.value = normalized || "Ctrl+R";
+      }
+      if (persist) {
+        this.safeSetSetting(this.storageKeys.refreshKeybind, normalized);
+      }
+      if (syncBackend) {
+        window.javaBridge?.setRefreshKeybind?.(normalized);
+      }
+    };
+
+    setKeybindValue(storedKeybind || "Ctrl+R", { persist: !storedKeybind, syncBackend: true });
+
+    if (this.refreshKeybindInput) {
+      let capturing = false;
+      let pendingValue = "";
+      let captureStarted = false;
+      const pressedKeys = new Set();
+      let captureMods = { ctrl: false, alt: false, shift: false, meta: false };
+      let captureKey = "";
+      const startCapture = () => {
+        capturing = true;
+        pendingValue = "";
+        captureStarted = false;
+        pressedKeys.clear();
+        captureMods = { ctrl: false, alt: false, shift: false, meta: false };
+        captureKey = "";
+        this.refreshKeybindInput.classList.add("isCapturing");
+        this.refreshKeybindInput.textContent = "Press Ctrl/Alt + key...";
+      };
+
+      const stopCapture = () => {
+        capturing = false;
+        pendingValue = "";
+        captureStarted = false;
+        pressedKeys.clear();
+        captureMods = { ctrl: false, alt: false, shift: false, meta: false };
+        captureKey = "";
+        this.refreshKeybindInput.classList.remove("isCapturing");
+      };
+
+      const updateCaptureMods = () => {
+        captureMods = {
+          ctrl: pressedKeys.has("Control"),
+          alt: pressedKeys.has("Alt"),
+          shift: pressedKeys.has("Shift"),
+          meta: pressedKeys.has("Meta"),
+        };
+      };
+
+      const captureKeydown = (event) => {
+        if (!capturing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const key = event.key;
+        const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
+        if (!captureStarted) {
+          if (key !== "Control" && key !== "Alt" && !event.ctrlKey && !event.altKey) {
+            return;
+          }
+          captureStarted = true;
+        }
+        pressedKeys.add(key);
+        updateCaptureMods();
+        if (!isModifier) {
+          captureKey = key;
+        }
+        if (!captureStarted || !captureKey) {
+          this.refreshKeybindInput.textContent = "Press Ctrl/Alt + key...";
+          return;
+        }
+        if (!captureMods.ctrl && !captureMods.alt) {
+          return;
+        }
+        const parts = [];
+        if (captureMods.ctrl) parts.push("Ctrl");
+        if (captureMods.alt) parts.push("Alt");
+        if (captureMods.shift) parts.push("Shift");
+        if (captureMods.meta) parts.push("Meta");
+        parts.push(captureKey.length === 1 ? captureKey.toUpperCase() : captureKey.toUpperCase());
+        pendingValue = parts.join("+");
+        this.refreshKeybindInput.textContent = "Release to save...";
+      };
+
+      const captureKeyup = (event) => {
+        if (!capturing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const key = event.key;
+        pressedKeys.delete(key);
+        updateCaptureMods();
+        if (!captureStarted) {
+          return;
+        }
+        if (pressedKeys.size > 0) {
+          return;
+        }
+        if (pendingValue) {
+          setKeybindValue(pendingValue, { persist: true, syncBackend: true });
+        }
+        stopCapture();
+      };
+
+      this.refreshKeybindInput.addEventListener("click", () => {
+        startCapture();
+      });
+
+      window.addEventListener("keydown", captureKeydown, true);
+      window.addEventListener("keyup", captureKeyup, true);
     }
 
     this.settingsBtn?.addEventListener("click", () => {
@@ -805,6 +1127,39 @@ class DpsApp {
         return;
       }
       this.closeDetailsSettingsMenu();
+    });
+  }
+
+  setupConsoleDebugging() {
+    if (this._consoleDebuggingEnabled) {
+      return;
+    }
+    this._consoleDebuggingEnabled = true;
+
+    window.addEventListener("error", (event) => {
+      console.error("[UI Error]", event.error || event.message, event);
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      console.error("[UI Promise Rejection]", event.reason || event);
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || typeof target.closest !== "function") return;
+      const menuTarget =
+        target.closest("[role='menu']") ||
+        target.closest(".detailsSettingsMenu") ||
+        target.closest(".detailsDropdownMenu") ||
+        target.closest(".settingsPanel");
+      if (!menuTarget) return;
+      const menuClass = menuTarget.className || menuTarget.getAttribute?.("role") || "menu";
+      const targetLabel =
+        target.getAttribute?.("aria-label") ||
+        target.getAttribute?.("data-i18n") ||
+        target.textContent?.trim() ||
+        target.tagName;
+      console.log("[UI Menu Click]", { menu: menuClass, target: targetLabel });
     });
   }
 
@@ -900,15 +1255,12 @@ class DpsApp {
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
     const previousSelection = this.targetSelection;
-    this.targetSelection = mode || "mostDamage";
+    this.targetSelection = mode === "allTargets" ? "allTargets" : "lastHitByMe";
     if (persist) {
       localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
     }
     if (syncBackend) {
       window.javaBridge?.setTargetSelection?.(this.targetSelection);
-    }
-    if (this.targetSelect && document.activeElement !== this.targetSelect) {
-      this.targetSelect.value = this.targetSelection;
     }
     if (previousSelection !== this.targetSelection) {
       this.logDebug(
@@ -916,6 +1268,7 @@ class DpsApp {
       );
       this._lastTargetSelection = this.targetSelection;
     }
+    this.updateTargetModeButton();
   }
 
   applyTheme(themeId, { persist = false } = {}) {
@@ -970,6 +1323,38 @@ class DpsApp {
       }
     }
     return this.dpsFormatter.format(n);
+  }
+
+  triggerRefreshFromKeybind() {
+    this.refreshDamageData({ reason: "keybind refresh" });
+  }
+
+  refreshDamageData({ reason = "refresh" } = {}) {
+    this.lastSnapshot = null;
+    this.lastJson = null;
+    this.lastTargetMode = "";
+    this.lastTargetName = "";
+    this.lastTargetId = 0;
+    this._lastRenderedListSignature = "";
+    this._lastRenderedTargetLabel = "";
+    this._lastRenderedRowsSummary = null;
+    this._battleTimeVisible = false;
+    this._lastBattleTimeMs = null;
+    this.battleTime?.reset?.();
+    this.battleTime?.setVisible?.(false);
+    this.detailsUI?.close?.();
+    this.lastSnapshot = [];
+    this._lastRenderedRowsSummary = null;
+    this._lastRenderedListSignature = "";
+    this.meterUI?.onResetMeterUi?.();
+    this.renderCurrentRows();
+
+    if (this.elBossName) {
+      this.elBossName.textContent = this.getDefaultTargetLabel(this.targetSelection);
+    }
+
+    window.javaBridge?.resetDps?.();
+    this.logDebug(`Damage data refreshed (${reason}).`);
   }
 
   getMetricForRow(row) {
@@ -1041,7 +1426,7 @@ class DpsApp {
     const port = hasPort
       ? String(info.port)
       : this.isDetectingPort
-        ? this.i18n?.t("connection.detecting", "Detecting device/port...")
+        ? this.i18n?.t("connection.detecting", "Detecting AION2 connection...")
         : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
@@ -1066,8 +1451,8 @@ class DpsApp {
     }
     if (this.isDetectingPort) {
       this.applyConnectionStatusOverride(
-        this.i18n?.t("connection.detecting", "Detecting device/port...") ??
-          "Detecting device/port..."
+        this.i18n?.t("connection.detecting", "Detecting AION2 connection...") ??
+          "Detecting AION2 connection..."
       );
       return;
     }
@@ -1146,9 +1531,37 @@ class DpsApp {
     return this.i18n?.t("header.title", "DPS METER") ?? "DPS METER";
   }
 
+  getTargetLabel({ targetId = 0, targetName = "", targetMode = "" } = {}) {
+    if (targetMode === "allTargets") {
+      return this.getDefaultTargetLabel(targetMode);
+    }
+    if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
+      return `Mob #${Number(targetId)}`;
+    }
+    if (targetName) {
+      return targetName;
+    }
+    return this.getDefaultTargetLabel(targetMode);
+  }
+
+  updateTargetModeButton() {
+    if (!this.targetModeBtn) return;
+    const isAllTargets = this.targetSelection === "allTargets";
+    this.targetModeBtn.classList.toggle("isAllTargets", isAllTargets);
+    const label = isAllTargets ? "ALL" : "";
+    const labelEl = this.targetModeBtn.querySelector(".targetModeLabel");
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+    const ariaLabel = isAllTargets
+      ? "All targets mode"
+      : "Target mode";
+    this.targetModeBtn.setAttribute("aria-label", ariaLabel);
+  }
+
   refreshBossLabel() {
     if (!this.elBossName) return;
-    if (this.lastTargetName) {
+    if (this.lastTargetName || this.lastTargetId) {
       return;
     }
     this.elBossName.textContent = this.getDefaultTargetLabel(this.lastTargetMode);
@@ -1163,6 +1576,9 @@ class DpsApp {
 
     document.addEventListener("mousedown", (e) => {
       if (e.target?.closest?.(".resizeHandle")) {
+        return;
+      }
+      if (e.target?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
       isDragging = true;
@@ -1273,6 +1689,7 @@ const setupDebugConsole = () => {
 
 // setupDebugConsole();
 const dpsApp = DpsApp.createInstance();
+window.dpsApp = dpsApp;
 const debug = globalThis.uiDebug;
 
 window.addEventListener("error", (event) => {
