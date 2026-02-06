@@ -17,7 +17,14 @@
     },
     "panelBackground": "面板背景",
     "screenshot": {
-      "captured": "已捕获截图"
+      "ariaLabel": "将截图保存到剪贴板",
+      "captured": "已捕获截图",
+      "savedToClipboard": "已保存到剪贴板"
+    },
+    "sort": {
+      "recent": "最近",
+      "time": "时间",
+      "damage": "伤害"
     },
     "skills": {
       "skill": "技能",

@@ -17,7 +17,14 @@
     },
     "panelBackground": "패널 배경",
     "screenshot": {
-      "captured": "스크린샷 캡처됨"
+      "ariaLabel": "클립보드에 스크린샷 저장",
+      "captured": "스크린샷 캡처됨",
+      "savedToClipboard": "클립보드에 저장됨"
+    },
+    "sort": {
+      "recent": "최근",
+      "time": "시간",
+      "damage": "피해"
     },
     "skills": {
       "skill": "스킬",
