@@ -845,6 +845,7 @@ class DpsApp {
     this.settingsBtn = document.querySelector(".settingsBtn");
     this.lockedIp = document.querySelector(".lockedIp");
     this.lockedPort = document.querySelector(".lockedPort");
+    this.localPlayerIdEl = document.querySelector(".localPlayerId");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.onlyMeCheckbox = document.querySelector(".onlyMeCheckbox");
@@ -1406,6 +1407,9 @@ class DpsApp {
     if (typeof raw !== "string") {
       this.lockedIp.textContent = "-";
       this.lockedPort.textContent = "-";
+      if (this.localPlayerIdEl) {
+        this.localPlayerIdEl.textContent = "-";
+      }
       this.isDetectingPort = this.aionRunning;
       this.updateConnectionStatusUi();
       if (!skipSettingsRefresh) {
@@ -1430,6 +1434,12 @@ class DpsApp {
         : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+    if (this.localPlayerIdEl) {
+      const localPlayerId = Number(info?.localPlayerId);
+      this.localPlayerIdEl.textContent = Number.isFinite(localPlayerId) && localPlayerId > 0
+        ? String(Math.trunc(localPlayerId))
+        : "-";
+    }
     this.updateConnectionStatusUi();
     if (!skipSettingsRefresh) {
       this.refreshSettingsPanelIfOpen();

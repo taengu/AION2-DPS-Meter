@@ -1142,6 +1142,16 @@
 .settingsPanel .settingsRowInput {
   align-items: center;
 }
+.settingsPanel .settingsCharacterIdentity {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settingsPanel .settingsSubValue {
+  font-size: 12px;
+  opacity: 0.75;
+}
 .settingsPanel .settingsInfo {
   display: flex;
   flex-direction: column;

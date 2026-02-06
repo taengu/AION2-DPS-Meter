@@ -50,7 +50,8 @@ class BrowserApp(
         val port: Int?,
         val locked: Boolean,
         val characterName: String?,
-        val device: String?
+        val device: String?,
+        val localPlayerId: Long?
     )
 
     inner class JSBridge(
@@ -93,7 +94,8 @@ class BrowserApp(
                 port = lockedPort,
                 locked = lockedPort != null,
                 characterName = LocalPlayer.characterName,
-                device = lockedDevice
+                device = lockedDevice,
+                localPlayerId = LocalPlayer.playerId
             )
             return Json.encodeToString(info)
         }

@@ -153,7 +153,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
             if (flag && !processed) {
-                logger.debug("Remaining packet {}", toHex(packet))
+                logger.trace("Remaining packet {}", toHex(packet))
                 parsed = castNicknameNet(packet) || parsed
             }
             return parsed
@@ -636,8 +636,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val mobInfo2 = readVarInt(packet, offset)
                 if (mobInfo2.length < 0) return false
                 if (mobInfo.value == mobInfo2.value) {
-                    logger.debug("mid: {}, code: {}", summonInfo.value, mobInfo.value)
-                    DebugLogWriter.debug(logger, "mid: {}, code: {}", summonInfo.value, mobInfo.value)
+                    logger.trace("mid: {}, code: {}", summonInfo.value, mobInfo.value)
                     dataStorage.appendMob(summonInfo.value, mobInfo.value)
                 }
             }
