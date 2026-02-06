@@ -216,7 +216,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (i < packet.size) {
             if (packet[i] == 0x36.toByte()) {
                 val actorInfo = readVarInt(packet, i + 1)
-                lastAnchor = if (actorInfo.length > 0 && actorInfo.value >= 1000) {
+                lastAnchor = if (actorInfo.length > 0 && actorInfo.value >= 100) {
                     ActorAnchor(actorInfo.value, i, i + 1 + actorInfo.length)
                 } else {
                     null
