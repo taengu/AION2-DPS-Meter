@@ -1141,8 +1141,9 @@ class DpsApp {
       const computed = getComputedStyle(root);
       const rowFill = computed.getPropertyValue("--row-fill").trim() || "rgba(255,255,255,0.08)";
       const dpsText = computed.getPropertyValue("--dps-text").trim() || "#ffffff";
+      const dpsShadow = computed.getPropertyValue("--dps-shadow").trim() || "none";
       root.dataset.theme = previous || "aion2";
-      return { rowFill, dpsText };
+      return { rowFill, dpsText, dpsShadow };
     };
 
     const closeAll = () => {
@@ -1272,11 +1273,17 @@ class DpsApp {
           const colors = previewThemeVars(value);
           item.style.background = colors.rowFill;
           item.style.color = colors.dpsText;
+          item.style.textShadow = colors.dpsShadow;
         },
         decorateButton: (button, value) => {
           const colors = previewThemeVars(value);
           button.style.background = colors.rowFill;
           button.style.color = colors.dpsText;
+          button.style.textShadow = colors.dpsShadow;
+          const textEl = button.querySelector(".settingsDropdownText");
+          if (textEl) {
+            textEl.style.textShadow = colors.dpsShadow;
+          }
         },
       }
     );
