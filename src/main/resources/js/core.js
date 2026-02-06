@@ -10,6 +10,7 @@ class DpsApp {
     this.storageKeys = {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
+      allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
@@ -138,7 +139,10 @@ class DpsApp {
       getUserName: () => this.USER_NAME,
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
-      onClickUserRow: (row) => this.detailsUI.open(row),
+      onClickUserRow: (row) =>
+        this.detailsUI.open(row, {
+          defaultTargetAll: this.lastTargetMode === "allTargets",
+        }),
     });
 
     const getBattleTimeStatusText = () => {
@@ -152,8 +156,7 @@ class DpsApp {
       if (this.battleTime?.getState?.() === "state-idle") {
         return this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
       }
-      return this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
-        "Ready - monitoring combat...";
+      return this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
     };
 
     this.battleTime = createBattleTimeUI({
@@ -326,8 +329,7 @@ class DpsApp {
     }
     if (this.analysisStatusEl) {
       this.analysisStatusEl.textContent =
-        this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
-        "Ready - monitoring combat...";
+        this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
       this.analysisStatusEl.style.display = "";
     }
     this.updateConnectionStatusUi();
@@ -459,15 +461,11 @@ class DpsApp {
     }
 
     this.updateConnectionStatusUi();
-    if (this.onlyShowUser && this.USER_NAME) {
-      rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
-      listReasons.push(`filtered to user ${this.USER_NAME}`);
-    }
-
     // render
     const nextTargetLabel = this.getTargetLabel({ targetId, targetName, targetMode });
     if (this.elBossName) {
       this.elBossName.textContent = nextTargetLabel;
+      this.elBossName.classList.toggle("isAllTargets", targetMode === "allTargets");
     }
     if (
       nextTargetLabel !== this._lastRenderedTargetLabel ||
@@ -840,7 +838,9 @@ class DpsApp {
       this.refreshDamageData({ reason: "manual refresh" });
     });
     this.targetModeBtn?.addEventListener("click", () => {
-      const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
+      const modes = ["lastHitByMe", "allTargets", "trainTargets"];
+      const currentIndex = modes.indexOf(this.targetSelection);
+      const nextMode = modes[(currentIndex + 1) % modes.length];
       console.log("[Target Mode Toggle]", {
         from: this.targetSelection,
         to: nextMode,
@@ -868,9 +868,9 @@ class DpsApp {
     this.lockedIp = document.querySelector(".lockedIp");
     this.lockedPort = document.querySelector(".lockedPort");
     this.localPlayerIdEl = document.querySelector(".localPlayerId");
+    this.allTargetsWindowSelect = document.querySelector(".allTargetsWindowSelect");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
-    this.onlyMeCheckbox = document.querySelector(".onlyMeCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
@@ -879,7 +879,9 @@ class DpsApp {
     this.refreshKeybindInput = document.querySelector(".settingsKeybindInput");
 
     const storedName = this.safeGetStorage(this.storageKeys.userName) || "";
-    const storedOnlyShow = this.safeGetStorage(this.storageKeys.onlyShowUser) === "true";
+    const storedAllTargetsWindowMs = this.safeGetSetting(this.storageKeys.allTargetsWindowMs) ||
+      this.safeGetStorage(this.storageKeys.allTargetsWindowMs) ||
+      "120000";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
@@ -889,10 +891,12 @@ class DpsApp {
       this.safeGetStorage(this.storageKeys.refreshKeybind);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
-    this.setOnlyShowUser(storedOnlyShow, { persist: false });
+    this.setOnlyShowUser(false, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
     const normalizedTargetSelection =
-      storedTargetSelection === "allTargets" ? "allTargets" : "lastHitByMe";
+      storedTargetSelection === "allTargets" || storedTargetSelection === "trainTargets"
+        ? storedTargetSelection
+        : "lastHitByMe";
     this.setTargetSelection(normalizedTargetSelection, {
       persist: false,
       syncBackend: true,
@@ -907,11 +911,21 @@ class DpsApp {
       this.characterNameInput.value = this.USER_NAME;
     }
 
-    if (this.onlyMeCheckbox) {
-      this.onlyMeCheckbox.checked = this.onlyShowUser;
-      this.onlyMeCheckbox.addEventListener("change", (event) => {
-        const isChecked = !!event.target?.checked;
-        this.setOnlyShowUser(isChecked, { persist: true });
+    if (this.allTargetsWindowSelect) {
+      const allowed = ["30000", "60000", "120000", "180000", "300000"];
+      const selected = allowed.includes(String(storedAllTargetsWindowMs))
+        ? String(storedAllTargetsWindowMs)
+        : "120000";
+      this.allTargetsWindowSelect.value = selected;
+      this.safeSetSetting(this.storageKeys.allTargetsWindowMs, selected);
+      window.javaBridge?.setAllTargetsWindowMs?.(selected);
+      this.allTargetsWindowSelect.addEventListener("change", (event) => {
+        const value = String(event.target?.value || "120000");
+        this.safeSetSetting(this.storageKeys.allTargetsWindowMs, value);
+        window.javaBridge?.setAllTargetsWindowMs?.(value);
+        if (!this.isCollapse) {
+          this.fetchDps();
+        }
       });
     }
 
@@ -988,6 +1002,8 @@ class DpsApp {
       const pressedKeys = new Set();
       let captureMods = { ctrl: false, alt: false, shift: false, meta: false };
       let captureKey = "";
+      let firstPressedKey = "";
+      const comboKeys = new Set();
       const startCapture = () => {
         capturing = true;
         pendingValue = "";
@@ -995,8 +1011,10 @@ class DpsApp {
         pressedKeys.clear();
         captureMods = { ctrl: false, alt: false, shift: false, meta: false };
         captureKey = "";
+        firstPressedKey = "";
+        comboKeys.clear();
         this.refreshKeybindInput.classList.add("isCapturing");
-        this.refreshKeybindInput.textContent = "Press Ctrl/Alt + key...";
+        this.refreshKeybindInput.textContent = "Press key combination...";
       };
 
       const stopCapture = () => {
@@ -1006,6 +1024,8 @@ class DpsApp {
         pressedKeys.clear();
         captureMods = { ctrl: false, alt: false, shift: false, meta: false };
         captureKey = "";
+        firstPressedKey = "";
+        comboKeys.clear();
         this.refreshKeybindInput.classList.remove("isCapturing");
       };
 
@@ -1018,6 +1038,25 @@ class DpsApp {
         };
       };
 
+      const formatComboFromKeys = () => {
+        const parts = [];
+        if (comboKeys.has("Control")) parts.push("Ctrl");
+        if (comboKeys.has("Alt")) parts.push("Alt");
+        if (comboKeys.has("Shift")) parts.push("Shift");
+        if (comboKeys.has("Meta")) parts.push("Meta");
+        const nonModifiers = [...comboKeys].filter(
+          (k) => !["Control", "Alt", "Shift", "Meta"].includes(k)
+        );
+        const primary = nonModifiers[nonModifiers.length - 1] || "";
+        if (primary) {
+          parts.push(primary.length === 1 ? primary.toUpperCase() : primary.toUpperCase());
+        }
+        if ((!parts.includes("Ctrl") && !parts.includes("Alt")) || !primary) {
+          return "";
+        }
+        return parts.join("+");
+      };
+
       const captureKeydown = (event) => {
         if (!capturing) return;
         event.preventDefault();
@@ -1025,18 +1064,17 @@ class DpsApp {
         const key = event.key;
         const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
         if (!captureStarted) {
-          if (key !== "Control" && key !== "Alt" && !event.ctrlKey && !event.altKey) {
-            return;
-          }
           captureStarted = true;
+          firstPressedKey = key;
         }
         pressedKeys.add(key);
+        comboKeys.add(key);
         updateCaptureMods();
         if (!isModifier) {
           captureKey = key;
         }
         if (!captureStarted || !captureKey) {
-          this.refreshKeybindInput.textContent = "Press Ctrl/Alt + key...";
+          this.refreshKeybindInput.textContent = "Press key combination...";
           return;
         }
         if (!captureMods.ctrl && !captureMods.alt) {
@@ -1057,14 +1095,15 @@ class DpsApp {
         event.preventDefault();
         event.stopPropagation();
         const key = event.key;
-        pressedKeys.delete(key);
-        updateCaptureMods();
         if (!captureStarted) {
           return;
         }
-        if (pressedKeys.size > 0) {
+        if (key !== firstPressedKey) {
+          pressedKeys.delete(key);
+          updateCaptureMods();
           return;
         }
+        pendingValue = formatComboFromKeys();
         if (pendingValue) {
           setKeybindValue(pendingValue, { persist: true, syncBackend: true });
         }
@@ -1277,7 +1316,9 @@ class DpsApp {
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
     const previousSelection = this.targetSelection;
-    this.targetSelection = mode === "allTargets" ? "allTargets" : "lastHitByMe";
+    this.targetSelection = ["allTargets", "trainTargets"].includes(mode)
+      ? mode
+      : "lastHitByMe";
     if (persist) {
       this.safeSetStorage(this.storageKeys.targetSelection, String(this.targetSelection));
     }
@@ -1397,9 +1438,6 @@ class DpsApp {
   renderCurrentRows() {
     if (this.isCollapse) return;
     let rowsToRender = Array.isArray(this.lastSnapshot) ? this.lastSnapshot : [];
-    if (this.onlyShowUser && this.USER_NAME) {
-      rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
-    }
     const rowsSummary = this.getRowsSummary(rowsToRender);
     if (rowsSummary.listSignature !== this._lastRenderedListSignature) {
       const reasons = this.describeRowsChange(rowsSummary, this._lastRenderedRowsSummary);
@@ -1407,9 +1445,6 @@ class DpsApp {
         reasons.push("no snapshot available");
       } else {
         reasons.push("renderCurrentRows refresh");
-      }
-      if (this.onlyShowUser && this.USER_NAME) {
-        reasons.push(`filtered to user ${this.USER_NAME}`);
       }
       this.logDebug(
         `Meter list changed (${rowsToRender.length} rows). reason: ${
@@ -1455,17 +1490,17 @@ class DpsApp {
         : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+    const localPlayerId = Number(info?.localPlayerId);
+    this.localPlayerId = Number.isFinite(localPlayerId) && localPlayerId > 0
+      ? Math.trunc(localPlayerId)
+      : null;
     if (this.localPlayerIdEl) {
-      const localPlayerId = Number(info?.localPlayerId);
-      this.localPlayerId = Number.isFinite(localPlayerId) && localPlayerId > 0
-        ? Math.trunc(localPlayerId)
-        : null;
       this.localPlayerIdEl.textContent = this.localPlayerId ? String(this.localPlayerId) : "-";
-      if (this.characterNameInput) {
-        const nickname = String(info?.characterName || this.USER_NAME || "").trim();
-        const idText = this.localPlayerId ? ` (#${this.localPlayerId})` : "";
-        this.characterNameInput.value = `${nickname}${idText}`;
-      }
+    }
+    if (this.characterNameInput) {
+      const nickname = String(info?.characterName || this.USER_NAME || "").trim();
+      const idText = this.localPlayerId ? ` (#${this.localPlayerId})` : "";
+      this.characterNameInput.value = `${nickname}${idText}`;
     }
     this.updateConnectionStatusUi();
     if (!skipSettingsRefresh) {
@@ -1563,13 +1598,16 @@ class DpsApp {
 
   getDefaultTargetLabel(targetMode = "") {
     if (targetMode === "allTargets") {
-      return this.i18n?.t("target.all", "All Mobs") ?? "All Mobs";
+      return this.i18n?.t("target.all", "All Targets") ?? "All Targets";
+    }
+    if (targetMode === "trainTargets") {
+      return this.i18n?.t("target.train", "Training Targets") ?? "Training Targets";
     }
     return this.i18n?.t("header.title", "DPS METER") ?? "DPS METER";
   }
 
   getTargetLabel({ targetId = 0, targetName = "", targetMode = "" } = {}) {
-    if (targetMode === "allTargets") {
+    if (targetMode === "allTargets" || targetMode === "trainTargets") {
       return this.getDefaultTargetLabel(targetMode);
     }
     if (targetMode === "lastHitByMe" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
@@ -1587,11 +1625,15 @@ class DpsApp {
   updateTargetModeButton() {
     if (!this.targetModeBtn) return;
     const isAllTargets = this.targetSelection === "allTargets";
+    const isTrainTargets = this.targetSelection === "trainTargets";
     this.targetModeBtn.classList.toggle("isAllTargets", isAllTargets);
-    this.targetModeBtn.textContent = isAllTargets ? "ALL" : "TARGET";
+    this.targetModeBtn.classList.toggle("isTrainTargets", isTrainTargets);
+    this.targetModeBtn.textContent = isAllTargets ? "ALL" : isTrainTargets ? "TRAIN" : "TARGET";
     const ariaLabel = isAllTargets
       ? "All targets mode"
-      : "Target mode";
+      : isTrainTargets
+        ? "Train targets mode"
+        : "Target mode";
     this.targetModeBtn.setAttribute("aria-label", ariaLabel);
   }
 
@@ -1605,6 +1647,7 @@ class DpsApp {
       targetId: this.lastTargetId,
       targetName: this.lastTargetName,
     });
+    this.elBossName.classList.toggle("isAllTargets", this.lastTargetMode === "allTargets");
   }
 
   bindDragToMoveWindow() {

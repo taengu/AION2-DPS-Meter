@@ -24,7 +24,8 @@
       "perfect": "퍼펙트",
       "double": "더블",
       "back": "백",
-      "totalDamage": "총 피해"
+      "totalDamage": "총 피해",
+      "heal": "치유"
     },
     "stats": {
       "totalDamage": "총 피해",
@@ -34,8 +35,13 @@
       "doubleRate": "더블율",
       "backRate": "백어택율",
       "parryRate": "패리율",
-      "combatTime": "전투 시간"
-    }
+      "combatTime": "전투 시간",
+      "multiHitDamage": "다중타 피해",
+      "multiHitHits": "다중타 횟수"
+    },
+    "titleFor": "대상",
+    "titleVs": "vs",
+    "all": "전체"
   },
   "settings": {
     "title": "설정",
@@ -43,7 +49,6 @@
     "resetDetection": "감지 초기화",
     "characterName": "캐릭터 이름",
     "characterNamePlaceholder": "캐릭터 이름 입력",
-    "onlyMe": "내 캐릭터만 표시",
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
     "discord": "디스코드에서 지원 받기",
@@ -72,10 +77,23 @@
         "lastHitByMe": "내가 최근에 공격한 대상",
         "allTargets": "모든 대상 합산"
       }
+    },
+    "refreshKeybind": {
+      "label": "새로고침 키바인드"
+    },
+    "allTargetsWindow": {
+      "label": "모든 대상 집계 시간",
+      "options": {
+        "30s": "30초",
+        "1m": "1분",
+        "2m": "2분",
+        "3m": "3분",
+        "5m": "5분"
+      }
     }
   },
   "battleTime": {
-    "analysing": "준비됨 - 전투 모니터링 중...",
+    "analysing": "데이터 모니터링 중...",
     "idle": "대기 중",
     "notRunning": "AION2 not running"
   },
@@ -97,6 +115,7 @@
     "loopback": "로컬 루프백"
   },
   "target": {
-    "all": "모든 대상"
+    "all": "모든 대상",
+    "train": "훈련 대상"
   }
 }

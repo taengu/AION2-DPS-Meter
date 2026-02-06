@@ -157,10 +157,10 @@ const createDetailsUI = ({
       detailsTitleLabel.textContent = labelText("details.header", "Details");
     }
     if (detailsTitleSeparator) {
-      detailsTitleSeparator.textContent = "for";
+      detailsTitleSeparator.textContent = labelText("details.titleFor", "for");
     }
     if (detailsTitleVs) {
-      detailsTitleVs.textContent = "vs";
+      detailsTitleVs.textContent = labelText("details.titleVs", "vs");
     }
     if (detailsNicknameBtn) {
       if (nicknameTextEl) {
@@ -176,7 +176,7 @@ const createDetailsUI = ({
       detailsNicknameBtn.style.color = color || "";
     }
     if (detailsTargetBtn) {
-      const targetLabel = selectedTargetId ? `Mob #${selectedTargetId}` : "-";
+      const targetLabel = selectedTargetId ? `Mob #${selectedTargetId}` : labelText("details.all", "All");
       if (targetTextEl) {
         targetTextEl.textContent = targetLabel;
       } else {
@@ -463,7 +463,7 @@ const createDetailsUI = ({
     allItem.type = "button";
     allItem.className = "detailsDropdownItem";
     allItem.dataset.value = "all";
-    allItem.textContent = "All";
+    allItem.textContent = labelText("details.all", "All");
     if (!selectedAttackerIds || selectedAttackerIds.length === 0) {
       allItem.classList.add("isActive");
     }
@@ -508,6 +508,16 @@ const createDetailsUI = ({
     detailsTargetMenu.innerHTML = "";
     const targetsSorted = [...detailsTargets].sort((a, b) => getTargetSortValue(b) - getTargetSortValue(a));
 
+    const allItem = document.createElement("button");
+    allItem.type = "button";
+    allItem.className = "detailsDropdownItem";
+    allItem.dataset.value = "all";
+    allItem.textContent = labelText("details.all", "All");
+    if (!selectedTargetId) {
+      allItem.classList.add("isActive");
+    }
+    detailsTargetMenu.appendChild(allItem);
+
     targetsSorted.forEach((target) => {
       const item = document.createElement("button");
       item.type = "button";
@@ -537,7 +547,11 @@ const createDetailsUI = ({
   };
 
   const applyTargetSelection = async (targetId) => {
-    selectedTargetId = Number(targetId) || null;
+    if (targetId === "all") {
+      selectedTargetId = null;
+    } else {
+      selectedTargetId = Number(targetId) || null;
+    }
     const target = getTargetById(selectedTargetId);
     const actorIds = getTargetActorIds(target);
     if (selectedAttackerIds && selectedAttackerIds.length > 0) {
@@ -647,7 +661,7 @@ const createDetailsUI = ({
 
   const isOpen = () => detailsPanel.classList.contains("open");
 
-  const open = async (row, { force = false, restartOnSwitch = true } = {}) => {
+  const open = async (row, { force = false, restartOnSwitch = true, defaultTargetAll = false } = {}) => {
     const rowId = row?.id ?? null;
     // if (!rowId) return;
 
@@ -672,7 +686,9 @@ const createDetailsUI = ({
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
     loadDetailsContext();
-    if (detailsContext && detailsContext.currentTargetId) {
+    if (defaultTargetAll) {
+      selectedTargetId = null;
+    } else if (detailsContext && detailsContext.currentTargetId) {
       selectedTargetId = detailsContext.currentTargetId;
     }
     if (selectedAttackerIds && selectedAttackerIds.length === 1) {

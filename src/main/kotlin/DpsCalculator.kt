@@ -33,7 +33,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         MOST_DAMAGE("mostDamage"),
         MOST_RECENT("mostRecent"),
         LAST_HIT_BY_ME("lastHitByMe"),
-        ALL_TARGETS("allTargets");
+        ALL_TARGETS("allTargets"),
+        TRAIN_TARGETS("trainTargets");
 
         companion object {
             fun fromId(id: String?): TargetSelectionMode {
@@ -912,8 +913,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
     private val targetSwitchStaleMs = 10_000L
     private var lastLocalHitTime: Long = -1L
-    private val unknownPlayerTargetWindowMs = 120_000L
-    private val allTargetsWindowMs = 120_000L
+    @Volatile private var allTargetsWindowMs = 120_000L
 
     fun setMode(mode: Mode) {
         this.mode = mode
@@ -922,6 +922,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     fun setTargetSelectionModeById(id: String?) {
         targetSelectionMode = TargetSelectionMode.fromId(id)
+    }
+
+    fun setAllTargetsWindowMs(windowMs: Long) {
+        allTargetsWindowMs = windowMs.coerceIn(10_000L, 900_000L)
     }
 
     fun getDps(): DpsData {
@@ -950,8 +954,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val isRecentCombined = targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME &&
             targetDecision.trackingTargetId == 0 &&
             targetDecision.targetIds.isNotEmpty()
+        val isTrainCombined = targetDecision.mode == TargetSelectionMode.TRAIN_TARGETS
         val battleTime = when {
-            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, unknownPlayerTargetWindowMs)
+            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
+            isTrainCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
             localActorsForBattleTime != null && targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME ->
                 parseActorBattleTimeForTarget(localActorsForBattleTime, currentTarget)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
@@ -973,7 +979,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return dpsData
         }
         val pdps = when {
-            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, unknownPlayerTargetWindowMs)
+            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+            isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
                 collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
             else -> pdpMap[currentTarget]?.toList() ?: return dpsData
@@ -1219,7 +1226,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             TargetSelectionMode.LAST_HIT_BY_ME -> {
                 val localActors = resolveConfirmedLocalActorIds()
                 if (localActors == null) {
-                    val recentTargets = selectRecentTargetsForUnknownPlayer(unknownPlayerTargetWindowMs)
+                    val recentTargets = selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
                     TargetDecision(recentTargets, "", targetSelectionMode, 0)
                 } else {
                     val targetId = selectTargetLastHitByMe(localActors, currentTarget)
@@ -1230,7 +1237,34 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 val recentTargets = selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
                 TargetDecision(recentTargets, "", targetSelectionMode, 0)
             }
+            TargetSelectionMode.TRAIN_TARGETS -> {
+                val localActors = resolveConfirmedLocalActorIds()
+                val recentTargets = if (localActors == null) {
+                    selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
+                } else {
+                    selectRecentTargetsByLocalActors(localActors, allTargetsWindowMs)
+                }
+                TargetDecision(recentTargets, "", targetSelectionMode, 0)
+            }
         }
+    }
+
+    private fun selectRecentTargetsByLocalActors(localActorIds: Set<Int>, windowMs: Long): Set<Int> {
+        if (localActorIds.isEmpty()) return emptySet()
+        val cutoff = System.currentTimeMillis() - windowMs
+        val actorData = dataStorage.getActorData()
+        val targets = mutableSetOf<Int>()
+        localActorIds.forEach { actorId ->
+            val pdps = actorData[actorId] ?: return@forEach
+            pdps.forEach { pdp ->
+                if (pdp.getTimeStamp() < cutoff) return@forEach
+                val targetId = pdp.getTargetId()
+                if (targetId > 0 && pdp.getDamage() > 0) {
+                    targets.add(targetId)
+                }
+            }
+        }
+        return targets
     }
 
     private fun shouldPreferMostRecentTarget(mostDamageTarget: Int, mostRecentTarget: Int): Boolean {

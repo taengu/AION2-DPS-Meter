@@ -24,7 +24,8 @@
       "perfect": "完美",
       "double": "双重",
       "back": "背击",
-      "totalDamage": "总伤害"
+      "totalDamage": "总伤害",
+      "heal": "治疗"
     },
     "stats": {
       "totalDamage": "总伤害",
@@ -34,8 +35,13 @@
       "doubleRate": "双重率",
       "backRate": "背击率",
       "parryRate": "格挡率",
-      "combatTime": "战斗时间"
-    }
+      "combatTime": "战斗时间",
+      "multiHitDamage": "多段伤害",
+      "multiHitHits": "多段命中"
+    },
+    "titleFor": "针对",
+    "titleVs": "vs",
+    "all": "全部"
   },
   "settings": {
     "title": "设置",
@@ -43,7 +49,6 @@
     "resetDetection": "重置检测",
     "characterName": "角色名称",
     "characterNamePlaceholder": "输入你的角色名称",
-    "onlyMe": "仅显示我的角色",
     "debugLogging": "启用调试日志",
     "quit": "退出",
     "discord": "在 Discord 获取支持",
@@ -72,10 +77,23 @@
         "lastHitByMe": "我最近攻击的目标",
         "allTargets": "所有目标合并"
       }
+    },
+    "refreshKeybind": {
+      "label": "刷新快捷键"
+    },
+    "allTargetsWindow": {
+      "label": "所有目标时间窗口",
+      "options": {
+        "30s": "30秒",
+        "1m": "1分钟",
+        "2m": "2分钟",
+        "3m": "3分钟",
+        "5m": "5分钟"
+      }
     }
   },
   "battleTime": {
-    "analysing": "准备就绪 - 监控战斗中...",
+    "analysing": "正在监控数据...",
     "idle": "空闲",
     "notRunning": "AION2 not running"
   },
@@ -97,6 +115,7 @@
     "loopback": "本地回环"
   },
   "target": {
-    "all": "所有目标"
+    "all": "所有目标",
+    "train": "训练目标"
   }
 }

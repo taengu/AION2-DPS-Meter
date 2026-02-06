@@ -166,7 +166,7 @@
   position: relative;
 }
 .meter {
-  width: 350px;
+  width: 380px;
   background: rgba(12, 22, 40, 0.4);
 
   /* backdrop-filter: blur(1px) saturate(180%); */
@@ -1037,6 +1037,9 @@
   align-items: center;
   font-size: 15px;
 }
+.header .bossNames .bossName.isAllTargets {
+  font-size: 17px;
+}
 .header .headerBtns {
   display: flex;
   align-items: center;
@@ -1086,7 +1089,7 @@
 .footerBtns .targetModeBtn {
   width: auto;
   height: auto;
-  min-width: 52px;
+  min-width: 62px;
   padding: 0;
   border: none;
   background: transparent;
@@ -1094,7 +1097,8 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  text-align: center;
+  text-align: right;
+  justify-content: flex-end;
 }
 
 .settingsPanel.isOpen {

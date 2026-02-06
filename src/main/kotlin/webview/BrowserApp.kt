@@ -95,6 +95,11 @@ class BrowserApp(
             dpsCalculator.setTargetSelectionModeById(mode)
         }
 
+        fun setAllTargetsWindowMs(value: String?) {
+            val parsed = value?.trim()?.toLongOrNull() ?: return
+            dpsCalculator.setAllTargetsWindowMs(parsed)
+        }
+
         fun getConnectionInfo(): String {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()

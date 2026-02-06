@@ -179,17 +179,22 @@
                   readonly
                   placeholder="Enter your character name"
                   data-i18n-placeholder="settings.characterNamePlaceholder" />
-                <div class="settingsSubValue">
-                  Actor ID: <span class="localPlayerId">-</span>
-                </div>
               </div>
             </div>
-            <label class="settingsCheckbox">
-              <input
-                type="checkbox"
-                class="onlyMeCheckbox" />
-              <span data-i18n="settings.onlyMe">Only show my character</span>
-            </label>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.allTargetsWindow.label">
+                  All Targets window
+                </div>
+              </div>
+              <select class="settingsSelect allTargetsWindowSelect">
+                <option value="30000" data-i18n="settings.allTargetsWindow.options.30s">30 seconds</option>
+                <option value="60000" data-i18n="settings.allTargetsWindow.options.1m">1 minute</option>
+                <option value="120000" data-i18n="settings.allTargetsWindow.options.2m">2 minutes</option>
+                <option value="180000" data-i18n="settings.allTargetsWindow.options.3m">3 minutes</option>
+                <option value="300000" data-i18n="settings.allTargetsWindow.options.5m">5 minutes</option>
+              </select>
+            </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
                 <div class="settingsLabel" data-i18n="settings.theme.label">Theme</div>
@@ -256,7 +261,7 @@
           <div class="status"></div>
           <div class="tick"></div>
           <div class="analysisStatus" data-i18n="battleTime.analysing">
-            Ready - monitoring combat...
+            Monitoring data...
           </div>
         </div>
         <div class="resizeHandle" aria-hidden="true"></div>
