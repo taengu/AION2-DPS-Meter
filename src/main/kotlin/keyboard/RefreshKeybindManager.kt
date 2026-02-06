@@ -44,9 +44,7 @@ class RefreshKeybindManager(
         try {
             Logger.getLogger(GlobalScreen::class.java.packageName).level = Level.OFF
             Logger.getLogger(GlobalScreen::class.java.packageName).useParentHandlers = false
-            GlobalScreen.setEventDispatcher { runnable ->
-                eventExecutor.execute(runnable)
-            }
+            GlobalScreen.setEventDispatcher(eventExecutor)
             if (!GlobalScreen.isNativeHookRegistered()) {
                 GlobalScreen.registerNativeHook()
             }
