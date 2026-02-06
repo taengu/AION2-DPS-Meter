@@ -341,7 +341,7 @@ html[lang="ko"] * {
   position: relative;
   min-width: 300px;
   min-height: 30px;
-  padding-bottom: 32px;
+  padding-bottom: 20px;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -689,7 +689,7 @@ html[lang="ko"] * {
   gap: 4px;
   padding: 0 12px;
   &:has(.item:not([style*="display: none"])) {
-    padding: 4px 12px 40px;
+    padding: 4px 12px 16px;
   }
   .item {
     position: relative;

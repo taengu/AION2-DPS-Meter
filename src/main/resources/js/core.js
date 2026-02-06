@@ -80,6 +80,7 @@ class DpsApp {
     this.trainSelectionMode = "all";
     this._detailsFlashTimer = null;
     this._meterFlashTimer = null;
+    this._recentLocalIdByName = new Map();
 
     DpsApp.instance = this;
   }
@@ -203,6 +204,7 @@ class DpsApp {
       visibleClass: "isVisible",
     });
     this.battleTime.setVisible(false);
+    this.updateConnectionStatusUi();
 
     this.detailsPanel = document.querySelector(".detailsPanel");
     this.detailsClose = document.querySelector(".detailsClose");
@@ -481,7 +483,8 @@ class DpsApp {
     const previousTargetName = this.lastTargetName;
     const previousTargetMode = this.lastTargetMode;
     const previousTargetId = this.lastTargetId;
-    const { rows, targetName, targetMode, battleTimeMs, targetId } = this.buildRowsFromPayload(raw);
+    const { rows, targetName, targetMode, battleTimeMs, targetId, localPlayerId } =
+      this.buildRowsFromPayload(raw);
     if (this.refreshPending) {
       if (rows.length > 0) {
         return;
@@ -496,6 +499,7 @@ class DpsApp {
     }
 
     this.lastJson = raw;
+    this.applyLocalPlayerIdUpdate(localPlayerId, "backend local id update");
     this.updateLocalPlayerIdentity(rows);
     this._lastBattleTimeMs = battleTimeMs;
     this.lastTargetMode = targetMode;
@@ -634,6 +638,10 @@ class DpsApp {
     const targetMode = typeof payload?.targetMode === "string" ? payload.targetMode : "";
     const targetIdRaw = payload?.targetId;
     const targetId = Number.isFinite(Number(targetIdRaw)) ? Number(targetIdRaw) : 0;
+    const localPlayerIdRaw = payload?.localPlayerId;
+    const localPlayerId = Number.isFinite(Number(localPlayerIdRaw))
+      ? Number(localPlayerIdRaw)
+      : null;
 
     const mapObj = payload?.map && typeof payload.map === "object" ? payload.map : {};
     const rows = this.buildRowsFromMapObject(mapObj);
@@ -641,7 +649,7 @@ class DpsApp {
     const battleTimeMsRaw = payload?.battleTime;
     const battleTimeMs = Number.isFinite(Number(battleTimeMsRaw)) ? Number(battleTimeMsRaw) : null;
 
-    return { rows, targetName, targetMode, battleTimeMs, targetId };
+    return { rows, targetName, targetMode, battleTimeMs, targetId, localPlayerId };
   }
 
   buildRowsFromMapObject(mapObj) {
@@ -841,6 +849,10 @@ class DpsApp {
       return;
     }
     const actorId = Number(matched.id);
+    this.applyLocalPlayerIdUpdate(actorId, "local id update");
+  }
+
+  applyLocalPlayerIdUpdate(actorId, reason) {
     if (!Number.isFinite(actorId) || actorId <= 0) {
       return;
     }
@@ -848,13 +860,36 @@ class DpsApp {
       return;
     }
     this.localPlayerId = actorId;
+    window.javaBridge?.bindLocalActorId?.(String(actorId));
     window.javaBridge?.setLocalPlayerId?.(String(actorId));
-    window.javaBridge?.bindLocalNickname?.(String(actorId), this.USER_NAME);
+    if (this.USER_NAME) {
+      window.javaBridge?.bindLocalNickname?.(String(actorId), this.USER_NAME);
+      this.setUserName(this.USER_NAME, { persist: true, syncBackend: true });
+      this.rememberLocalIdForName(this.USER_NAME, actorId);
+    }
     if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
       this.localActorIdInput.value = String(actorId);
     }
     this.refreshConnectionInfo({ skipSettingsRefresh: true });
-    this.reinitTargetSelection("local id update");
+    this.reinitTargetSelection(reason || "local id update");
+  }
+
+  rememberLocalIdForName(name, actorId) {
+    const key = String(name ?? "").trim().toLowerCase();
+    if (!key || !Number.isFinite(actorId) || actorId <= 0) return;
+    this._recentLocalIdByName.set(key, { actorId, timestamp: Date.now() });
+  }
+
+  getRecentLocalIdForName(name) {
+    const key = String(name ?? "").trim().toLowerCase();
+    if (!key) return null;
+    const entry = this._recentLocalIdByName.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > 120000) {
+      this._recentLocalIdByName.delete(key);
+      return null;
+    }
+    return entry.actorId;
   }
 
   getDetailsContext() {
@@ -1745,6 +1780,7 @@ class DpsApp {
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {
+    const previousName = this.USER_NAME;
     const trimmed = String(name ?? "").trim();
     this.USER_NAME = trimmed;
     if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
@@ -1755,6 +1791,20 @@ class DpsApp {
     }
     if (syncBackend) {
       window.javaBridge?.setCharacterName?.(trimmed);
+    }
+    if (previousName && previousName !== trimmed) {
+      const cachedId = this.getRecentLocalIdForName(trimmed);
+      if (cachedId) {
+        this.refreshDamageData({ reason: "local name update" });
+        this.applyLocalPlayerIdUpdate(cachedId, "local name update cached id");
+        return;
+      }
+      this.localPlayerId = null;
+      if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
+        this.localActorIdInput.value = "";
+      }
+      this.refreshDamageData({ reason: "local name update" });
+      this.reinitTargetSelection("local name update");
     }
     if (!this.isCollapse) {
       this.fetchDps();

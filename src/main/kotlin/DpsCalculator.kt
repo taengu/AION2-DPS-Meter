@@ -917,6 +917,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     @Volatile private var lastKnownLocalPlayerId: Long? = null
     @Volatile private var allTargetsWindowMs = 120_000L
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
+    private val nicknameJobCache = mutableMapOf<String, String>()
 
     fun setMode(mode: Mode) {
         this.mode = mode
@@ -998,6 +999,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
         val dpsData = DpsData()
+        dpsData.localPlayerId = currentLocalId
         val targetDecision = decideTarget()
         dpsData.targetName = targetDecision.targetName
         dpsData.targetMode = targetDecision.mode.id
@@ -1047,11 +1049,25 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
             if (uid <= 0) return@forEach
             val nickname = resolveNickname(uid, nicknameData)
+            val cachedJob = cachedJobForNickname(nickname)
             val existing = dpsData.map[uid]
             if (existing == null) {
-                dpsData.map[uid] = PersonalData(nickname = nickname)
-            } else if (existing.nickname != nickname) {
-                dpsData.map[uid] = existing.copy(nickname = nickname)
+                dpsData.map[uid] = if (!cachedJob.isNullOrBlank()) {
+                    PersonalData(job = cachedJob, nickname = nickname)
+                } else {
+                    PersonalData(nickname = nickname)
+                }
+            } else {
+                var next = existing
+                if (existing.nickname != nickname) {
+                    next = next.copy(nickname = nickname)
+                }
+                if (next.job.isEmpty() && !cachedJob.isNullOrBlank()) {
+                    next = next.copy(job = cachedJob)
+                }
+                if (next != existing) {
+                    dpsData.map[uid] = next
+                }
             }
             pdp.setSkillCode(
                 inferOriginalSkillCode(
@@ -1074,6 +1090,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 val job = JobClass.convertFromSkill(origSkillCode)
                 if (job != null) {
                     dpsData.map[uid]!!.job = job.className
+                    cacheJobForNickname(nickname, job.className)
                 }
             }
         }
@@ -1109,6 +1126,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return nicknameData[uid]
             ?: nicknameData[summonData[uid] ?: uid]
             ?: uid.toString()
+    }
+
+    private fun cachedJobForNickname(nickname: String): String? {
+        val key = nickname.trim().lowercase()
+        if (key.isBlank() || key.all { it.isDigit() }) return null
+        return nicknameJobCache[key]?.takeIf { it.isNotBlank() && it != "Unknown" }
+    }
+
+    private fun cacheJobForNickname(nickname: String, job: String) {
+        if (job.isBlank() || job == "Unknown") return
+        val key = nickname.trim().lowercase()
+        if (key.isBlank() || key.all { it.isDigit() }) return
+        nicknameJobCache[key] = job
     }
 
     private fun refreshNicknameSnapshot(snapshot: DpsData, nicknameData: Map<Int, String>) {
@@ -1306,7 +1336,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     TargetDecision(recentTargets, "", targetSelectionMode, 0)
                 } else {
                     val targetId = selectTargetLastHitByMe(localActors, currentTarget)
-                    TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
+                    if (targetId == 0) {
+                        val recentTargets = selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
+                        TargetDecision(recentTargets, "", targetSelectionMode, 0)
+                    } else {
+                        TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
+                    }
                 }
             }
             TargetSelectionMode.ALL_TARGETS -> {
@@ -1369,16 +1404,14 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         val normalizedLocalName = localName.lowercase()
 
-        val nicknameData = dataStorage.getNickname()
         val localActorIds = mutableSetOf<Int>()
         val localPlayerId = LocalPlayer.playerId?.toInt()
         if (localPlayerId != null) {
             // If packet parsing has confirmed local player ID, trust it directly.
             // Nickname mapping may appear later or differ temporarily.
             localActorIds.add(localPlayerId)
-        }
-
-        if (normalizedLocalName.isNotBlank()) {
+        } else if (normalizedLocalName.isNotBlank()) {
+            val nicknameData = dataStorage.getNickname()
             localActorIds.addAll(
                 nicknameData
                     .filterValues { it.trim().lowercase() == normalizedLocalName }
