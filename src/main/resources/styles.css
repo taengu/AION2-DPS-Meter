@@ -533,23 +533,6 @@ html[lang="ko"] * {
     cursor: pointer;
   }
 
-  .settingsKeybindInput {
-    min-width: 120px;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--rounded-xs);
-    padding: 6px 10px;
-    background: var(--panel-field-bg);
-    color: var(--text-color);
-    font-weight: 600;
-    cursor: pointer;
-    text-align: center;
-  }
-
-  .settingsKeybindInput.isCapturing {
-    outline: 1px solid var(--isUser-fill);
-    outline-offset: 2px;
-  }
-
   .settingsSelect {
     min-width: 180px;
     border: 1px solid var(--panel-border);
@@ -1486,21 +1469,6 @@ html[lang="ko"] * {
   color: var(--text-color);
   font-weight: 600;
   cursor: pointer;
-}
-.settingsPanel .settingsKeybindInput {
-  min-width: 120px;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--rounded-xs);
-  padding: 6px 10px;
-  background: var(--panel-field-bg);
-  color: var(--text-color);
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-}
-.settingsPanel .settingsKeybindInput.isCapturing {
-  outline: 1px solid var(--isUser-fill);
-  outline-offset: 2px;
 }
 .settingsPanel .settingsSelect {
   min-width: 180px;

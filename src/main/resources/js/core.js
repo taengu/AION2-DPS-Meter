@@ -26,7 +26,6 @@ class DpsApp {
       debugLogging: "dpsMeter.debugLoggingEnabled",
       pinMeToTop: "dpsMeter.pinMeToTop",
       theme: "dpsMeter.theme",
-      refreshKeybind: "dpsMeter.refreshKeybind",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -984,7 +983,6 @@ class DpsApp {
     this.languageDropdownMenu = document.querySelector(".languageDropdownMenu");
     this.themeDropdownBtn = document.querySelector(".themeDropdownBtn");
     this.themeDropdownMenu = document.querySelector(".themeDropdownMenu");
-    this.refreshKeybindInput = document.querySelector(".settingsKeybindInput");
     this.settingsSelections = {
       language: "en",
       theme: this.theme,
@@ -1004,9 +1002,6 @@ class DpsApp {
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
-    const storedKeybind =
-      this.safeGetSetting(this.storageKeys.refreshKeybind) ||
-      this.safeGetStorage(this.storageKeys.refreshKeybind);
 
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(false, { persist: false });
@@ -1084,193 +1079,6 @@ class DpsApp {
     this.settingsSelections.theme = this.theme;
 
     this.initializeSettingsDropdowns();
-
-    const normalizeKeybind = (value) => {
-      if (!value) return "";
-      const cleaned = String(value).replace(/\s+/g, "").toUpperCase();
-      const parts = cleaned.split("+").filter(Boolean);
-      const mods = new Set();
-      let key = "";
-      parts.forEach((part) => {
-        if (part === "CTRL" || part === "CONTROL") mods.add("Ctrl");
-        else if (part === "ALT") mods.add("Alt");
-        else if (part === "SHIFT") mods.add("Shift");
-        else if (part === "META" || part === "CMD" || part === "WIN") mods.add("Meta");
-        else key = part;
-      });
-      const modText = ["Ctrl", "Alt", "Shift", "Meta"].filter((m) => mods.has(m));
-      if (key) {
-        modText.push(key.length === 1 ? key.toUpperCase() : key);
-      }
-      return modText.join("+");
-    };
-
-    const parseKeybindParts = (value) => {
-      const normalized = normalizeKeybind(value);
-      const parts = normalized.split("+").filter(Boolean);
-      const key = parts.pop() || "";
-      const mods = new Set(parts);
-      return { mods, key };
-    };
-
-    const matchesKeybindEvent = (event, keybindValue) => {
-      const { mods, key } = parseKeybindParts(keybindValue);
-      if (!key) return false;
-      if (!!event.ctrlKey !== mods.has("Ctrl")) return false;
-      if (!!event.altKey !== mods.has("Alt")) return false;
-      if (!!event.shiftKey !== mods.has("Shift")) return false;
-      if (!!event.metaKey !== mods.has("Meta")) return false;
-      const eventKey = String(event.key || event.code || "").toUpperCase();
-      return eventKey === key || eventKey === `KEY${key}` || eventKey === `DIGIT${key}`;
-    };
-
-    const setKeybindValue = (value, { persist = true, syncBackend = true } = {}) => {
-      const normalized = normalizeKeybind(value || "Ctrl+R");
-      this._refreshKeybindValue = normalized || "Ctrl+R";
-      if (this.refreshKeybindInput) {
-        this.refreshKeybindInput.textContent = normalized || "Ctrl+R";
-        this.refreshKeybindInput.dataset.value = normalized || "Ctrl+R";
-      }
-      if (persist) {
-        this.safeSetSetting(this.storageKeys.refreshKeybind, normalized);
-      }
-      if (syncBackend) {
-        window.javaBridge?.setRefreshKeybind?.(normalized);
-      }
-    };
-
-    setKeybindValue(storedKeybind || "Ctrl+R", { persist: !storedKeybind, syncBackend: true });
-
-    if (!this._refreshKeybindListenerBound) {
-      const keybindHandler = (event) => {
-        if (this.refreshKeybindInput?.classList?.contains("isCapturing")) return;
-        if (!matchesKeybindEvent(event, this._refreshKeybindValue || "Ctrl+R")) return;
-        event.preventDefault();
-        this.triggerRefreshFromKeybind();
-      };
-      document.addEventListener("keydown", keybindHandler, true);
-      window.addEventListener("keydown", keybindHandler, true);
-      this._refreshKeybindListenerBound = true;
-    }
-
-    if (this.refreshKeybindInput) {
-      let capturing = false;
-      let pendingValue = "";
-      let captureMode = "dom";
-
-      const modifierKeys = ["Control", "Shift", "Alt", "Meta"];
-
-      const normalizeEventKey = (event) => {
-        const rawKey = String(event?.key || "");
-        if (rawKey && rawKey !== "Unidentified") return rawKey;
-        const code = String(event?.code || "");
-        if (code.startsWith("Key")) return code.slice(3);
-        if (code.startsWith("Digit")) return code.slice(5);
-        if (code) return code;
-        return "";
-      };
-
-      const buildComboFromEvent = (event, key) => {
-        const isModifierOnly = modifierKeys.includes(key);
-        if (isModifierOnly) return "";
-        const parts = [];
-        if (event.ctrlKey) parts.push("Ctrl");
-        if (event.altKey) parts.push("Alt");
-        if (event.shiftKey) parts.push("Shift");
-        if (event.metaKey) parts.push("Meta");
-        if (!parts.includes("Ctrl") && !parts.includes("Alt")) {
-          return "";
-        }
-        parts.push(key.length === 1 ? key.toUpperCase() : key.toUpperCase());
-        return parts.join("+");
-      };
-
-      const startCapture = () => {
-        capturing = true;
-        pendingValue = "";
-        this.refreshKeybindInput.classList.add("isCapturing");
-        this.refreshKeybindInput.textContent = "Press key combination...";
-      };
-
-      const stopCapture = ({ cancelNative = true } = {}) => {
-        capturing = false;
-        pendingValue = "";
-        this.refreshKeybindInput.classList.remove("isCapturing");
-        const currentValue = this.refreshKeybindInput.dataset.value || "Ctrl+R";
-        this.refreshKeybindInput.textContent = currentValue;
-        if (captureMode === "native" && cancelNative) {
-          window.javaBridge?.cancelRefreshKeybindCapture?.();
-        }
-        captureMode = "dom";
-      };
-
-      const captureKeydown = (event) => {
-        if (!capturing) return;
-        if (captureMode === "native") return;
-        event.preventDefault();
-        event.stopPropagation();
-        const key = normalizeEventKey(event);
-        if (!key) return;
-        const combo = buildComboFromEvent(event, key);
-        if (!combo) {
-          this.refreshKeybindInput.textContent = "Press key combination...";
-          return;
-        }
-        pendingValue = combo;
-        this.refreshKeybindInput.textContent = `Release to save... ${combo}`;
-      };
-
-      const captureKeyup = (event) => {
-        if (!capturing) return;
-        if (captureMode === "native") return;
-        event.preventDefault();
-        event.stopPropagation();
-        const key = normalizeEventKey(event);
-        if (!key || modifierKeys.includes(key)) return;
-        if (pendingValue) {
-          setKeybindValue(pendingValue, { persist: true, syncBackend: true });
-        }
-        stopCapture();
-      };
-
-      this.receiveKeybindCapture = (value) => {
-        if (!capturing) return;
-        if (value) {
-          setKeybindValue(value, { persist: true, syncBackend: true });
-        }
-        stopCapture({ cancelNative: false });
-      };
-      this.cancelKeybindCapture = () => {
-        if (!capturing) return;
-        stopCapture({ cancelNative: true });
-      };
-
-      this.refreshKeybindInput.addEventListener("click", () => {
-        startCapture();
-        const nativeStarted = window.javaBridge?.startRefreshKeybindCapture?.() || false;
-        captureMode = nativeStarted ? "native" : "dom";
-        if (captureMode === "dom") {
-          this.refreshKeybindInput.focus();
-        }
-      });
-      document.addEventListener("keydown", captureKeydown, true);
-      document.addEventListener("keyup", captureKeyup, true);
-      document.addEventListener("keydown", (event) => {
-        if (!capturing) return;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          stopCapture({ cancelNative: true });
-        }
-      }, true);
-      window.addEventListener("blur", () => {
-        if (capturing && captureMode === "dom") stopCapture();
-      });
-      this.refreshKeybindInput.addEventListener("blur", () => {
-        if (capturing && captureMode === "dom") stopCapture();
-      });
-    }
-
 
     this.settingsBtn?.addEventListener("click", () => {
       this.toggleSettingsPanel();
@@ -1684,7 +1492,6 @@ class DpsApp {
 
   closeSettingsPanel() {
     this.settingsPanel?.classList.remove("isOpen");
-    this.cancelKeybindCapture?.();
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {
@@ -1811,10 +1618,6 @@ class DpsApp {
       }
     }
     return this.dpsFormatter.format(n);
-  }
-
-  triggerRefreshFromKeybind() {
-    this.refreshDamageData({ reason: "keybind refresh" });
   }
 
   refreshDamageData({ reason = "refresh" } = {}) {

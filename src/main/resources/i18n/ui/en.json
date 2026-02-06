@@ -88,9 +88,6 @@
         "allTargets": "All targets combined"
       }
     },
-    "refreshKeybind": {
-      "label": "Refresh keybind"
-    },
     "allTargetsWindow": {
       "label": "All Targets time range",
       "options": {

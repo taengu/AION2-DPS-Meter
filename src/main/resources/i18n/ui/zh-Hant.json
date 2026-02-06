@@ -83,9 +83,6 @@
         "allTargets": "所有目標合計"
       }
     },
-    "refreshKeybind": {
-      "label": "重新整理快捷鍵"
-    },
     "allTargetsWindow": {
       "label": "所有目標時間窗",
       "options": {
