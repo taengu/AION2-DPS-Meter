@@ -54,7 +54,7 @@ class DpsApp {
     this._windowTitleTimer = null;
 
     this.i18n = window.i18n;
-    this.targetSelection = "targetLock";
+    this.targetSelection = "lastHitByMe";
     this.listSortDirection = "desc";
     this.lastTargetMode = "";
     this.lastTargetName = "";
@@ -123,7 +123,7 @@ class DpsApp {
     this._connectionStatusOverride = false;
 
     this.resetBtn = document.querySelector(".resetBtn");
-    this.targetModeBtn = document.querySelector(".targetModeBtn");
+    this.targetModeBtn = document.querySelector(".footerBtns .targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
     this.metricToggleBtn = document.querySelector(".metricToggleBtn");
 
@@ -818,7 +818,7 @@ class DpsApp {
       this.refreshDamageData({ reason: "manual refresh" });
     });
     this.targetModeBtn?.addEventListener("click", () => {
-      const nextMode = this.targetSelection === "allTargets" ? "targetLock" : "allTargets";
+      const nextMode = this.targetSelection === "allTargets" ? "lastHitByMe" : "allTargets";
       console.log("[Target Mode Toggle]", {
         from: this.targetSelection,
         to: nextMode,
@@ -869,7 +869,7 @@ class DpsApp {
     this.setOnlyShowUser(storedOnlyShow, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
     const normalizedTargetSelection =
-      storedTargetSelection === "allTargets" ? "allTargets" : "targetLock";
+      storedTargetSelection === "allTargets" ? "allTargets" : "lastHitByMe";
     this.setTargetSelection(normalizedTargetSelection, {
       persist: false,
       syncBackend: true,
@@ -1255,7 +1255,7 @@ class DpsApp {
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
     const previousSelection = this.targetSelection;
-    this.targetSelection = mode === "allTargets" ? "allTargets" : "targetLock";
+    this.targetSelection = mode === "allTargets" ? "allTargets" : "lastHitByMe";
     if (persist) {
       localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
     }

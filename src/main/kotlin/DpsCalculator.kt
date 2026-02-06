@@ -30,7 +30,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     enum class TargetSelectionMode(val id: String) {
-        TARGET_LOCK("targetLock"),
         MOST_DAMAGE("mostDamage"),
         MOST_RECENT("mostRecent"),
         LAST_HIT_BY_ME("lastHitByMe"),
@@ -38,7 +37,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         companion object {
             fun fromId(id: String?): TargetSelectionMode {
-                return entries.firstOrNull { it.id == id } ?: TARGET_LOCK
+                return entries.firstOrNull { it.id == id } ?: LAST_HIT_BY_ME
             }
         }
     }
@@ -910,7 +909,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private var mode: Mode = Mode.BOSS_ONLY
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
-    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.TARGET_LOCK
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
     private val targetSwitchStaleMs = 10_000L
     private var lastLocalHitTime: Long = -1L
     private val unknownPlayerTargetWindowMs = 120_000L
@@ -947,13 +946,13 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         dataStorage.setCurrentTarget(currentTarget)
 
         val localActorsForBattleTime =
-            if (targetDecision.mode == TargetSelectionMode.TARGET_LOCK) resolveConfirmedLocalActorIds() else null
-        val isRecentCombined = targetDecision.mode == TargetSelectionMode.TARGET_LOCK &&
+            if (targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME) resolveConfirmedLocalActorIds() else null
+        val isRecentCombined = targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME &&
             targetDecision.trackingTargetId == 0 &&
             targetDecision.targetIds.isNotEmpty()
         val battleTime = when {
             isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, unknownPlayerTargetWindowMs)
-            localActorsForBattleTime != null && targetDecision.mode == TargetSelectionMode.TARGET_LOCK ->
+            localActorsForBattleTime != null && targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME ->
                 parseActorBattleTimeForTarget(localActorsForBattleTime, currentTarget)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
                 parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
@@ -1216,16 +1215,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
             TargetSelectionMode.MOST_RECENT -> {
                 TargetDecision(setOf(mostRecentTarget), resolveTargetName(mostRecentTarget), targetSelectionMode, mostRecentTarget)
-            }
-            TargetSelectionMode.TARGET_LOCK -> {
-                val localActors = resolveConfirmedLocalActorIds()
-                if (localActors == null) {
-                    val recentTargets = selectRecentTargetsForUnknownPlayer(allTargetsWindowMs)
-                    TargetDecision(recentTargets, "", targetSelectionMode, 0)
-                } else {
-                    val targetId = selectTargetLastHitByMe(localActors, currentTarget)
-                    TargetDecision(setOf(targetId), resolveTargetName(targetId), targetSelectionMode, targetId)
-                }
             }
             TargetSelectionMode.LAST_HIT_BY_ME -> {
                 val localActors = resolveConfirmedLocalActorIds()
