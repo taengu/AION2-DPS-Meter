@@ -1257,7 +1257,7 @@ class DpsApp {
     const previousSelection = this.targetSelection;
     this.targetSelection = mode === "allTargets" ? "allTargets" : "lastHitByMe";
     if (persist) {
-      localStorage.setItem(this.storageKeys.targetSelection, String(this.targetSelection));
+      this.safeSetStorage(this.storageKeys.targetSelection, String(this.targetSelection));
     }
     if (syncBackend) {
       window.javaBridge?.setTargetSelection?.(this.targetSelection);
@@ -1571,10 +1571,11 @@ class DpsApp {
       initialStageY = 0;
 
     document.addEventListener("mousedown", (e) => {
-      if (e.target?.closest?.(".resizeHandle")) {
+      const targetEl = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
+      if (targetEl?.closest?.(".resizeHandle")) {
         return;
       }
-      if (e.target?.closest?.(".headerBtn, .footerBtn")) {
+      if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
       isDragging = true;
@@ -1644,7 +1645,6 @@ DpsApp.instance = null;
 
 // 디버그콘솔
 const setupDebugConsole = () => {
-  const g = globalThis;
   if (globalThis.uiDebug?.log) return globalThis.uiDebug;
 
   const consoleDiv = document.querySelector(".console");
@@ -1669,21 +1669,41 @@ const setupDebugConsole = () => {
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
   };
 
+  const originalConsole = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+
+  const printToPanel = (level, args) => {
+    const line = args.map(safeStringify).join(" ");
+    appendLine(`[${level}] ${line}`);
+  };
+
+  if (!globalThis.__uiConsolePatched) {
+    ["log", "info", "warn", "error"].forEach((level) => {
+      console[level] = (...args) => {
+        originalConsole[level](...args);
+        printToPanel(level, args);
+      };
+    });
+    globalThis.__uiConsolePatched = true;
+  }
+
   globalThis.uiDebug = {
     clear() {
       consoleDiv.innerHTML = "";
     },
     log(...args) {
-      const line = args.map(safeStringify).join(" ");
-      appendLine(line);
-      console.log(...args);
+      printToPanel("debug", args);
     },
   };
 
   return globalThis.uiDebug;
 };
 
-// setupDebugConsole();
+setupDebugConsole();
 const dpsApp = DpsApp.createInstance();
 window.dpsApp = dpsApp;
 const debug = globalThis.uiDebug;
