@@ -696,6 +696,21 @@ class DpsApp {
         dedupedByName.set(key, row);
         continue;
       }
+      const scoreRow = (candidate) => {
+        let score = 0;
+        if (candidate.job) score += 2;
+        if (!candidate.isIdentifying) score += 1;
+        return score;
+      };
+      const existingScore = scoreRow(existing);
+      const nextScore = scoreRow(row);
+      if (nextScore > existingScore) {
+        dedupedByName.set(key, row);
+        continue;
+      }
+      if (nextScore < existingScore) {
+        continue;
+      }
       const existingId = Number(existing.id);
       const nextId = Number(row.id);
       if (!Number.isFinite(existingId) || (Number.isFinite(nextId) && nextId > existingId)) {
