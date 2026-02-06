@@ -203,6 +203,7 @@ class DpsApp {
       visibleClass: "isVisible",
     });
     this.battleTime.setVisible(false);
+    this.updateConnectionStatusUi();
 
     this.detailsPanel = document.querySelector(".detailsPanel");
     this.detailsClose = document.querySelector(".detailsClose");
