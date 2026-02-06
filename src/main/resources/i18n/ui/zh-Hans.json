@@ -16,6 +16,9 @@
       "ariaLabel": "打开详情设置"
     },
     "panelBackground": "面板背景",
+    "screenshot": {
+      "captured": "已捕获截图"
+    },
     "skills": {
       "skill": "技能",
       "hits": "命中",
@@ -55,15 +58,16 @@
     "theme": {
       "label": "主题",
       "options": {
-        "classic": "经典",
         "aion2": "AION2",
+        "asmodian": "魔族",
+        "cogni": "认知",
+        "elyos": "天族",
         "ember": "余烬",
+        "fera": "菲拉",
         "frost": "霜冻",
         "natura": "自然",
-        "storm": "风暴",
-        "void": "虚空",
         "obsidian": "黑曜",
-        "cyber": "赛博"
+        "varian": "瓦里安"
       }
     },
     "language": {

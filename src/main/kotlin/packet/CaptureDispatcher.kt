@@ -96,6 +96,12 @@ class CaptureDispatcher(
         return false
     }
 
+    fun getParsingBacklog(): Int {
+        synchronized(assemblers) {
+            return assemblers.values.sumOf { it.bufferedBytes() }
+        }
+    }
+
     companion object {
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L

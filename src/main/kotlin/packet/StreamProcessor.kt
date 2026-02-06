@@ -110,6 +110,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
         var parsed = false
+        if (packet.size < 4) {
+            logger.debug("Truncated packet skipped: {}", toHex(packet))
+            return parsed
+        }
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
             logger.trace("Remaining packet buffer: {}", toHex(packet))
             val target = dataStorage.getCurrentTarget()
@@ -156,6 +160,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 logger.trace("Remaining packet {}", toHex(packet))
                 parsed = castNicknameNet(packet) || parsed
             }
+            return parsed
+        }
+        if (packet.size <= 10) {
+            logger.debug("Truncated packet skipped: {}", toHex(packet))
             return parsed
         }
         val newPacket = packet.copyOfRange(10, packet.size)

@@ -69,7 +69,7 @@ class AionMeterApp : Application() {
         }
 
         // Initialize and show the browser
-        val browserApp = BrowserApp(calculator) { markUiReady() }
+        val browserApp = BrowserApp(calculator, dispatcher) { markUiReady() }
         browserApp.start(primaryStage)
 
         // Ensure the window actually paints

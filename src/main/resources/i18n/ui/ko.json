@@ -16,6 +16,9 @@
       "ariaLabel": "상세 설정 열기"
     },
     "panelBackground": "패널 배경",
+    "screenshot": {
+      "captured": "스크린샷 캡처됨"
+    },
     "skills": {
       "skill": "스킬",
       "hits": "타수",
@@ -55,15 +58,16 @@
     "theme": {
       "label": "테마",
       "options": {
-        "classic": "클래식",
         "aion2": "AION2",
+        "asmodian": "아스모디안",
+        "cogni": "코그니",
+        "elyos": "엘리오스",
         "ember": "엠버",
+        "fera": "페라",
         "frost": "프로스트",
         "natura": "나투라",
-        "storm": "스톰",
-        "void": "보이드",
         "obsidian": "옵시디언",
-        "cyber": "사이버"
+        "varian": "바리안"
       }
     },
     "language": {

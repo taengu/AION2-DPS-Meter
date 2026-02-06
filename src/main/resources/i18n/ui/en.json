@@ -16,6 +16,9 @@
       "ariaLabel": "Open details settings"
     },
     "panelBackground": "Panel background",
+    "screenshot": {
+      "captured": "Captured Screenshot"
+    },
     "skills": {
       "skill": "Skill",
       "hits": "Hits",
@@ -55,15 +58,16 @@
     "theme": {
       "label": "Theme",
       "options": {
-        "classic": "Classic",
         "aion2": "AION2",
+        "asmodian": "Asmodian",
+        "cogni": "Cogni",
+        "elyos": "Elyos",
         "ember": "Ember",
+        "fera": "Fera",
         "frost": "Frost",
         "natura": "Natura",
-        "storm": "Storm",
-        "void": "Void",
         "obsidian": "Obsidian",
-        "cyber": "Cyber"
+        "varian": "Varian"
       }
     },
     "language": {

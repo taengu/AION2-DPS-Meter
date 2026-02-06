@@ -71,6 +71,11 @@ class PacketAccumulator {
     }
 
     @Synchronized
+    fun size(): Int {
+        return buffer.size()
+    }
+
+    @Synchronized
     private fun getCached(): ByteArray {
         val cached = cachedBytes
         if (cached != null) return cached

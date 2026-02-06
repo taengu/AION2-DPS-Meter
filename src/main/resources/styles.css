@@ -14,10 +14,26 @@
   /* General text */
   --text-color: #ffffff;
   --text-shadow:
-          0 0 1px rgba(0, 0, 0, 0.95),
-          0 1px 1px rgba(0, 0, 0, 0.95),
-          0 2px 3px rgba(0, 0, 0, 0.8),
-          0 4px 10px rgba(0, 0, 0, 0.45);
+          0 0 1px rgba(0, 0, 0, 0.98),
+          0 1px 1px rgba(0, 0, 0, 0.98),
+          0 2px 3px rgba(0, 0, 0, 0.88),
+          0 4px 10px rgba(0, 0, 0, 0.55);
+
+  /* Stronger, “always readable” DPS shadow */
+  --dps-shadow:
+          0 0 1px rgba(0,0,0,0.94),
+          0 1px 2px rgba(0,0,0,0.72),
+          0 2px 6px rgba(0,0,0,0.48),
+          0 0 10px var(--panel-border);
+
+  /* Player name / primary label shadow (Ember-grade readability) */
+  --player-name-shadow:
+          -1px  0   0 rgba(0,0,0,0.85),
+           1px  0   0 rgba(0,0,0,0.85),
+           0   -1px 0 rgba(0,0,0,0.85),
+           0    1px 0 rgba(0,0,0,0.85),
+           0    2px 3px rgba(0,0,0,0.70),
+           0    4px 8px rgba(0,0,0,0.45);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -37,83 +53,201 @@
 }
 
 :root[data-theme="aion2"] {
-  /* Bars */
   --row-fill: #5a47b0;
   --isUser-fill: #4fb6ff;
 
-  /* Status */
   --warning-fill: #f2b45a;
   --error-fill: #e85b7f;
 
-  /* DPS numbers */
   --dps: #cfe9ff;
   --dps-text: #cfe9ff;
 
-  /* UI chrome */
   --panel-border: rgba(140, 180, 255, 0.22);
   --title: rgba(225, 235, 255, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(140,180,255,0.42),
+    0 1px 1px rgba(140,180,255,0.32),
+    0 2px 3px rgba(0,0,0,0.45),
+    0 6px 14px rgba(100,140,255,0.24);
+
+  --player-name-shadow: var(--player-name-shadow);
 }
 
 :root[data-theme="ember"] {
-  /* Bars */
   --row-fill: #d9772a;
   --isUser-fill: #ff6f4f;
 
-  /* Status */
   --warning-fill: #f5c16c;
   --error-fill: #e84b5f;
 
-  /* DPS numbers */
   --dps: #ffe6c9;
   --dps-text: #ffe6c9;
 
-  /* UI chrome */
   --panel-border: rgba(255, 200, 150, 0.22);
   --title: rgba(255, 240, 220, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(255,180,120,0.48),
+    0 1px 1px rgba(255,160,100,0.36),
+    0 2px 3px rgba(0,0,0,0.45),
+    0 6px 14px rgba(255,120,80,0.26);
 }
 
 :root[data-theme="frost"] {
   --row-fill: #5fa3b5;
   --isUser-fill: #8fd3ff;
+
   --warning-fill: #f2c97d;
   --error-fill: #e56b6b;
+
   --dps: #eaf7ff;
   --dps-text: #eaf7ff;
+
   --panel-border: rgba(180, 220, 255, 0.22);
   --title: rgba(235, 245, 255, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(180,220,255,0.52),
+    0 1px 1px rgba(160,210,255,0.38),
+    0 2px 3px rgba(0,0,0,0.4),
+    0 6px 14px rgba(120,200,255,0.26);
 }
 
 :root[data-theme="natura"] {
   --row-fill: #4f9b6a;
   --isUser-fill: #7be3a2;
+
   --warning-fill: #f0c36d;
   --error-fill: #e06666;
+
   --dps: #e9f7ef;
   --dps-text: #e9f7ef;
+
   --panel-border: rgba(160, 220, 190, 0.22);
   --title: rgba(230, 245, 235, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(160,220,190,0.48),
+    0 1px 1px rgba(140,200,170,0.38),
+    0 2px 3px rgba(0,0,0,0.45),
+    0 6px 14px rgba(120,200,160,0.24);
 }
 
-:root[data-theme="storm"] {
-  --row-fill: #6b6fd6;
-  --isUser-fill: #9aa4ff;
+:root[data-theme="asmodian"] {
+  --row-fill: #6a4a8a;
+  --isUser-fill: #b064ff;
+
+  --warning-fill: #ffb65a;
+  --error-fill: #ff4f7a;
+
+  --dps: #f6f0ff;
+  --dps-text: #f6f0ff;
+
+  --panel-border: rgba(200, 150, 255, 0.26);
+  --title: rgba(245, 235, 255, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(200,150,255,0.42),
+    0 1px 1px rgba(200,150,255,0.32),
+    0 2px 3px rgba(0,0,0,0.45),
+    0 6px 14px rgba(176,100,255,0.24);
+
+  --dps-shadow:
+    0 0 1px rgba(0,0,0,0.92),
+    0 1px 2px rgba(0,0,0,0.72),
+    0 2px 8px rgba(0,0,0,0.50),
+    0 0 12px rgba(176,100,255,0.30);
+}
+
+:root[data-theme="varian"] {
+  --row-fill: #8a7320;
+  --isUser-fill: #ffe062;
+
+  --warning-fill: #ffe991;
+  --error-fill: #ef5f5f;
+
+  --dps: #fff7d1;
+  --dps-text: #fff7d1;
+
+  --panel-border: rgba(255, 230, 140, 0.3);
+  --title: rgba(255, 252, 235, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(255,230,140,0.48),
+    0 1px 1px rgba(255,220,120,0.38),
+    0 2px 3px rgba(0,0,0,0.50),
+    0 6px 14px rgba(255,224,98,0.22);
+
+  --dps-shadow:
+    0 0 1px rgba(0,0,0,0.94),
+    0 1px 2px rgba(0,0,0,0.76),
+    0 2px 8px rgba(0,0,0,0.45),
+    0 0 8px rgba(255,230,140,0.22);
+
+  --player-name-shadow:
+    -1px  0   0 rgba(0,0,0,0.92),
+     1px  0   0 rgba(0,0,0,0.92),
+     0   -1px 0 rgba(0,0,0,0.92),
+     0    1px 0 rgba(0,0,0,0.92),
+     0    3px 6px rgba(0,0,0,0.80);
+}
+
+:root[data-theme="fera"] {
+  --row-fill: #7a2f3a;
+  --isUser-fill: #c84a5a;
+  --warning-fill: #f0c36a;
+  --error-fill: #ff5a6d;
+  --dps: #fff0f2;
+  --dps-text: #fff0f2;
+  --panel-border: rgba(255, 120, 140, 0.22);
+  --title: rgba(255, 235, 238, 0.98);
+}
+
+:root[data-theme="cogni"] {
+  --row-fill: #2f567a;
+  --isUser-fill: #4fb3ff;
   --warning-fill: #f2c24f;
   --error-fill: #e35b6f;
-  --dps: #eef0ff;
-  --dps-text: #eef0ff;
-  --panel-border: rgba(170, 180, 255, 0.22);
-  --title: rgba(235, 238, 255, 0.98);
+  --dps: #eef8ff;
+  --dps-text: #eef8ff;
+  --panel-border: rgba(120, 190, 255, 0.22);
+  --title: rgba(235, 246, 255, 0.98);
 }
 
-:root[data-theme="void"] {
-  --row-fill: #5a4a78;
-  --isUser-fill: #8f7bff;
-  --warning-fill: #f0b45f;
-  --error-fill: #e05b7a;
-  --dps: #f0ecff;
-  --dps-text: #f0ecff;
-  --panel-border: rgba(180, 160, 255, 0.22);
-  --title: rgba(235, 230, 255, 0.98);
+:root[data-theme="elyos"] {
+  --row-fill: #d8ecff;
+  --isUser-fill: #6bbcff;
+
+  --warning-fill: #f6d77a;
+  --error-fill: #e36b6b;
+
+  --text-color: #ffffff;
+  --dps: #eaf6ff;
+  --dps-text: #eaf6ff;
+
+  --panel-border: rgba(140, 200, 255, 0.60);
+  --title: rgba(240, 250, 255, 0.98);
+
+  --text-shadow:
+    0 0 1px rgba(0,0,0,0.92),
+    0 1px 2px rgba(0,0,0,0.62),
+    0 2px 6px rgba(0,0,0,0.50),
+    0 0 10px rgba(140,200,255,0.28);
+
+  --dps-shadow:
+    0 0 1px rgba(0,0,0,0.92),
+    0 1px 2px rgba(0,0,0,0.74),
+    0 2px 8px rgba(0,0,0,0.50),
+    0 0 12px rgba(107,188,255,0.40);
+
+  --player-name-shadow:
+    -1px  0   0 rgba(0,0,0,0.90),
+     1px  0   0 rgba(0,0,0,0.90),
+     0   -1px 0 rgba(0,0,0,0.90),
+     0    1px 0 rgba(0,0,0,0.90),
+     0    2px 4px rgba(0,0,0,0.75),
+     0    0  10px rgba(120,190,255,0.35);
 }
 
 :root[data-theme="obsidian"] {
@@ -125,17 +259,6 @@
   --dps-text: #f5f5f5;
   --panel-border: rgba(200, 200, 200, 0.18);
   --title: rgba(245, 245, 245, 0.98);
-}
-
-:root[data-theme="cyber"] {
-  --row-fill: #3a8f8f;
-  --isUser-fill: #5cf2e8;
-  --warning-fill: #f2b94f;
-  --error-fill: #ff5f7a;
-  --dps: #e6ffff;
-  --dps-text: #e6ffff;
-  --panel-border: rgba(120, 240, 240, 0.25);
-  --title: rgba(220, 255, 255, 0.98);
 }
 
 * {
@@ -363,8 +486,8 @@ html[lang="ko"] * {
   }
 
   .settingsLabel {
-    font-size: 12px;
-    opacity: 0.75;
+    font-size: 14px;
+    opacity: 0.8;
   }
 
   .settingsValue {
@@ -525,6 +648,29 @@ html[lang="ko"] * {
     transform: scaleX(0);
 
     transition: transform 150ms ease;
+    overflow: hidden;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -40%;
+      width: 40%;
+      opacity: 0;
+      pointer-events: none;
+      background: linear-gradient(
+              110deg,
+              rgba(255, 255, 255, 0) 0%,
+              rgba(255, 255, 255, 0.35) 50%,
+              rgba(255, 255, 255, 0) 100%
+      );
+    }
+  }
+
+  .item:hover .fill::after {
+    opacity: 1;
+    animation: meterBarHoverRipple 900ms ease-out;
   }
 
   .content {
@@ -552,8 +698,8 @@ html[lang="ko"] * {
       font-size: 18px;
       line-height: 1.2;
       padding-bottom: 1px;
-      text-shadow: var(--text-shadow);
-      font-weight: bold;
+      text-shadow: var(--player-name-shadow, var(--text-shadow));
+      font-weight: 600;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -561,7 +707,7 @@ html[lang="ko"] * {
     .dps {
       color: var(--dps-text);
       font-size: var(--font);
-      text-shadow: var(--text-shadow);
+      text-shadow: var(--dps-shadow, var(--text-shadow));
       font-weight: 400;
       display: flex;
       align-items: center;
@@ -611,6 +757,7 @@ html[lang="ko"] * {
 
   &.state-fighting .status {
     background: var(--indicator-combat);
+    animation: combatStatusRipple 1.4s ease-out infinite;
   }
   &.state-grace .status {
     background: var(--indicator-wait);
@@ -755,6 +902,35 @@ html[lang="ko"] * {
       align-items: center;
       gap: 4px;
       margin-left: 4px;
+    }
+
+    .detailsScreenshotBtn {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      transition: 0.2s;
+    }
+
+    .detailsScreenshotBtn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .detailsScreenshotNote {
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 150ms ease;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .detailsScreenshotNote.isVisible {
+      opacity: 1;
     }
 
     .detailsSortBtn {
@@ -1211,8 +1387,8 @@ html[lang="ko"] * {
   gap: 4px;
 }
 .settingsPanel .settingsLabel {
-  font-size: 12px;
-  opacity: 0.75;
+  font-size: 14px;
+  opacity: 0.8;
 }
 .settingsPanel .settingsValue {
   display: flex;
@@ -1298,6 +1474,17 @@ html[lang="ko"] * {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.settingsPanel .themeDropdownBtn {
+  color: var(--dps-text);
+  text-shadow: var(--dps-shadow, var(--text-shadow));
+}
+.settingsPanel .themeDropdownBtn .settingsDropdownText {
+  color: var(--dps-text);
+  text-shadow: var(--dps-shadow, var(--text-shadow));
+}
+.settingsPanel .themeDropdownMenu .settingsDropdownItem {
+  text-shadow: var(--dps-shadow, var(--text-shadow));
 }
 .settingsPanel .settingsDropdownCaret {
   opacity: 0.6;
@@ -1398,6 +1585,22 @@ html[lang="ko"] * {
   transform-origin: left center;
   transform: scaleX(0);
   transition: transform 150ms ease;
+  overflow: hidden;
+}
+.list .item .fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
+}
+.list .item:hover .fill::after {
+  opacity: 1;
+  animation: meterBarHoverRipple 900ms ease-out;
 }
 .list .item .content {
   position: relative;
@@ -1420,8 +1623,8 @@ html[lang="ko"] * {
   flex: 1;
   color: var(--text-color);
   font-size: 18px;
-  text-shadow: var(--text-shadow);
-  font-weight: bold;
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
+  font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1432,7 +1635,7 @@ html[lang="ko"] * {
 .list .item .dps {
   color: var(--dps-text);
   font-size: var(--font);
-  text-shadow: var(--text-shadow);
+  text-shadow: var(--dps-shadow, var(--text-shadow));
   font-weight: 400;
   display: flex;
   align-items: center;
@@ -1458,6 +1661,7 @@ html[lang="ko"] * {
 }
 .battleTime.state-fighting .status {
   background: var(--indicator-combat);
+  animation: combatStatusRipple 1.4s ease-out infinite;
 }
 .battleTime.state-grace .status {
   background: var(--indicator-wait);
@@ -1553,6 +1757,31 @@ html[lang="ko"] * {
   align-items: center;
   gap: 4px;
   margin-left: 4px;
+}
+.detailsPanel .detailsHeader .detailsScreenshotBtn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  transition: 0.2s;
+}
+.detailsPanel .detailsHeader .detailsScreenshotBtn svg {
+  width: 18px;
+  height: 18px;
+}
+.detailsPanel .detailsHeader .detailsScreenshotNote {
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  color: rgba(255, 255, 255, 0.75);
+}
+.detailsPanel .detailsHeader .detailsScreenshotNote.isVisible {
+  opacity: 1;
 }
 .detailsPanel .detailsHeader .detailsSortBtn {
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1726,6 +1955,38 @@ html[lang="ko"] * {
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+@keyframes meterBarHoverRipple {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    left: 110%;
+    opacity: 0;
+  }
+}
+
+@keyframes combatStatusRipple {
+  0% {
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.25),
+      0 0 0 0 var(--indicator-combat);
+  }
+  70% {
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.25),
+      0 0 0 10px rgba(0, 0, 0, 0);
+  }
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.25),
+      0 0 0 0 rgba(0, 0, 0, 0);
+  }
 }
 .detailsPanel .detailsSkills .skills .skillRow {
   display: flex;

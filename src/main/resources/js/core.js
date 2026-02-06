@@ -27,15 +27,16 @@ class DpsApp {
     this.displayMode = "dps";
     this.theme = "aion2";
     this.availableThemes = [
-      "classic",
       "aion2",
+      "asmodian",
+      "cogni",
+      "elyos",
       "ember",
+      "fera",
       "frost",
       "natura",
-      "storm",
-      "void",
       "obsidian",
-      "cyber",
+      "varian",
     ];
 
     // 빈데이터 덮어쓰기 방지 스냅샷
@@ -147,18 +148,29 @@ class DpsApp {
         }),
     });
 
+    const withBacklog = (text) => {
+      if (!window.javaBridge?.isRunningFromIde?.()) return text;
+      const backlog = window.javaBridge?.getParsingBacklog?.();
+      if (!Number.isFinite(backlog)) return text;
+      return `${text} (backlog: ${backlog})`;
+    };
+
     const getBattleTimeStatusText = () => {
       if (!this.aionRunning) {
-        return this.i18n?.t("battleTime.notRunning", "AION2 not running") ?? "AION2 not running";
+        const text = this.i18n?.t("battleTime.notRunning", "AION2 not running") ?? "AION2 not running";
+        return withBacklog(text);
       }
       if (this.isDetectingPort) {
-        return this.i18n?.t("connection.detecting", "Detecting AION2 connection...") ??
+        const text = this.i18n?.t("connection.detecting", "Detecting AION2 connection...") ??
           "Detecting AION2 connection...";
+        return withBacklog(text);
       }
       if (this.battleTime?.getState?.() === "state-idle") {
-        return this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
+        const text = this.i18n?.t("battleTime.idle", "Idle") ?? "Idle";
+        return withBacklog(text);
       }
-      return this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
+      const text = this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
+      return withBacklog(text);
     };
 
     this.battleTime = createBattleTimeUI({
@@ -182,6 +194,8 @@ class DpsApp {
     this.detailsTargetBtn = document.querySelector(".detailsTargetBtn");
     this.detailsTargetMenu = document.querySelector(".detailsTargetMenu");
     this.detailsSortButtons = document.querySelectorAll(".detailsSortBtn");
+    this.detailsScreenshotBtn = document.querySelector(".detailsScreenshotBtn");
+    this.detailsScreenshotNote = document.querySelector(".detailsScreenshotNote");
     this.detailsRefreshBtn = document.querySelector(".detailsRefreshBtn");
     this.detailsStatsEl = document.querySelector(".detailsStats");
     this.skillsListEl = document.querySelector(".skills");
@@ -204,6 +218,41 @@ class DpsApp {
     this.detailsRefreshBtn?.addEventListener("click", () => {
       this.detailsUI?.refresh?.();
     });
+    if (this.detailsScreenshotBtn) {
+      let screenshotNoteTimer = null;
+      this.detailsScreenshotBtn.addEventListener("click", () => {
+        const tooltipText =
+          this.i18n?.t("details.screenshot.captured", "Captured Screenshot") ?? "Captured Screenshot";
+        const meterRect = document.querySelector(".meter")?.getBoundingClientRect?.();
+        const detailsRect = this.detailsPanel?.classList?.contains("open")
+          ? this.detailsPanel.getBoundingClientRect()
+          : null;
+        if (!meterRect) return;
+        const minX = detailsRect ? Math.min(meterRect.left, detailsRect.left) : meterRect.left;
+        const minY = detailsRect ? Math.min(meterRect.top, detailsRect.top) : meterRect.top;
+        const maxX = detailsRect ? Math.max(meterRect.right, detailsRect.right) : meterRect.right;
+        const maxY = detailsRect ? Math.max(meterRect.bottom, detailsRect.bottom) : meterRect.bottom;
+        const rectWidth = Math.max(1, maxX - minX);
+        const rectHeight = Math.max(1, maxY - minY);
+        const scale = window.devicePixelRatio || 1;
+        const success = window.javaBridge?.captureScreenshotToClipboard?.(
+          minX,
+          minY,
+          rectWidth,
+          rectHeight,
+          scale
+        );
+        if (!success || !this.detailsScreenshotNote) return;
+        this.detailsScreenshotBtn.setAttribute("title", tooltipText);
+        this.detailsScreenshotNote.textContent = "Saved to clipboard";
+        this.detailsScreenshotNote.classList.add("isVisible");
+        if (screenshotNoteTimer) window.clearTimeout(screenshotNoteTimer);
+        screenshotNoteTimer = window.setTimeout(() => {
+          this.detailsScreenshotNote?.classList.remove("isVisible");
+          this.detailsScreenshotNote.textContent = "";
+        }, 2000);
+      });
+    }
     this.setupDetailsPanelSettings();
     this.setupSettingsPanel();
     this.detailsUI?.updateLabels?.();
@@ -1008,8 +1057,28 @@ class DpsApp {
       return modText.join("+");
     };
 
+    const parseKeybindParts = (value) => {
+      const normalized = normalizeKeybind(value);
+      const parts = normalized.split("+").filter(Boolean);
+      const key = parts.pop() || "";
+      const mods = new Set(parts);
+      return { mods, key };
+    };
+
+    const matchesKeybindEvent = (event, keybindValue) => {
+      const { mods, key } = parseKeybindParts(keybindValue);
+      if (!key) return false;
+      if (!!event.ctrlKey !== mods.has("Ctrl")) return false;
+      if (!!event.altKey !== mods.has("Alt")) return false;
+      if (!!event.shiftKey !== mods.has("Shift")) return false;
+      if (!!event.metaKey !== mods.has("Meta")) return false;
+      const eventKey = String(event.key || event.code || "").toUpperCase();
+      return eventKey === key || eventKey === `KEY${key}` || eventKey === `DIGIT${key}`;
+    };
+
     const setKeybindValue = (value, { persist = true, syncBackend = true } = {}) => {
       const normalized = normalizeKeybind(value || "Ctrl+R");
+      this._refreshKeybindValue = normalized || "Ctrl+R";
       if (this.refreshKeybindInput) {
         this.refreshKeybindInput.textContent = normalized || "Ctrl+R";
         this.refreshKeybindInput.dataset.value = normalized || "Ctrl+R";
@@ -1024,9 +1093,22 @@ class DpsApp {
 
     setKeybindValue(storedKeybind || "Ctrl+R", { persist: !storedKeybind, syncBackend: true });
 
+    if (!this._refreshKeybindListenerBound) {
+      const keybindHandler = (event) => {
+        if (this.refreshKeybindInput?.classList?.contains("isCapturing")) return;
+        if (!matchesKeybindEvent(event, this._refreshKeybindValue || "Ctrl+R")) return;
+        event.preventDefault();
+        this.triggerRefreshFromKeybind();
+      };
+      document.addEventListener("keydown", keybindHandler, true);
+      window.addEventListener("keydown", keybindHandler, true);
+      this._refreshKeybindListenerBound = true;
+    }
+
     if (this.refreshKeybindInput) {
       let capturing = false;
       let pendingValue = "";
+      let captureMode = "dom";
 
       const modifierKeys = ["Control", "Shift", "Alt", "Meta"];
 
@@ -1062,16 +1144,21 @@ class DpsApp {
         this.refreshKeybindInput.textContent = "Press key combination...";
       };
 
-      const stopCapture = () => {
+      const stopCapture = ({ cancelNative = true } = {}) => {
         capturing = false;
         pendingValue = "";
         this.refreshKeybindInput.classList.remove("isCapturing");
         const currentValue = this.refreshKeybindInput.dataset.value || "Ctrl+R";
         this.refreshKeybindInput.textContent = currentValue;
+        if (captureMode === "native" && cancelNative) {
+          window.javaBridge?.cancelRefreshKeybindCapture?.();
+        }
+        captureMode = "dom";
       };
 
       const captureKeydown = (event) => {
         if (!capturing) return;
+        if (captureMode === "native") return;
         event.preventDefault();
         event.stopPropagation();
         const key = normalizeEventKey(event);
@@ -1087,6 +1174,7 @@ class DpsApp {
 
       const captureKeyup = (event) => {
         if (!capturing) return;
+        if (captureMode === "native") return;
         event.preventDefault();
         event.stopPropagation();
         const key = normalizeEventKey(event);
@@ -1097,17 +1185,41 @@ class DpsApp {
         stopCapture();
       };
 
+      this.receiveKeybindCapture = (value) => {
+        if (!capturing) return;
+        if (value) {
+          setKeybindValue(value, { persist: true, syncBackend: true });
+        }
+        stopCapture({ cancelNative: false });
+      };
+      this.cancelKeybindCapture = () => {
+        if (!capturing) return;
+        stopCapture({ cancelNative: true });
+      };
+
       this.refreshKeybindInput.addEventListener("click", () => {
         startCapture();
-        this.refreshKeybindInput.focus();
+        const nativeStarted = window.javaBridge?.startRefreshKeybindCapture?.() || false;
+        captureMode = nativeStarted ? "native" : "dom";
+        if (captureMode === "dom") {
+          this.refreshKeybindInput.focus();
+        }
       });
       document.addEventListener("keydown", captureKeydown, true);
       document.addEventListener("keyup", captureKeyup, true);
+      document.addEventListener("keydown", (event) => {
+        if (!capturing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          stopCapture({ cancelNative: true });
+        }
+      }, true);
       window.addEventListener("blur", () => {
-        if (capturing) stopCapture();
+        if (capturing && captureMode === "dom") stopCapture();
       });
       this.refreshKeybindInput.addEventListener("blur", () => {
-        if (capturing) stopCapture();
+        if (capturing && captureMode === "dom") stopCapture();
       });
     }
 
@@ -1140,8 +1252,9 @@ class DpsApp {
       const computed = getComputedStyle(root);
       const rowFill = computed.getPropertyValue("--row-fill").trim() || "rgba(255,255,255,0.08)";
       const dpsText = computed.getPropertyValue("--dps-text").trim() || "#ffffff";
+      const dpsShadow = computed.getPropertyValue("--dps-shadow").trim() || "none";
       root.dataset.theme = previous || "aion2";
-      return { rowFill, dpsText };
+      return { rowFill, dpsText, dpsShadow };
     };
 
     const closeAll = () => {
@@ -1213,16 +1326,19 @@ class DpsApp {
     ];
 
     const themeOptions = [
-      { value: "classic", label: this.i18n?.t("settings.theme.options.classic", "Classic") },
       { value: "aion2", label: this.i18n?.t("settings.theme.options.aion2", "AION2") },
+      { value: "asmodian", label: this.i18n?.t("settings.theme.options.asmodian", "Asmodian") },
+      { value: "cogni", label: this.i18n?.t("settings.theme.options.cogni", "Cogni") },
+      { value: "elyos", label: this.i18n?.t("settings.theme.options.elyos", "Elyos") },
       { value: "ember", label: this.i18n?.t("settings.theme.options.ember", "Ember") },
+      { value: "fera", label: this.i18n?.t("settings.theme.options.fera", "Fera") },
       { value: "frost", label: this.i18n?.t("settings.theme.options.frost", "Frost") },
       { value: "natura", label: this.i18n?.t("settings.theme.options.natura", "Natura") },
-      { value: "storm", label: this.i18n?.t("settings.theme.options.storm", "Storm") },
-      { value: "void", label: this.i18n?.t("settings.theme.options.void", "Void") },
       { value: "obsidian", label: this.i18n?.t("settings.theme.options.obsidian", "Obsidian") },
-      { value: "cyber", label: this.i18n?.t("settings.theme.options.cyber", "Cyber") },
+      { value: "varian", label: this.i18n?.t("settings.theme.options.varian", "Varian") },
     ];
+
+    themeOptions.sort((a, b) => a.label.localeCompare(b.label));
 
     const allTargetsWindowOptions = [
       { value: "30000", label: this.i18n?.t("settings.allTargetsWindow.options.30s", "30 seconds") },
@@ -1268,11 +1384,17 @@ class DpsApp {
           const colors = previewThemeVars(value);
           item.style.background = colors.rowFill;
           item.style.color = colors.dpsText;
+          item.style.textShadow = colors.dpsShadow;
         },
         decorateButton: (button, value) => {
           const colors = previewThemeVars(value);
           button.style.background = colors.rowFill;
           button.style.color = colors.dpsText;
+          button.style.textShadow = colors.dpsShadow;
+          const textEl = button.querySelector(".settingsDropdownText");
+          if (textEl) {
+            textEl.style.textShadow = colors.dpsShadow;
+          }
         },
       }
     );
@@ -1437,6 +1559,7 @@ class DpsApp {
 
   closeSettingsPanel() {
     this.settingsPanel?.classList.remove("isOpen");
+    this.cancelKeybindCapture?.();
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {

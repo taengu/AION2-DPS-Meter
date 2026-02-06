@@ -27,4 +27,6 @@ class StreamAssembler(private val processor: StreamProcessor) {
         }
         return parsed
     }
+
+    fun bufferedBytes(): Int = buffer.size()
 }
