@@ -26,8 +26,8 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import javafx.util.Duration
 import javafx.application.Platform
-import javafx.embed.swing.SwingFXUtils
 import javafx.stage.DirectoryChooser
+import javafx.scene.image.WritablePixelFormat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -35,6 +35,7 @@ import kotlinx.serialization.json.Json
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.awt.image.BufferedImage
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -297,13 +298,16 @@ class BrowserApp(
                     val safeY = scaledY.coerceAtLeast(0)
                     val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
                     val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
-                    val cropped = javafx.scene.image.WritableImage(pixelReader, safeX, safeY, safeWidth, safeHeight)
                     val folder = File(folderPath)
                     if (!folder.exists()) {
                         folder.mkdirs()
                     }
                     val targetFile = File(folder, filename)
-                    val buffered = SwingFXUtils.fromFXImage(cropped, null)
+                    val buffer = IntArray(safeWidth * safeHeight)
+                    val format = WritablePixelFormat.getIntArgbInstance()
+                    pixelReader.getPixels(safeX, safeY, safeWidth, safeHeight, format, buffer, 0, safeWidth)
+                    val buffered = BufferedImage(safeWidth, safeHeight, BufferedImage.TYPE_INT_ARGB)
+                    buffered.setRGB(0, 0, safeWidth, safeHeight, buffer, 0, safeWidth)
                     success = ImageIO.write(buffered, "png", targetFile)
                 } catch (e: Exception) {
                     logger.warn("Failed to capture screenshot to file", e)
