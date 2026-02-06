@@ -55,15 +55,16 @@
     "theme": {
       "label": "Theme",
       "options": {
-        "classic": "Classic",
         "aion2": "AION2",
+        "asmodian": "Asmodian",
+        "cogni": "Cogni",
+        "elyos": "Elyos",
         "ember": "Ember",
+        "fera": "Fera",
         "frost": "Frost",
         "natura": "Natura",
-        "storm": "Storm",
-        "void": "Void",
         "obsidian": "Obsidian",
-        "cyber": "Cyber"
+        "varian": "Varian"
       }
     },
     "language": {

@@ -27,15 +27,16 @@ class DpsApp {
     this.displayMode = "dps";
     this.theme = "aion2";
     this.availableThemes = [
-      "classic",
       "aion2",
+      "asmodian",
+      "cogni",
+      "elyos",
       "ember",
+      "fera",
       "frost",
       "natura",
-      "storm",
-      "void",
       "obsidian",
-      "cyber",
+      "varian",
     ];
 
     // 빈데이터 덮어쓰기 방지 스냅샷
@@ -1213,16 +1214,19 @@ class DpsApp {
     ];
 
     const themeOptions = [
-      { value: "classic", label: this.i18n?.t("settings.theme.options.classic", "Classic") },
       { value: "aion2", label: this.i18n?.t("settings.theme.options.aion2", "AION2") },
+      { value: "asmodian", label: this.i18n?.t("settings.theme.options.asmodian", "Asmodian") },
+      { value: "cogni", label: this.i18n?.t("settings.theme.options.cogni", "Cogni") },
+      { value: "elyos", label: this.i18n?.t("settings.theme.options.elyos", "Elyos") },
       { value: "ember", label: this.i18n?.t("settings.theme.options.ember", "Ember") },
+      { value: "fera", label: this.i18n?.t("settings.theme.options.fera", "Fera") },
       { value: "frost", label: this.i18n?.t("settings.theme.options.frost", "Frost") },
       { value: "natura", label: this.i18n?.t("settings.theme.options.natura", "Natura") },
-      { value: "storm", label: this.i18n?.t("settings.theme.options.storm", "Storm") },
-      { value: "void", label: this.i18n?.t("settings.theme.options.void", "Void") },
       { value: "obsidian", label: this.i18n?.t("settings.theme.options.obsidian", "Obsidian") },
-      { value: "cyber", label: this.i18n?.t("settings.theme.options.cyber", "Cyber") },
+      { value: "varian", label: this.i18n?.t("settings.theme.options.varian", "Varian") },
     ];
+
+    themeOptions.sort((a, b) => a.label.localeCompare(b.label));
 
     const allTargetsWindowOptions = [
       { value: "30000", label: this.i18n?.t("settings.allTargetsWindow.options.30s", "30 seconds") },
@@ -1501,7 +1505,12 @@ class DpsApp {
   }
 
   applyTheme(themeId, { persist = false } = {}) {
-    const normalized = this.availableThemes.includes(themeId) ? themeId : this.availableThemes[0];
+    const legacyThemeMap = {
+      classic: "varian",
+      void: "asmodian",
+    };
+    const requestedTheme = legacyThemeMap[themeId] || themeId;
+    const normalized = this.availableThemes.includes(requestedTheme) ? requestedTheme : this.availableThemes[0];
     this.theme = normalized;
     document.documentElement.dataset.theme = normalized;
     if (this.settingsSelections) {
