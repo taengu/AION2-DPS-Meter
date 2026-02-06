@@ -2000,11 +2000,15 @@ window.addEventListener("unhandledrejection", (event) => {
   debug?.log?.("unhandledrejection", event.reason);
 });
 
-const startApp = async () => {
+let appStarted = false;
+const startApp = async ({ forced = false } = {}) => {
+  if (appStarted) return;
+  appStarted = true;
   debug?.log?.("startApp", {
     readyState: document.readyState,
     hasDpsData: !!window.dpsData,
     hasJavaBridge: !!window.javaBridge,
+    forced,
   });
   try {
     await window.i18n?.init?.();
@@ -2016,11 +2020,12 @@ const startApp = async () => {
   }
 };
 
-const waitForBridgeAndStart = () => {
+const waitForBridgeAndStart = (attempt = 0) => {
   // JavaFX WebView injects these after loadWorker SUCCEEDED (slightly later than DOMContentLoaded)
   const ready = !!window.javaBridge && !!window.dpsData;
 
   debug?.log?.("waitForBridge", {
+    attempt,
     readyState: document.readyState,
     hasDpsData: !!window.dpsData,
     hasJavaBridge: !!window.javaBridge,
@@ -2030,7 +2035,14 @@ const waitForBridgeAndStart = () => {
     startApp();
     return;
   }
-  setTimeout(waitForBridgeAndStart, 50);
+
+  if (attempt >= 200) {
+    debug?.log?.("waitForBridge.timeout", "Bridge not ready after 10s; forcing UI startup.");
+    startApp({ forced: true });
+    return;
+  }
+
+  setTimeout(() => waitForBridgeAndStart(attempt + 1), 50);
 };
 
 if (document.readyState === "loading") {

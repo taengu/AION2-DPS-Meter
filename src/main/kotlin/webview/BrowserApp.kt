@@ -25,6 +25,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -242,19 +243,32 @@ class BrowserApp(
         webEngine = engine
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier)
+        @Suppress("DEPRECATION")
         val injectBridge = {
             runCatching {
                 val window = engine.executeScript("window")
-                val setMember = window.javaClass.getMethod("setMember", String::class.java, Any::class.java)
-                setMember.invoke(window, "javaBridge", bridge)
-                setMember.invoke(window, "dpsData", this)
+                when (window) {
+                    is JSObject -> {
+                        window.setMember("javaBridge", bridge)
+                        window.setMember("dpsData", this)
+                    }
+                    else -> {
+                        val setMember = window.javaClass.methods.firstOrNull {
+                            it.name == "setMember" && it.parameterCount == 2
+                        } ?: error("setMember(String, Object) not found on window object")
+                        setMember.invoke(window, "javaBridge", bridge)
+                        setMember.invoke(window, "dpsData", this)
+                    }
+                }
             }.onFailure { error ->
                 logger.warn("Failed to inject Java bridge into WebView", error)
             }
         }
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
-            if (newState == Worker.State.SUCCEEDED) {
-                injectBridge()
+            when (newState) {
+                Worker.State.SUCCEEDED -> injectBridge()
+                Worker.State.FAILED -> logger.error("WebView failed to load index.html")
+                else -> Unit
             }
         }
         engine.load(javaClass.getResource("/index.html")?.toExternalForm())
