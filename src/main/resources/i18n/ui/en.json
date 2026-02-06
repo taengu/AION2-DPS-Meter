@@ -90,6 +90,14 @@
         "3m": "3 minutes",
         "5m": "5 minutes"
       }
+    },
+    "meterSettings": "Meter Settings",
+    "trainingMode": {
+      "label": "Training Mode",
+      "options": {
+        "all": "All",
+        "highestDamage": "Highest Damage"
+      }
     }
   },
   "battleTime": {
@@ -116,6 +124,6 @@
   },
   "target": {
     "all": "All Targets",
-    "train": "Training Targets"
+    "train": "Training Scarecrow"
   }
 }

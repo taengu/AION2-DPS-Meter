@@ -90,6 +90,14 @@
         "3m": "3分钟",
         "5m": "5分钟"
       }
+    },
+    "meterSettings": "计量设置",
+    "trainingMode": {
+      "label": "训练模式",
+      "options": {
+        "all": "全部",
+        "highestDamage": "最高伤害"
+      }
     }
   },
   "battleTime": {
@@ -116,6 +124,6 @@
   },
   "target": {
     "all": "所有目标",
-    "train": "训练目标"
+    "train": "训练用稻草人"
   }
 }

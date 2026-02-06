@@ -69,9 +69,14 @@ class DataStorage {
         nicknameStorage[uid] = nickname
 
         val localName = LocalPlayer.characterName?.trim().orEmpty()
-        if (localName.isNotBlank() && nickname.trim().equals(localName, ignoreCase = true)) {
+        if (localName.isNotBlank() && nickname.trim() == localName) {
             LocalPlayer.playerId = uid.toLong()
         }
+    }
+
+    fun bindNickname(uid: Int, nickname: String) {
+        if (uid <= 0 || nickname.isBlank()) return
+        appendNickname(uid, nickname.trim())
     }
 
     fun cachePendingNickname(uid: Int, nickname: String) {

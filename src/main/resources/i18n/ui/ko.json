@@ -90,6 +90,14 @@
         "3m": "3분",
         "5m": "5분"
       }
+    },
+    "meterSettings": "미터 설정",
+    "trainingMode": {
+      "label": "훈련 모드",
+      "options": {
+        "all": "전체",
+        "highestDamage": "최대 피해"
+      }
     }
   },
   "battleTime": {
@@ -116,6 +124,6 @@
   },
   "target": {
     "all": "모든 대상",
-    "train": "훈련 대상"
+    "train": "훈련용 허수아비"
   }
 }

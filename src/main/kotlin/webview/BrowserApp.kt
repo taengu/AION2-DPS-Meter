@@ -100,6 +100,20 @@ class BrowserApp(
             dpsCalculator.setAllTargetsWindowMs(parsed)
         }
 
+        fun setTrainSelectionMode(mode: String?) {
+            dpsCalculator.setTrainSelectionModeById(mode)
+        }
+
+        fun bindLocalActorId(actorId: String?) {
+            val parsed = actorId?.trim()?.toLongOrNull() ?: return
+            dpsCalculator.bindLocalActorId(parsed)
+        }
+
+        fun bindLocalNickname(actorId: String?, nickname: String?) {
+            val parsed = actorId?.trim()?.toLongOrNull() ?: return
+            dpsCalculator.bindLocalNickname(parsed, nickname)
+        }
+
         fun getConnectionInfo(): String {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()

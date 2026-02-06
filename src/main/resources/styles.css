@@ -1152,6 +1152,33 @@
   flex-direction: column;
   gap: 4px;
 }
+.settingsPanel .settingsActorInline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.settingsPanel .localActorIdInput {
+  width: 88px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--rounded-xs);
+  padding: 4px 6px;
+  background: var(--panel-field-bg);
+  color: var(--text-color);
+}
+.settingsPanel .settingsDivider {
+  height: 1px;
+  background: var(--panel-border);
+  margin: 4px 0 2px;
+}
+.settingsPanel .settingsMiniTitle {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  font-weight: 700;
+}
 .settingsPanel .settingsSubValue {
   font-size: 12px;
   opacity: 0.75;

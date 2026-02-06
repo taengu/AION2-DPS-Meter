@@ -179,21 +179,15 @@
                   readonly
                   placeholder="Enter your character name"
                   data-i18n-placeholder="settings.characterNamePlaceholder" />
-              </div>
-            </div>
-            <div class="settingsRow settingsRowSelect">
-              <div class="settingsInfo">
-                <div class="settingsLabel" data-i18n="settings.allTargetsWindow.label">
-                  All Targets window
+                <div class="settingsActorInline">
+                  <span class="settingsActorPrefix">#</span>
+                  <input
+                    id="localActorIdInput"
+                    class="localActorIdInput"
+                    inputmode="numeric"
+                    placeholder="1234" />
                 </div>
               </div>
-              <select class="settingsSelect allTargetsWindowSelect">
-                <option value="30000" data-i18n="settings.allTargetsWindow.options.30s">30 seconds</option>
-                <option value="60000" data-i18n="settings.allTargetsWindow.options.1m">1 minute</option>
-                <option value="120000" data-i18n="settings.allTargetsWindow.options.2m">2 minutes</option>
-                <option value="180000" data-i18n="settings.allTargetsWindow.options.3m">3 minutes</option>
-                <option value="300000" data-i18n="settings.allTargetsWindow.options.5m">5 minutes</option>
-              </select>
             </div>
             <div class="settingsRow settingsRowSelect">
               <div class="settingsInfo">
@@ -231,6 +225,33 @@
                 </div>
               </div>
               <button class="settingsKeybindInput" type="button">Ctrl+R</button>
+            </div>
+            <div class="settingsDivider"></div>
+            <div class="settingsMiniTitle" data-i18n="settings.meterSettings">Meter Settings</div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.allTargetsWindow.label">
+                  All Targets window
+                </div>
+              </div>
+              <select class="settingsSelect allTargetsWindowSelect">
+                <option value="30000" data-i18n="settings.allTargetsWindow.options.30s">30 seconds</option>
+                <option value="60000" data-i18n="settings.allTargetsWindow.options.1m">1 minute</option>
+                <option value="120000" data-i18n="settings.allTargetsWindow.options.2m">2 minutes</option>
+                <option value="180000" data-i18n="settings.allTargetsWindow.options.3m">3 minutes</option>
+                <option value="300000" data-i18n="settings.allTargetsWindow.options.5m">5 minutes</option>
+              </select>
+            </div>
+            <div class="settingsRow settingsRowSelect">
+              <div class="settingsInfo">
+                <div class="settingsLabel" data-i18n="settings.trainingMode.label">Training Mode</div>
+              </div>
+              <select class="settingsSelect trainSelectionModeSelect">
+                <option value="all" data-i18n="settings.trainingMode.options.all">All</option>
+                <option value="highestDamage" data-i18n="settings.trainingMode.options.highestDamage">
+                  Highest Damage
+                </option>
+              </select>
             </div>
             <div>
               <label class="settingsCheckbox">

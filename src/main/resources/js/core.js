@@ -11,6 +11,7 @@ class DpsApp {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
+      trainSelectionMode: "dpsMeter.trainSelectionMode",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
@@ -65,6 +66,7 @@ class DpsApp {
     this._lastTargetSelection = this.targetSelection;
     this._lastRenderedRowsSummary = null;
     this.localPlayerId = null;
+    this.trainSelectionMode = "all";
 
     DpsApp.instance = this;
   }
@@ -461,6 +463,9 @@ class DpsApp {
     }
 
     this.updateConnectionStatusUi();
+    if (targetMode === "trainTargets" && this.USER_NAME) {
+      rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
+    }
     // render
     const nextTargetLabel = this.getTargetLabel({ targetId, targetName, targetMode });
     if (this.elBossName) {
@@ -576,6 +581,10 @@ class DpsApp {
     }
     this.localPlayerId = actorId;
     window.javaBridge?.setLocalPlayerId?.(String(actorId));
+    window.javaBridge?.bindLocalNickname?.(String(actorId), this.USER_NAME);
+    if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
+      this.localActorIdInput.value = String(actorId);
+    }
     this.refreshConnectionInfo({ skipSettingsRefresh: true });
   }
 
@@ -867,8 +876,9 @@ class DpsApp {
     this.settingsBtn = document.querySelector(".settingsBtn");
     this.lockedIp = document.querySelector(".lockedIp");
     this.lockedPort = document.querySelector(".lockedPort");
-    this.localPlayerIdEl = document.querySelector(".localPlayerId");
+    this.localActorIdInput = document.querySelector(".localActorIdInput");
     this.allTargetsWindowSelect = document.querySelector(".allTargetsWindowSelect");
+    this.trainSelectionModeSelect = document.querySelector(".trainSelectionModeSelect");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
@@ -882,6 +892,9 @@ class DpsApp {
     const storedAllTargetsWindowMs = this.safeGetSetting(this.storageKeys.allTargetsWindowMs) ||
       this.safeGetStorage(this.storageKeys.allTargetsWindowMs) ||
       "120000";
+    const storedTrainSelectionMode = this.safeGetSetting(this.storageKeys.trainSelectionMode) ||
+      this.safeGetStorage(this.storageKeys.trainSelectionMode) ||
+      "all";
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
@@ -910,6 +923,23 @@ class DpsApp {
     if (this.characterNameInput) {
       this.characterNameInput.value = this.USER_NAME;
     }
+    if (this.localActorIdInput) {
+      this.localActorIdInput.value = this.localPlayerId ? String(this.localPlayerId) : "";
+      this.localActorIdInput.addEventListener("input", (event) => {
+        const digits = String(event.target?.value || "").replace(/[^0-9]/g, "");
+        event.target.value = digits;
+      });
+      this.localActorIdInput.addEventListener("change", (event) => {
+        const value = String(event.target?.value || "").trim();
+        if (!value) return;
+        this.localPlayerId = Number(value);
+        window.javaBridge?.bindLocalActorId?.(value);
+        if (this.USER_NAME) {
+          window.javaBridge?.bindLocalNickname?.(value, this.USER_NAME);
+        }
+        this.setUserName(this.USER_NAME, { persist: true, syncBackend: true });
+      });
+    }
 
     if (this.allTargetsWindowSelect) {
       const allowed = ["30000", "60000", "120000", "180000", "300000"];
@@ -926,6 +956,23 @@ class DpsApp {
         if (!this.isCollapse) {
           this.fetchDps();
         }
+      });
+    }
+    if (this.trainSelectionModeSelect) {
+      const allowedModes = ["all", "highestDamage"];
+      const selectedMode = allowedModes.includes(String(storedTrainSelectionMode))
+        ? String(storedTrainSelectionMode)
+        : "all";
+      this.trainSelectionMode = selectedMode;
+      this.trainSelectionModeSelect.value = selectedMode;
+      this.safeSetSetting(this.storageKeys.trainSelectionMode, selectedMode);
+      window.javaBridge?.setTrainSelectionMode?.(selectedMode);
+      this.trainSelectionModeSelect.addEventListener("change", (event) => {
+        const value = String(event.target?.value || "all");
+        this.trainSelectionMode = value;
+        this.safeSetSetting(this.storageKeys.trainSelectionMode, value);
+        window.javaBridge?.setTrainSelectionMode?.(value);
+        if (!this.isCollapse) this.fetchDps();
       });
     }
 
@@ -1112,10 +1159,19 @@ class DpsApp {
 
       this.refreshKeybindInput.addEventListener("click", () => {
         startCapture();
+        this.refreshKeybindInput.focus();
       });
-
+      this.refreshKeybindInput.addEventListener("keydown", captureKeydown, true);
+      this.refreshKeybindInput.addEventListener("keyup", captureKeyup, true);
+      document.addEventListener("keydown", captureKeydown, true);
+      document.addEventListener("keyup", captureKeyup, true);
       window.addEventListener("keydown", captureKeydown, true);
       window.addEventListener("keyup", captureKeyup, true);
+      this.refreshKeybindInput.addEventListener("blur", () => {
+        if (capturing) {
+          stopCapture();
+        }
+      });
     }
 
     this.settingsBtn?.addEventListener("click", () => {
@@ -1274,10 +1330,7 @@ class DpsApp {
     const trimmed = String(name ?? "").trim();
     this.USER_NAME = trimmed;
     if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
-      const idText = Number.isFinite(Number(this.localPlayerId)) && Number(this.localPlayerId) > 0
-        ? ` (#${Math.trunc(Number(this.localPlayerId))})`
-        : "";
-      this.characterNameInput.value = `${trimmed}${idText}`;
+      this.characterNameInput.value = trimmed;
     }
     if (persist) {
       localStorage.setItem(this.storageKeys.userName, trimmed);
@@ -1438,6 +1491,9 @@ class DpsApp {
   renderCurrentRows() {
     if (this.isCollapse) return;
     let rowsToRender = Array.isArray(this.lastSnapshot) ? this.lastSnapshot : [];
+    if (this.lastTargetMode === "trainTargets" && this.USER_NAME) {
+      rowsToRender = rowsToRender.filter((row) => row.name === this.USER_NAME);
+    }
     const rowsSummary = this.getRowsSummary(rowsToRender);
     if (rowsSummary.listSignature !== this._lastRenderedListSignature) {
       const reasons = this.describeRowsChange(rowsSummary, this._lastRenderedRowsSummary);
@@ -1463,8 +1519,8 @@ class DpsApp {
     if (typeof raw !== "string") {
       this.lockedIp.textContent = "-";
       this.lockedPort.textContent = "-";
-      if (this.localPlayerIdEl) {
-        this.localPlayerIdEl.textContent = "-";
+      if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
+        this.localActorIdInput.value = "";
       }
       this.isDetectingPort = this.aionRunning;
       this.updateConnectionStatusUi();
@@ -1494,13 +1550,12 @@ class DpsApp {
     this.localPlayerId = Number.isFinite(localPlayerId) && localPlayerId > 0
       ? Math.trunc(localPlayerId)
       : null;
-    if (this.localPlayerIdEl) {
-      this.localPlayerIdEl.textContent = this.localPlayerId ? String(this.localPlayerId) : "-";
+    if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
+      this.localActorIdInput.value = this.localPlayerId ? String(this.localPlayerId) : "";
     }
     if (this.characterNameInput) {
       const nickname = String(info?.characterName || this.USER_NAME || "").trim();
-      const idText = this.localPlayerId ? ` (#${this.localPlayerId})` : "";
-      this.characterNameInput.value = `${nickname}${idText}`;
+      this.characterNameInput.value = nickname;
     }
     this.updateConnectionStatusUi();
     if (!skipSettingsRefresh) {
@@ -1601,7 +1656,7 @@ class DpsApp {
       return this.i18n?.t("target.all", "All Targets") ?? "All Targets";
     }
     if (targetMode === "trainTargets") {
-      return this.i18n?.t("target.train", "Training Targets") ?? "Training Targets";
+      return this.i18n?.t("target.train", "Training Scarecrow") ?? "Training Scarecrow";
     }
     return this.i18n?.t("header.title", "DPS METER") ?? "DPS METER";
   }

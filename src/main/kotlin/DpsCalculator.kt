@@ -914,6 +914,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private val targetSwitchStaleMs = 10_000L
     private var lastLocalHitTime: Long = -1L
     @Volatile private var allTargetsWindowMs = 120_000L
+    @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
 
     fun setMode(mode: Mode) {
         this.mode = mode
@@ -926,6 +927,25 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     fun setAllTargetsWindowMs(windowMs: Long) {
         allTargetsWindowMs = windowMs.coerceIn(10_000L, 900_000L)
+    }
+
+    fun setTrainSelectionModeById(id: String?) {
+        trainSelectionMode = TrainSelectionMode.fromId(id)
+    }
+
+    fun bindLocalActorId(actorId: Long) {
+        LocalPlayer.playerId = actorId.takeIf { it > 0 }
+    }
+
+    fun bindLocalNickname(actorId: Long, nickname: String?) {
+        val uid = actorId.toInt()
+        val clean = nickname?.trim().orEmpty()
+        if (uid <= 0 || clean.isBlank()) return
+        dataStorage.bindNickname(uid, clean)
+        val localName = LocalPlayer.characterName?.trim().orEmpty()
+        if (localName.isNotBlank() && localName == clean) {
+            LocalPlayer.playerId = actorId
+        }
     }
 
     fun getDps(): DpsData {
@@ -1244,9 +1264,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 } else {
                     selectRecentTargetsByLocalActors(localActors, allTargetsWindowMs)
                 }
-                TargetDecision(recentTargets, "", targetSelectionMode, 0)
+                val filteredTargets = when (trainSelectionMode) {
+                    TrainSelectionMode.ALL -> recentTargets
+                    TrainSelectionMode.HIGHEST_DAMAGE -> selectHighestDamageTarget(recentTargets)
+                }
+                TargetDecision(filteredTargets, "", targetSelectionMode, 0)
             }
         }
+    }
+
+    private fun selectHighestDamageTarget(targetIds: Set<Int>): Set<Int> {
+        if (targetIds.isEmpty()) return emptySet()
+        val winner = targetIds.maxByOrNull { targetInfoMap[it]?.damagedAmount() ?: 0 } ?: return emptySet()
+        return setOf(winner)
     }
 
     private fun selectRecentTargetsByLocalActors(localActorIds: Set<Int>, windowMs: Long): Set<Int> {
@@ -1568,3 +1598,13 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
 }
+    enum class TrainSelectionMode(val id: String) {
+        ALL("all"),
+        HIGHEST_DAMAGE("highestDamage");
+
+        companion object {
+            fun fromId(id: String?): TrainSelectionMode {
+                return entries.firstOrNull { it.id == id } ?: ALL
+            }
+        }
+    }
