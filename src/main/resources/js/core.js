@@ -1795,6 +1795,7 @@ class DpsApp {
     if (previousName && previousName !== trimmed) {
       const cachedId = this.getRecentLocalIdForName(trimmed);
       if (cachedId) {
+        this.refreshDamageData({ reason: "local name update" });
         this.applyLocalPlayerIdUpdate(cachedId, "local name update cached id");
         return;
       }
@@ -1802,6 +1803,7 @@ class DpsApp {
       if (this.localActorIdInput && document.activeElement !== this.localActorIdInput) {
         this.localActorIdInput.value = "";
       }
+      this.refreshDamageData({ reason: "local name update" });
       this.reinitTargetSelection("local name update");
     }
     if (!this.isCollapse) {
