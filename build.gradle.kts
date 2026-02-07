@@ -80,6 +80,7 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextField\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextInputControl\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.ScrollBar\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressIndicatorSkin")
             buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.Properties")
