@@ -795,7 +795,7 @@ html[lang="ko"] * {
       line-height: 1.2;
       padding-bottom: 1px;
       text-shadow: var(--player-name-shadow, var(--text-shadow));
-      font-weight: 600;
+      font-weight: 400;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -813,9 +813,6 @@ html[lang="ko"] * {
       gap: 8px;
     }
   }
-}
-.meter .item:not(.isIdentifying) .content .name {
-  font-weight: 700;
 }
 .meter .item.isIdentifying .content .name {
   font-size: 18px;
@@ -897,6 +894,7 @@ html[lang="ko"] * {
   position: absolute;
   color: white;
   display: none;
+  flex-direction: column;
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
@@ -908,13 +906,14 @@ html[lang="ko"] * {
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
+  max-height: calc(100vh - 24px);
 
   &.flash {
     animation: detailsFlash 1s ease-out;
   }
 
   &.open {
-    display: block;
+    display: flex;
   }
   .detailsHeader {
     display: flex;
@@ -1656,6 +1655,16 @@ html[lang="ko"] * {
   gap: 12px;
   font-size: 13px;
 }
+.settingsPanel .settingsSupportRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settingsPanel .kofiWidget {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
 .settingsPanel .discordButton {
   border: 1px solid var(--panel-border);
   border-radius: var(--rounded-xs);
@@ -1670,6 +1679,39 @@ html[lang="ko"] * {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  flex: 0 0 60%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.settingsPanel .discordButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.05);
+}
+.settingsPanel .discordButton:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  filter: brightness(0.98);
+}
+.settingsPanel .quitButton {
+  flex: 0 0 40%;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.settingsPanel .quitButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.05);
+}
+.settingsPanel .quitButton:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  filter: brightness(0.98);
 }
 .settingsPanel .discordButton .discordIcon {
   display: inline-flex;
@@ -1682,7 +1724,7 @@ html[lang="ko"] * {
   fill: currentColor;
 }
 .settingsPanel .settingsFooter {
-  margin-top: 12px;
+  margin-top: 0;
   display: flex;
   justify-content: space-between;
   font-size: 12px;
@@ -1691,6 +1733,13 @@ html[lang="ko"] * {
 .settingsPanel .settingsFooterLabel {
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.settingsPanel .settingsFooterValue {
+  color: inherit;
+  text-decoration: none;
+}
+.settingsPanel .settingsFooterValue:hover {
+  text-decoration: underline;
 }
 
 .list .item {
@@ -2130,9 +2179,20 @@ html[lang="ko"] * {
 }
 .detailsPanel .detailsBody {
   font-weight: 400;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.detailsPanel .detailsSkills {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .detailsPanel .detailsSkills .cell {
-  min-width: 46px;
+  min-width: 0;
   display: flex;
   align-items: center;
 }
@@ -2143,20 +2203,24 @@ html[lang="ko"] * {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 200px;
+  flex: 2.4 1 0;
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 0 0 56px;
+  flex: 1 1 0;
 }
 .detailsPanel .detailsSkills .cell.heal {
-  flex: 0 0 72px;
+  flex: 1.2 1 0;
+}
+.detailsPanel .detailsSkills .cell.mhit,
+.detailsPanel .detailsSkills .cell.mdmg {
+  flex: 1.2 1 0;
 }
 .detailsPanel .detailsSkills .cell.dmg {
-  flex: 0 0 220px;
+  flex: 2.2 1 0;
   justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {
@@ -2174,11 +2238,48 @@ html[lang="ko"] * {
   color: white;
 }
 .detailsPanel .detailsSkills .skills {
-  max-height: 562px;
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+}
+.detailsPanel.hide-col-hit .detailsSkills .cell.hit,
+.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
+.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
+.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
+.detailsPanel.hide-col-double .detailsSkills .cell.double,
+.detailsPanel.hide-col-back .detailsSkills .cell.back,
+.detailsPanel.hide-col-heal .detailsSkills .cell.heal,
+.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
+.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg {
+  display: none;
+}
+.detailsPanel .detailsSettings .detailsSettingsColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.detailsResizeHandle {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  opacity: 0.65;
+}
+.detailsResizeHandle::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar {
   width: 10px;

@@ -32,6 +32,8 @@ data class DetailSkillEntry(
     val name: String,
     val time: Int,
     val dmg: Int,
+    val multiHitCount: Int,
+    val multiHitDamage: Int,
     val crit: Int,
     val parry: Int,
     val back: Int,

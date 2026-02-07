@@ -22,6 +22,7 @@ class DpsApp {
       detailsIncludeMeterScreenshot: "dpsMeter.detailsIncludeMeterScreenshot",
       detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
       detailsScreenshotFolder: "dpsMeter.detailsScreenshotFolder",
+      detailsHiddenColumns: "dpsMeter.detailsHiddenColumns",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
@@ -309,6 +310,7 @@ class DpsApp {
       });
     }
     this.setupDetailsPanelSettings();
+    this.bindDetailsResizeHandle();
     this.setupSettingsPanel();
     this.detailsUI?.updateLabels?.();
     this.i18n?.onChange?.((lang) => {
@@ -924,6 +926,8 @@ class DpsApp {
     let totalBack = 0;
     let totalPerfect = 0;
     let totalDouble = 0;
+    let totalMultiHitCount = 0;
+    let totalMultiHitDamage = 0;
 
     const pushSkill = ({
       codeKey,
@@ -936,6 +940,8 @@ class DpsApp {
       perfect = 0,
       double = 0,
       heal = 0,
+      multiHitCount = 0,
+      multiHitDamage = 0,
       countForTotals = true,
       job = "",
       actorId = null,
@@ -956,6 +962,8 @@ class DpsApp {
         totalBack += Number(back) || 0;
         totalPerfect += Number(perfect) || 0;
         totalDouble += Number(double) || 0;
+        totalMultiHitCount += Number(multiHitCount) || 0;
+        totalMultiHitDamage += Number(multiHitDamage) || 0;
       }
       skills.push({
         code: String(codeKey),
@@ -967,6 +975,8 @@ class DpsApp {
         perfect: Number(perfect) || 0,
         double: Number(double) || 0,
         heal: Number(heal) || 0,
+        multiHitCount: Number(multiHitCount) || 0,
+        multiHitDamage: Number(multiHitDamage) || 0,
         dmg: dmgInt,
         job,
         actorId,
@@ -1002,6 +1012,8 @@ class DpsApp {
           perfect: value.perfect,
           double: value.double,
           heal: value.heal,
+          multiHitCount: value.multiHitCount,
+          multiHitDamage: value.multiHitDamage,
           job: value.job ?? "",
           countForTotals: !isDot,
           actorId: Number.isFinite(actorId) ? actorId : null,
@@ -1128,6 +1140,8 @@ class DpsApp {
       totalBackPct: pct(totalBack, totalTimes),
       totalPerfectPct: pct(totalPerfect, totalTimes),
       totalDoublePct: pct(totalDouble, totalTimes),
+      multiHitCount: totalMultiHitCount,
+      multiHitDamage: totalMultiHitDamage,
       combatTime,
       battleTimeMs: Number.isFinite(battleTimeMsRaw) ? battleTimeMsRaw : 0,
 
@@ -1583,6 +1597,7 @@ class DpsApp {
     this.detailsScreenshotFolderRow = document.querySelector(".detailsSettingsFolder");
     this.detailsScreenshotFolderPath = document.querySelector(".detailsSettingsFolderPath");
     this.detailsScreenshotFolderBtn = document.querySelector(".detailsSettingsFolderBtn");
+    this.detailsColumnToggles = document.querySelectorAll(".detailsColumnToggle");
 
     const storedOpacity = this.safeGetSetting(this.storageKeys.detailsBackgroundOpacity);
     const initialOpacity = this.parseDetailsOpacity(storedOpacity);
@@ -1634,6 +1649,44 @@ class DpsApp {
       });
     }
     this.updateScreenshotFolderDisplay();
+
+    const storedHiddenColumns = this.safeGetSetting(this.storageKeys.detailsHiddenColumns);
+    const hiddenColumns = new Set();
+    if (typeof storedHiddenColumns === "string" && storedHiddenColumns.trim()) {
+      const parsedHidden = this.safeParseJSON(storedHiddenColumns, []);
+      if (Array.isArray(parsedHidden)) {
+        parsedHidden.forEach((column) => {
+          if (typeof column === "string" && column.trim()) {
+            hiddenColumns.add(column);
+          }
+        });
+      }
+    }
+    const applyDetailsColumnVisibility = () => {
+      if (!this.detailsPanel) return;
+      const columns = ["hit", "crit", "parry", "perfect", "double", "back", "heal", "mhit", "mdmg"];
+      columns.forEach((column) => {
+        this.detailsPanel.classList.toggle(`hide-col-${column}`, hiddenColumns.has(column));
+      });
+    };
+    if (this.detailsColumnToggles && this.detailsColumnToggles.length) {
+      this.detailsColumnToggles.forEach((toggle) => {
+        const column = toggle.dataset.column;
+        if (!column) return;
+        toggle.checked = !hiddenColumns.has(column);
+        toggle.addEventListener("change", (event) => {
+          const isVisible = !!event.target?.checked;
+          if (isVisible) {
+            hiddenColumns.delete(column);
+          } else {
+            hiddenColumns.add(column);
+          }
+          this.safeSetSetting(this.storageKeys.detailsHiddenColumns, JSON.stringify([...hiddenColumns]));
+          applyDetailsColumnVisibility();
+        });
+      });
+    }
+    applyDetailsColumnVisibility();
 
     if (this.detailsOpacityInput) {
       this.detailsOpacityInput.value = String(Math.round(initialOpacity * 100));
@@ -2212,6 +2265,9 @@ class DpsApp {
       if (targetEl?.closest?.(".resizeHandle")) {
         return;
       }
+      if (targetEl?.closest?.(".detailsResizeHandle")) {
+        return;
+      }
       if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
@@ -2266,6 +2322,46 @@ class DpsApp {
       event.preventDefault();
       event.stopPropagation();
       const rect = this.meterEl.getBoundingClientRect();
+      startWidth = rect.width;
+      startHeight = rect.height;
+      startX = event.clientX;
+      startY = event.clientY;
+      isResizing = true;
+    });
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  bindDetailsResizeHandle() {
+    this.detailsResizeHandle = document.querySelector(".detailsResizeHandle");
+    if (!this.detailsResizeHandle || !this.detailsPanel) return;
+
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+    const minWidth = 520;
+    const minHeight = 340;
+
+    const onMouseMove = (event) => {
+      if (!isResizing) return;
+      const nextWidth = Math.max(minWidth, startWidth + (event.clientX - startX));
+      const nextHeight = Math.max(minHeight, startHeight + (event.clientY - startY));
+      this.detailsPanel.style.width = `${nextWidth}px`;
+      this.detailsPanel.style.height = `${nextHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      if (!isResizing) return;
+      isResizing = false;
+    };
+
+    this.detailsResizeHandle.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = this.detailsPanel.getBoundingClientRect();
       startWidth = rect.width;
       startHeight = rect.height;
       startX = event.clientX;

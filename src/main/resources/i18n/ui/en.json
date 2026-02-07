@@ -21,6 +21,9 @@
       "includeMeter": "Include main DPS meter",
       "saveToFolder": "Save screenshots to folder"
     },
+    "columns": {
+      "label": "Skill columns"
+    },
     "screenshot": {
       "ariaLabel": "Save screenshot to clipboard",
       "captured": "Captured Screenshot",
@@ -39,6 +42,8 @@
       "perfect": "Perfect",
       "double": "Double",
       "back": "Back",
+      "multiHit": "MHit",
+      "multiHitDamage": "MDmg",
       "totalDamage": "Total Damage",
       "heal": "Heal"
     },
@@ -67,7 +72,7 @@
     "pinMeToTop": "Always show me at the top",
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
-    "discord": "Get support on our Discord",
+    "discord": "Find us on Discord",
     "version": "Version",
     "theme": {
       "label": "Theme",

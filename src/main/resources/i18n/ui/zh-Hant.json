@@ -16,6 +16,14 @@
       "ariaLabel": "開啟詳細設定"
     },
     "panelBackground": "面板背景",
+    "screenshots": {
+      "label": "螢幕截圖",
+      "includeMeter": "包含主 DPS 計量器",
+      "saveToFolder": "將截圖儲存到資料夾"
+    },
+    "columns": {
+      "label": "技能欄位"
+    },
     "screenshot": {
       "ariaLabel": "將截圖儲存到剪貼簿",
       "captured": "已擷取截圖",
@@ -34,6 +42,8 @@
       "perfect": "完美",
       "double": "雙重",
       "back": "背擊",
+      "multiHit": "多段",
+      "multiHitDamage": "多段傷害",
       "totalDamage": "總傷害",
       "heal": "治療"
     },
@@ -62,7 +72,7 @@
     "pinMeToTop": "將我置頂",
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
-    "discord": "在 Discord 取得支援",
+    "discord": "在 Discord 找到我們",
     "version": "版本",
     "theme": {
       "label": "主題",
@@ -83,16 +93,16 @@
       "label": "語言"
     },
     "meterOpacity": {
-      "label": "Meter opacity"
+      "label": "水錶不透明度"
     },
     "targetWindow": {
-      "label": "Target time range",
+      "label": "目標時間範圍",
       "options": {
-        "5s": "5 seconds",
-        "10s": "10 seconds",
-        "15s": "15 seconds",
-        "20s": "20 seconds",
-        "30s": "30 seconds"
+        "5s": "5秒",
+        "10s": "10秒",
+        "15s": "15秒",
+        "20s": "20秒",
+        "30s": "30秒"
       }
     },
     "targetSelection": {
