@@ -16,6 +16,9 @@
       "ariaLabel": "打开详情设置"
     },
     "panelBackground": "面板背景",
+    "fontSize": {
+      "label": "字体大小"
+    },
     "screenshots": {
       "label": "截图",
       "includeMeter": "包含主 DPS 计量器",

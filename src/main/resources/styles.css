@@ -909,6 +909,7 @@ html[lang="ko"] * {
   color: white;
   display: none;
   flex-direction: column;
+  --details-font-size: var(--font);
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
@@ -2171,7 +2172,16 @@ html[lang="ko"] * {
 .detailsPanel .detailsSettings .detailsOpacityInput {
   width: 190px;
 }
+.detailsPanel .detailsSettings .detailsFontSizeInput {
+  width: 190px;
+}
 .detailsPanel .detailsSettings .detailsOpacityValue {
+  font-size: 12px;
+  opacity: 0.75;
+  min-width: 44px;
+  text-align: right;
+}
+.detailsPanel .detailsSettings .detailsFontSizeValue {
   font-size: 12px;
   opacity: 0.75;
   min-width: 44px;
@@ -2202,6 +2212,7 @@ html[lang="ko"] * {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  font-size: var(--details-font-size, var(--font));
 }
 .detailsPanel .detailsSkills {
   display: flex;
@@ -2417,7 +2428,7 @@ html[lang="ko"] * {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .detailsFootnote {
-  font-size: 12px;
+  font-size: 0.85em;
   opacity: 0.6;
   padding: 6px 12px 0;
   font-weight: 400;

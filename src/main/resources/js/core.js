@@ -19,6 +19,7 @@ class DpsApp {
       targetSelectionWindowMs: "dpsMeter.targetSelectionWindowMs",
       meterFillOpacity: "dpsMeter.meterFillOpacity",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
+      detailsFontSize: "dpsMeter.detailsFontSize",
       detailsIncludeMeterScreenshot: "dpsMeter.detailsIncludeMeterScreenshot",
       detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
       detailsScreenshotFolder: "dpsMeter.detailsScreenshotFolder",
@@ -58,6 +59,8 @@ class DpsApp {
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
     this.GRACE_ARM_MS = 3000;
+    this.DETAILS_FONT_SIZE_MIN = 11;
+    this.DETAILS_FONT_SIZE_MAX = 20;
 
 
     // battleTime 캐시
@@ -1590,6 +1593,8 @@ class DpsApp {
   setupDetailsPanelSettings() {
     this.detailsOpacityInput = document.querySelector(".detailsOpacityInput");
     this.detailsOpacityValue = document.querySelector(".detailsOpacityValue");
+    this.detailsFontSizeInput = document.querySelector(".detailsFontSizeInput");
+    this.detailsFontSizeValue = document.querySelector(".detailsFontSizeValue");
     this.detailsSettingsBtn = document.querySelector(".detailsSettingsBtn");
     this.detailsSettingsMenu = document.querySelector(".detailsSettingsMenu");
     this.detailsIncludeMeterCheckbox = document.querySelector(".detailsIncludeMeterCheckbox");
@@ -1602,6 +1607,10 @@ class DpsApp {
     const storedOpacity = this.safeGetSetting(this.storageKeys.detailsBackgroundOpacity);
     const initialOpacity = this.parseDetailsOpacity(storedOpacity);
     this.setDetailsBackgroundOpacity(initialOpacity, { persist: false });
+
+    const storedFontSize = this.safeGetSetting(this.storageKeys.detailsFontSize);
+    const initialFontSize = this.parseDetailsFontSize(storedFontSize);
+    this.setDetailsFontSize(initialFontSize, { persist: false });
 
     const storedIncludeMeter =
       this.safeGetStorage(this.storageKeys.detailsIncludeMeterScreenshot) === "true";
@@ -1700,6 +1709,18 @@ class DpsApp {
       });
     }
 
+    if (this.detailsFontSizeInput) {
+      this.detailsFontSizeInput.value = String(Math.round(initialFontSize));
+      const stopDrag = (event) => event.stopPropagation();
+      this.detailsFontSizeInput.addEventListener("mousedown", stopDrag);
+      this.detailsFontSizeInput.addEventListener("touchstart", stopDrag, { passive: true });
+      this.detailsFontSizeInput.addEventListener("input", (event) => {
+        const nextValue = Number(event.target?.value);
+        if (!Number.isFinite(nextValue)) return;
+        this.setDetailsFontSize(nextValue, { persist: true });
+      });
+    }
+
     this.detailsSettingsBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       this.toggleDetailsSettingsMenu();
@@ -1772,6 +1793,26 @@ class DpsApp {
     return Math.min(1, Math.max(0, parsed));
   }
 
+  getDefaultDetailsFontSize() {
+    const rootSize = getComputedStyle(document.documentElement).getPropertyValue("--font");
+    const parsed = Number.parseFloat(rootSize);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+    return 16;
+  }
+
+  parseDetailsFontSize(value) {
+    if (value === null || value === undefined || value === "") {
+      return this.getDefaultDetailsFontSize();
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return this.getDefaultDetailsFontSize();
+    }
+    return Math.min(this.DETAILS_FONT_SIZE_MAX, Math.max(this.DETAILS_FONT_SIZE_MIN, parsed));
+  }
+
   setDetailsBackgroundOpacity(opacity, { persist = false } = {}) {
     const clamped = Math.min(1, Math.max(0, opacity));
     if (this.detailsPanel) {
@@ -1785,6 +1826,22 @@ class DpsApp {
     }
     if (persist) {
       this.safeSetSetting(this.storageKeys.detailsBackgroundOpacity, String(clamped));
+    }
+  }
+
+  setDetailsFontSize(size, { persist = false } = {}) {
+    const clamped = Math.min(this.DETAILS_FONT_SIZE_MAX, Math.max(this.DETAILS_FONT_SIZE_MIN, size));
+    if (this.detailsPanel) {
+      this.detailsPanel.style.setProperty("--details-font-size", `${clamped}px`);
+    }
+    if (this.detailsFontSizeValue) {
+      this.detailsFontSizeValue.textContent = `${Math.round(clamped)}px`;
+    }
+    if (this.detailsFontSizeInput && document.activeElement !== this.detailsFontSizeInput) {
+      this.detailsFontSizeInput.value = String(Math.round(clamped));
+    }
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.detailsFontSize, String(clamped));
     }
   }
 
