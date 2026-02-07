@@ -16,6 +16,14 @@
       "ariaLabel": "打开详情设置"
     },
     "panelBackground": "面板背景",
+    "screenshots": {
+      "label": "截图",
+      "includeMeter": "包含主 DPS 计量器",
+      "saveToFolder": "将截图保存到文件夹"
+    },
+    "columns": {
+      "label": "技能列"
+    },
     "screenshot": {
       "ariaLabel": "将截图保存到剪贴板",
       "captured": "已捕获截图",
@@ -34,6 +42,8 @@
       "perfect": "完美",
       "double": "双重",
       "back": "背击",
+      "multiHit": "多段",
+      "multiHitDamage": "多段伤害",
       "totalDamage": "总伤害",
       "heal": "治疗"
     },
@@ -83,16 +93,16 @@
       "label": "语言"
     },
     "meterOpacity": {
-      "label": "Meter opacity"
+      "label": "水表不透明度"
     },
     "targetWindow": {
-      "label": "Target time range",
+      "label": "目标时间范围",
       "options": {
-        "5s": "5 seconds",
-        "10s": "10 seconds",
-        "15s": "15 seconds",
-        "20s": "20 seconds",
-        "30s": "30 seconds"
+        "5s": "5秒",
+        "10s": "10秒",
+        "15s": "15秒",
+        "20s": "20秒",
+        "30s": "30秒"
       }
     },
     "targetSelection": {
