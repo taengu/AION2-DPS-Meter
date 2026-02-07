@@ -63,6 +63,7 @@
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
     "discord": "디스코드에서 지원 받기",
+    "version": "버전",
     "theme": {
       "label": "테마",
       "options": {

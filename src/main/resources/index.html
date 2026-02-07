@@ -22,6 +22,9 @@
         <div class="header">
           <div class="bossIcon">
             <img src="./assets/logo.png" />
+            <div class="bossIconOverlay" aria-hidden="true">
+              <i data-lucide="camera"></i>
+            </div>
           </div>
           <div class="bossNames">
             <span class="bossName"></span>
@@ -351,6 +354,10 @@
               </span>
             </button>
             <button class="quitButton" data-i18n="settings.quit">Quit</button>
+            <div class="settingsFooter">
+              <span class="settingsFooterLabel" data-i18n="settings.version">Version</span>
+              <span class="settingsFooterValue settingsVersionValue">-</span>
+            </div>
           </div>
         </div>
         <div class="list"></div>

@@ -63,6 +63,7 @@
     "debugLogging": "启用调试日志",
     "quit": "退出",
     "discord": "在 Discord 获取支持",
+    "version": "版本",
     "theme": {
       "label": "主题",
       "options": {

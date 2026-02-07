@@ -17,7 +17,18 @@ java {
 }
 
 group = "com.tbread"
-version = "0.1.6"
+version = "0.1.6-pre1"
+
+val appVersion = version.toString()
+
+fun computeMsiVersion(version: String): String {
+    val base = version.substringBefore("-")
+    val parts = base.split(".").mapNotNull { it.toIntOrNull() }
+    val major = parts.getOrElse(0) { 0 }
+    val minor = parts.getOrElse(1) { 0 }
+    val patch = parts.getOrElse(2) { 0 }
+    return listOf(major, minor, patch).joinToString(".")
+}
 
 repositories {
     mavenCentral()
@@ -171,10 +182,11 @@ compose.desktop {
                 shortcut = true
                 menuGroup = "AION2 DPS Meter"
                 upgradeUuid = "d1f8995e-c0af-4f01-9067-a69ee897361a"
+                msiPackageVersion = computeMsiVersion(appVersion)
             }
             targetFormats(TargetFormat.Msi)
             packageName = "AION2 DPS Meter"
-            packageVersion = "0.1.6"
+            packageVersion = appVersion
         }
     }
 }
