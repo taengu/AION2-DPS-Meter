@@ -16,6 +16,9 @@
       "ariaLabel": "Open details settings"
     },
     "panelBackground": "Panel background",
+    "fontSize": {
+      "label": "Font size"
+    },
     "screenshots": {
       "label": "Screenshots",
       "includeMeter": "Include main DPS meter",
@@ -72,7 +75,7 @@
     "pinMeToTop": "Always show me at the top",
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
-    "discord": "Get support on our Discord",
+    "discord": "Find us on Discord",
     "version": "Version",
     "theme": {
       "label": "Theme",
@@ -157,6 +160,7 @@
   },
   "target": {
     "all": "All Targets",
+    "identifying": "Identifying you...",
     "train": "Training Scarecrow"
   }
 }

@@ -12,7 +12,16 @@
       type="text/css" />
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/spoqa-han-sans@3.3.0/css/SpoqaHanSansNeo.min.css" />
+      href="https://unpkg.com/spoqa-han-sans@3.3.0/css/SpoqaHanSansNeo.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/pretendard@1.3.9/dist/web/variable/pretendardvariable.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@fontsource/noto-sans-sc@5.0.19/index.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@fontsource/noto-sans-tc@5.0.19/index.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
 
@@ -127,6 +136,19 @@
                         step="5"
                         value="80" />
                       <span class="detailsOpacityValue">80%</span>
+                    </div>
+                    <div class="detailsSettingsLabel" data-i18n="details.fontSize.label">
+                      Font size
+                    </div>
+                    <div class="detailsSettingsControl">
+                      <input
+                        class="detailsFontSizeInput"
+                        type="range"
+                        min="11"
+                        max="20"
+                        step="1"
+                        value="16" />
+                      <span class="detailsFontSizeValue">16px</span>
                     </div>
                     <div class="detailsSettingsLabel" data-i18n="details.screenshots.label">
                       Screenshots
@@ -411,7 +433,7 @@
             </div>
             <div class="settingsSupportRow">
               <button class="discordButton" type="button">
-                <span data-i18n="settings.discord">Get support on our Discord</span>
+                <span data-i18n="settings.discord">Find us on Discord</span>
                 <span class="discordIcon" aria-hidden="true">
                   <svg
                     viewBox="0 0 24 24"
@@ -425,21 +447,25 @@
               </button>
               <button class="quitButton" data-i18n="settings.quit">Quit</button>
             </div>
-            <a
-              class="kofiButton"
-              href="https://ko-fi.com/W7W51T1YW9"
-              target="_blank"
-              rel="noreferrer noopener">
-              <img
-                height="36"
-                style="border:0px;height:36px;"
-                src="https://storage.ko-fi.com/cdn/kofi2.png?v=6"
-                border="0"
-                alt="Buy Me a Coffee at ko-fi.com" />
-            </a>
+            <div class="kofiWidget">
+              <a href="https://ko-fi.com/W7W51T1YW9" target="_blank" rel="noreferrer noopener">
+                <img
+                  height="36"
+                  style="border:0px;height:36px;"
+                  src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                  border="0"
+                  alt="Buy Me a Coffee at ko-fi.com" />
+              </a>
+            </div>
             <div class="settingsFooter">
               <span class="settingsFooterLabel" data-i18n="settings.version">Version</span>
-              <span class="settingsFooterValue settingsVersionValue">-</span>
+              <a
+                class="settingsFooterValue settingsVersionLink"
+                href="https://github.com/taengu/AION2-DPS-Meter/releases"
+                target="_blank"
+                rel="noreferrer noopener">
+                <span class="settingsVersionValue">-</span>
+              </a>
             </div>
           </div>
         </div>

@@ -16,6 +16,9 @@
       "ariaLabel": "打开详情设置"
     },
     "panelBackground": "面板背景",
+    "fontSize": {
+      "label": "字体大小"
+    },
     "screenshots": {
       "label": "截图",
       "includeMeter": "包含主 DPS 计量器",
@@ -42,8 +45,8 @@
       "perfect": "完美",
       "double": "双重",
       "back": "背击",
-      "multiHit": "多段",
-      "multiHitDamage": "多段伤害",
+      "multiHit": "多段打击",
+      "multiHitDamage": "额外伤害",
       "totalDamage": "总伤害",
       "heal": "治疗"
     },
@@ -56,8 +59,8 @@
       "backRate": "背击率",
       "parryRate": "格挡率",
       "combatTime": "战斗时间",
-      "multiHitDamage": "多段伤害",
-      "multiHitHits": "多段"
+      "multiHitDamage": "额外伤害",
+      "multiHitHits": "多段打击"
     },
     "titleFor": "针对",
     "titleVs": "vs",
@@ -72,7 +75,7 @@
     "pinMeToTop": "将我置顶",
     "debugLogging": "启用调试日志",
     "quit": "退出",
-    "discord": "在 Discord 获取支持",
+    "discord": "在 Discord 找到我们",
     "version": "版本",
     "theme": {
       "label": "主题",
@@ -157,6 +160,7 @@
   },
   "target": {
     "all": "所有目标",
+    "identifying": "正在识别你...",
     "train": "训练用稻草人"
   }
 }

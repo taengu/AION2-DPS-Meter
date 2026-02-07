@@ -48,6 +48,18 @@ const createDetailsUI = ({
     }
     return `${Math.round(n)}`;
   };
+  const formatDamageCompact = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "-";
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) {
+      return `${(n / 1_000_000).toFixed(3)}m`;
+    }
+    if (abs >= 1_000) {
+      return `${(n / 1_000).toFixed(3)}k`;
+    }
+    return `${n.toFixed(3)}`;
+  };
   const formatMinutesSince = (timestampMs) => {
     const ts = Number(timestampMs);
     if (!Number.isFinite(ts) || ts <= 0) return "-";
@@ -410,7 +422,41 @@ const createDetailsUI = ({
 
   const renderSkills = (details) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
-    const topSkills = [...skills].sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
+    const groupedSkills = new Map();
+    skills.forEach((skill) => {
+      if (!skill) return;
+      const name = String(skill.name ?? "");
+      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
+      const existing = groupedSkills.get(key);
+      if (!existing) {
+        groupedSkills.set(key, { ...skill });
+        return;
+      }
+      const nextActorId = Number(existing.actorId);
+      const skillActorId = Number(skill.actorId);
+      const resolvedActorId =
+        Number.isFinite(nextActorId) && Number.isFinite(skillActorId) && nextActorId === skillActorId
+          ? nextActorId
+          : null;
+      groupedSkills.set(key, {
+        ...existing,
+        actorId: resolvedActorId,
+        job: existing.job || skill.job || "",
+        time: (Number(existing.time) || 0) + (Number(skill.time) || 0),
+        dmg: (Number(existing.dmg) || 0) + (Number(skill.dmg) || 0),
+        crit: (Number(existing.crit) || 0) + (Number(skill.crit) || 0),
+        parry: (Number(existing.parry) || 0) + (Number(skill.parry) || 0),
+        back: (Number(existing.back) || 0) + (Number(skill.back) || 0),
+        perfect: (Number(existing.perfect) || 0) + (Number(skill.perfect) || 0),
+        double: (Number(existing.double) || 0) + (Number(skill.double) || 0),
+        heal: (Number(existing.heal) || 0) + (Number(skill.heal) || 0),
+        multiHitCount: (Number(existing.multiHitCount) || 0) + (Number(skill.multiHitCount) || 0),
+        multiHitDamage: (Number(existing.multiHitDamage) || 0) + (Number(skill.multiHitDamage) || 0),
+      });
+    });
+    const topSkills = [...groupedSkills.values()].sort(
+      (a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0)
+    );
     // .slice(0, 12);
 
     const totalDamage = Number(details?.totalDmg);
@@ -471,7 +517,7 @@ const createDetailsUI = ({
       view.multiHitEl.textContent = `${formatNum(multiHitCount)}`;
       view.multiHitDamageEl.textContent = `${formatNum(multiHitDamage)}`;
 
-      view.dmgTextEl.textContent = `${formatNum(damage)} (${damageRate.toFixed(1)}%)`;
+      view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
   };

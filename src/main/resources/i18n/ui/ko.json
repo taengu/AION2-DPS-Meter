@@ -16,6 +16,9 @@
       "ariaLabel": "상세 설정 열기"
     },
     "panelBackground": "패널 배경",
+    "fontSize": {
+      "label": "글자 크기"
+    },
     "screenshots": {
       "label": "스크린샷",
       "includeMeter": "메인 DPS 미터 포함",
@@ -72,7 +75,7 @@
     "pinMeToTop": "내 캐릭터를 맨 위에 고정",
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
-    "discord": "디스코드에서 지원 받기",
+    "discord": "디스코드에서 만나요",
     "version": "버전",
     "theme": {
       "label": "테마",
@@ -157,6 +160,7 @@
   },
   "target": {
     "all": "모든 대상",
+    "identifying": "사용자를 식별하는 중...",
     "train": "훈련용 허수아비"
   }
 }
