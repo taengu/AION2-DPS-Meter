@@ -908,6 +908,7 @@ html[lang="ko"] * {
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
   max-width: calc(100vw - 24px);
+  overflow: hidden;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -2193,6 +2194,7 @@ html[lang="ko"] * {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 0;
@@ -2250,6 +2252,21 @@ html[lang="ko"] * {
   overflow-x: hidden;
   scrollbar-gutter: stable;
   min-width: 900px;
+  max-height: 100%;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar {
+  height: 10px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30);
+  border-radius: 999px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-corner {
+  background: transparent;
 }
 .detailsPanel.hide-col-hit .detailsSkills .cell.hit,
 .detailsPanel.hide-col-crit .detailsSkills .cell.crit,
