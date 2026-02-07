@@ -47,7 +47,7 @@
       "parryRate": "패리율",
       "combatTime": "전투 시간",
       "multiHitDamage": "다중타 피해",
-      "multiHitHits": "다중타 횟수"
+      "multiHitHits": "다중타"
     },
     "titleFor": "대상",
     "titleVs": "vs",

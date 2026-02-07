@@ -1010,7 +1010,7 @@ html[lang="ko"] * {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 4px 6px 4px 50px;
+      padding: 4px 6px;
       border-radius: 6px;
       border: none;
       background: transparent;
@@ -1277,7 +1277,8 @@ html[lang="ko"] * {
 
     .detailsFootnote {
       font-size: 12px;
-      opacity: 0.6;
+      color: rgba(255, 255, 255, 0.75);
+      text-shadow: var(--text-shadow);
       padding: 6px 12px 0;
       font-weight: 400;
     }
@@ -1890,14 +1891,14 @@ html[lang="ko"] * {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 8px;
+  margin: 0;
 }
 .detailsPanel .detailsHeader .detailsScreenshotBtn {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 6px 4px 100px;
+  padding: 4px 6px;
   border-radius: 6px;
   border: none;
   background: transparent;
