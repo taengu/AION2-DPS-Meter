@@ -2221,8 +2221,7 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   font-size: var(--details-font-size, var(--font));
 }
 .detailsPanel .detailsSkills {
@@ -2231,7 +2230,7 @@ html[lang="ko"] * {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 0;
