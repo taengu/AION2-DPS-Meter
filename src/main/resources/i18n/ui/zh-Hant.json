@@ -42,8 +42,8 @@
       "perfect": "完美",
       "double": "雙重",
       "back": "背擊",
-      "multiHit": "多段",
-      "multiHitDamage": "多段傷害",
+      "multiHit": "多段打擊",
+      "multiHitDamage": "額外傷害",
       "totalDamage": "總傷害",
       "heal": "治療"
     },
@@ -56,8 +56,8 @@
       "backRate": "背擊率",
       "parryRate": "格擋率",
       "combatTime": "戰鬥時間",
-      "multiHitDamage": "多段傷害",
-      "multiHitHits": "多段"
+      "multiHitDamage": "額外傷害",
+      "multiHitHits": "多段打擊"
     },
     "titleFor": "針對",
     "titleVs": "vs",
