@@ -51,8 +51,8 @@
       "backRate": "Back Attack Rate",
       "parryRate": "Parry Rate",
       "combatTime": "Combat Time",
-      "multiHitDamage": "Multi-hit Damage",
-      "multiHitHits": "Multi-hit Hits"
+      "multiHitDamage": "Multi-Hit Damage",
+      "multiHitHits": "Multi-Hits"
     },
     "titleFor": "for",
     "titleVs": "vs",
