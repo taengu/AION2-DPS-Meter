@@ -281,20 +281,34 @@
   }
 }
 
+@font-face {
+  font-family: "UI";
+  src:
+          local("Pretendard"),
+          local("Pretendard Variable"),
+          local("Pretendard-Regular");
+  unicode-range: U+0000-00FF, U+0100-024F;
+}
+
+@font-face {
+  font-family: "UI";
+  src:
+          local("Noto Sans TC"),
+          local("Noto Sans SC"),
+          local("Microsoft JhengHei UI"),
+          local("Microsoft YaHei UI"),
+          local("PingFang TC"),
+          local("PingFang SC"),
+          local("Heiti TC"),
+          local("Heiti SC"),
+          local("SimHei");
+  unicode-range: U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF;
+}
+
 * {
   font-family:
+          "UI",
           "Pretendard",
-          "Noto Sans SC",
-          "Noto Sans TC",
-          "Microsoft YaHei UI",
-          "Microsoft YaHei",
-          "Microsoft JhengHei UI",
-          "Microsoft JhengHei",
-          "PingFang SC",
-          "PingFang TC",
-          "Heiti SC",
-          "Heiti TC",
-          "SimHei",
           "Segoe UI",
           "Arial Unicode MS",
           sans-serif;
@@ -895,6 +909,7 @@ html[lang="ko"] * {
   color: white;
   display: none;
   flex-direction: column;
+  --details-font-size: var(--font);
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
@@ -1642,7 +1657,7 @@ html[lang="ko"] * {
   border: none;
   color: inherit;
   text-align: left;
-  padding: 4px 8px;
+  padding: 4px 10px 4px 12px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -2157,7 +2172,16 @@ html[lang="ko"] * {
 .detailsPanel .detailsSettings .detailsOpacityInput {
   width: 190px;
 }
+.detailsPanel .detailsSettings .detailsFontSizeInput {
+  width: 190px;
+}
 .detailsPanel .detailsSettings .detailsOpacityValue {
+  font-size: 12px;
+  opacity: 0.75;
+  min-width: 44px;
+  text-align: right;
+}
+.detailsPanel .detailsSettings .detailsFontSizeValue {
   font-size: 12px;
   opacity: 0.75;
   min-width: 44px;
@@ -2186,7 +2210,9 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: var(--details-font-size, var(--font));
 }
 .detailsPanel .detailsSkills {
   display: flex;
@@ -2194,7 +2220,7 @@ html[lang="ko"] * {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 0;
@@ -2244,15 +2270,11 @@ html[lang="ko"] * {
   color: white;
 }
 .detailsPanel .detailsSkills .skills {
-  max-height: none;
-  flex: 1 1 auto;
-  min-height: 0;
   padding: 0 12px;
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden;
   scrollbar-gutter: stable;
   min-width: 900px;
-  max-height: 100%;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2317,6 +2339,22 @@ html[lang="ko"] * {
   border-radius: 999px;
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar {
+  width: 10px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30);
+  border-radius: 999px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -2386,7 +2424,7 @@ html[lang="ko"] * {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .detailsFootnote {
-  font-size: 12px;
+  font-size: 0.85em;
   opacity: 0.6;
   padding: 6px 12px 0;
   font-weight: 400;

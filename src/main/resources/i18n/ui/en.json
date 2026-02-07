@@ -16,6 +16,9 @@
       "ariaLabel": "Open details settings"
     },
     "panelBackground": "Panel background",
+    "fontSize": {
+      "label": "Font size"
+    },
     "screenshots": {
       "label": "Screenshots",
       "includeMeter": "Include main DPS meter",
