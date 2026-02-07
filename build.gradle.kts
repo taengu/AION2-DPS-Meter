@@ -60,8 +60,13 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
 
             // Module support for the native compiler
-            buildArgs.add("--module-path=$runtimeClasspath")
-            buildArgs.add("--add-modules=jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics,javafx.media")
+            buildArgs.addAll(listOf("--module-path", runtimeClasspath))
+            buildArgs.addAll(
+                listOf(
+                    "--add-modules",
+                    "jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics,javafx.media"
+                )
+            )
         }
     }
 }
