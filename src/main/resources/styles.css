@@ -2,7 +2,7 @@
   /* Bars */
   --row-fill: #5fbf87;
   --isUser-fill: #6aa6ff;
-  --meter-fill-opacity: 1;
+  --meter-fill-opacity: 0.8;
 
   /* Status */
   --warning-fill: #f2b94f;
