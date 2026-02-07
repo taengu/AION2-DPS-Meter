@@ -906,6 +906,7 @@ html[lang="ko"] * {
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
+  max-height: calc(100vh - 24px);
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -1723,7 +1724,7 @@ html[lang="ko"] * {
   fill: currentColor;
 }
 .settingsPanel .settingsFooter {
-  margin-top: 12px;
+  margin-top: 0;
   display: flex;
   justify-content: space-between;
   font-size: 12px;
@@ -1732,6 +1733,13 @@ html[lang="ko"] * {
 .settingsPanel .settingsFooterLabel {
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.settingsPanel .settingsFooterValue {
+  color: inherit;
+  text-decoration: none;
+}
+.settingsPanel .settingsFooterValue:hover {
+  text-decoration: underline;
 }
 
 .list .item {
@@ -2175,6 +2183,7 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 .detailsPanel .detailsSkills {
   display: flex;
