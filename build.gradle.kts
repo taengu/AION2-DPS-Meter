@@ -68,6 +68,7 @@ graalvmNative {
             buildArgs.add("-H:+AddAllCharsets")
             buildArgs.add("-Dprism.fontdir=C:\\Windows\\Fonts")
             buildArgs.add("--no-fallback")
+            buildArgs.add("--enable-native-access=javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
 
             // Critical for UI and async behavior
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,kotlinx.coroutines")
