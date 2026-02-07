@@ -78,6 +78,7 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.PopupControl")
             buildArgs.add("--initialize-at-run-time=javafx.scene.web.WebEngine")
             buildArgs.add("--initialize-at-run-time=javafx.stage.Screen")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.ControlHelper")
 
             // Module support for the native compiler
             buildArgs.addAll(listOf("--class-path", appClassPath))
