@@ -73,6 +73,7 @@ graalvmNative {
 
             // Critical for UI and async behavior
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,com.sun.javafx.tk.quantum.PrimaryTimer,com.sun.scenario.animation.SplineInterpolator,com.sun.scenario.animation.StepInterpolator,kotlinx.coroutines,kotlinx.coroutines.scheduling.DefaultScheduler,kotlin.coroutines.ContinuationInterceptor\$Key")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.effect.Offset")
             buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.Control")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.PopupControl")
