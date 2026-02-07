@@ -29,15 +29,13 @@ Lovingly forked from [Aion2-Dps-Meter](https://github.com/TK-open-public/Aion2-D
 2. Download the latest release and install:  
    👉 https://github.com/taengu/Aion2-Dps-Meter/releases
 
-3. If AION 2 is already running, **go to the character selection screen first**.
+3. Run **AION2 DPS Meter** from the Desktop shortcut or Start Menu
 
-4. Run **AION2 DPS Meter** from the Desktop shortcut or Start Menu
-
-5. **Allow Windows Firewall** prompt when you first open the app.
+4. **Allow Windows Firewall** prompt when you first open the app.
    - Preferably, expand the menu and tick Private and Public.
    - This helps ensure data isn't being missed
 
-6. If the meter stops working after previously functioning:
+5. If the meter stops working after previously functioning:
    - Click the reload icon
    - If it still does not work, quit and re-open it.
 
