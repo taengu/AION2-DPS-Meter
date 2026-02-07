@@ -167,7 +167,9 @@ class BrowserApp(
         fun readResource(path: String): String? {
             val normalized = if (path.startsWith("/")) path else "/$path"
             return try {
-                javaClass.getResourceAsStream(normalized)?.bufferedReader()?.use { it.readText() }
+                javaClass.getResourceAsStream(normalized)?.bufferedReader(StandardCharsets.UTF_8)?.use {
+                    it.readText()
+                }
             } catch (e: Exception) {
                 null
             }
@@ -426,16 +428,7 @@ class BrowserApp(
             }
         }
         val indexUrl = requireNotNull(javaClass.getResource("/index.html")) { "index.html not found" }
-        val baseUrl = indexUrl.toExternalForm().substringBeforeLast('/') + "/"
-        val html = indexUrl.openStream().use { input ->
-            String(input.readBytes(), StandardCharsets.UTF_8)
-        }
-        val htmlWithBase = if (html.contains("<base", ignoreCase = true)) {
-            html
-        } else {
-            html.replaceFirst("<head>", "<head>\n    <base href=\"$baseUrl\" />")
-        }
-        engine.loadContent(htmlWithBase, "text/html; charset=UTF-8")
+        engine.load(indexUrl.toExternalForm())
         if (engine.loadWorker.state == Worker.State.SUCCEEDED) {
             injectBridge()
         }

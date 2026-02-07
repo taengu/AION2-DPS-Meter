@@ -74,8 +74,10 @@ const createI18n = ({
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.ok || res.status === 0) {
-        const data = await res.json();
-        if (data && typeof data === "object") return data;
+        const buffer = await res.arrayBuffer();
+        const text = new TextDecoder("utf-8").decode(buffer);
+        const data = parseJsonText(text);
+        if (Object.keys(data).length) return data;
       }
     } catch {
       // ignore and fall back
