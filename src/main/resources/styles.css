@@ -686,7 +686,7 @@ html[lang="ko"] * {
     padding: 8px;
     color: white;
     cursor: pointer;
-    background: linear-gradient(90deg, #5865f2, #4e5bd5);
+    background: linear-gradient(90deg, rgba(88, 101, 242, 0.85), rgba(78, 91, 213, 0.85));
     text-shadow: var(--text-shadow);
     width: 100%;
     text-align: center;
@@ -714,7 +714,7 @@ html[lang="ko"] * {
     padding: 8px;
     color: white;
     cursor: pointer;
-    background: linear-gradient(90deg, #b93535, #922c2c);
+    background: linear-gradient(90deg, rgba(185, 53, 53, 0.85), rgba(146, 44, 44, 0.85));
     text-shadow: var(--text-shadow);
     width: 100%;
   }
@@ -921,7 +921,6 @@ html[lang="ko"] * {
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
-  height: calc(100vh - 24px);
   max-height: calc(100vh - 24px);
   max-width: calc(100vw - 24px);
   overflow: hidden;
@@ -1696,7 +1695,7 @@ html[lang="ko"] * {
   padding: 8px;
   color: white;
   cursor: pointer;
-  background: linear-gradient(90deg, #5865f2, #4e5bd5);
+  background: linear-gradient(90deg, rgba(88, 101, 242, 0.85), rgba(78, 91, 213, 0.85));
   text-shadow: var(--text-shadow);
   width: 100%;
   text-align: center;
@@ -1727,6 +1726,7 @@ html[lang="ko"] * {
   gap: 6px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  background: linear-gradient(90deg, rgba(185, 53, 53, 0.85), rgba(146, 44, 44, 0.85));
 }
 .settingsPanel .quitButton:hover {
   transform: translateY(-1px);
