@@ -901,12 +901,14 @@ html[lang="ko"] * {
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: 940px;
+  width: min(940px, calc(100vw - 24px));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -1664,6 +1666,7 @@ html[lang="ko"] * {
   display: flex;
   justify-content: center;
   width: 100%;
+  margin-bottom: -12px;
 }
 .settingsPanel .discordButton {
   border: 1px solid var(--panel-border);
@@ -2183,13 +2186,16 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .detailsPanel .detailsSkills {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 0;
@@ -2213,14 +2219,14 @@ html[lang="ko"] * {
   flex: 1 1 0;
 }
 .detailsPanel .detailsSkills .cell.heal {
-  flex: 1.2 1 0;
+  flex: 0.9 1 0;
 }
 .detailsPanel .detailsSkills .cell.mhit,
 .detailsPanel .detailsSkills .cell.mdmg {
-  flex: 1.2 1 0;
+  flex: 0.9 1 0;
 }
 .detailsPanel .detailsSkills .cell.dmg {
-  flex: 2.2 1 0;
+  flex: 2.5 1 0;
   justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {
@@ -2233,6 +2239,7 @@ html[lang="ko"] * {
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
+  min-width: 900px;
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
@@ -2245,6 +2252,22 @@ html[lang="ko"] * {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  min-width: 900px;
+  max-height: 100%;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar {
+  height: 10px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30);
+  border-radius: 999px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .detailsSkills::-webkit-scrollbar-corner {
+  background: transparent;
 }
 .detailsPanel.hide-col-hit .detailsSkills .cell.hit,
 .detailsPanel.hide-col-crit .detailsSkills .cell.crit,
@@ -2295,6 +2318,22 @@ html[lang="ko"] * {
   border-radius: 999px;
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar {
+  width: 10px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30);
+  border-radius: 999px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .detailsBody::-webkit-scrollbar-corner {
   background: transparent;
 }
 
