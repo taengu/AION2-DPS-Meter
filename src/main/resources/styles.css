@@ -901,12 +901,13 @@ html[lang="ko"] * {
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: 940px;
+  width: min(940px, calc(100vw - 24px));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
+  max-width: calc(100vw - 24px);
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -2191,6 +2192,7 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: auto;
 }
 .detailsPanel .detailsSkills .cell {
   min-width: 0;
@@ -2234,6 +2236,7 @@ html[lang="ko"] * {
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
+  min-width: 900px;
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
@@ -2246,6 +2249,7 @@ html[lang="ko"] * {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  min-width: 900px;
 }
 .detailsPanel.hide-col-hit .detailsSkills .cell.hit,
 .detailsPanel.hide-col-crit .detailsSkills .cell.crit,
