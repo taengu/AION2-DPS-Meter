@@ -1,0 +1,34 @@
+[
+  {
+    "name": "com.sun.prism.sw.SWPipeline",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "com.sun.prism.d3d.D3DPipeline",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "com.sun.glass.ui.win.WinApplication",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "com.sun.prism.shader.Solid_TextureRGB_AlphaTest_Loader",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {
+        "name": "loadShader",
+        "parameterTypes": [
+          "com.sun.prism.ps.ShaderFactory",
+          "java.io.InputStream"
+        ]
+      }
+    ]
+  }
+]

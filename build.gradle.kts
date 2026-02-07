@@ -17,7 +17,18 @@ java {
 }
 
 group = "com.tbread"
-version = "0.1.6"
+version = "0.1.6-pre1"
+
+val appVersion = version.toString()
+
+fun computeMsiVersion(version: String): String {
+    val base = version.substringBefore("-")
+    val parts = base.split(".").mapNotNull { it.toIntOrNull() }
+    val major = parts.getOrElse(0) { 0 }
+    val minor = parts.getOrElse(1) { 0 }
+    val patch = parts.getOrElse(2) { 0 }
+    return listOf(major, minor, patch).joinToString(".")
+}
 
 repositories {
     mavenCentral()
@@ -68,18 +79,46 @@ graalvmNative {
             buildArgs.add("-H:+AddAllCharsets")
             buildArgs.add("-Dprism.fontdir=C:\\Windows\\Fonts")
             buildArgs.add("--no-fallback")
-            buildArgs.add("--enable-native-access=javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
-            buildArgs.add("-H:+ReportExceptionStackTraces")
-
+            buildArgs.add("--enable-native-access=ALL-UNNAMED,javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
             // Critical for UI and async behavior
-            buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,kotlinx.coroutines,kotlinx.coroutines.scheduling.DefaultScheduler")
+            buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,com.sun.javafx.tk.quantum.PrimaryTimer,com.sun.scenario.animation.SplineInterpolator,com.sun.scenario.animation.StepInterpolator,kotlinx.coroutines,kotlinx.coroutines.internal.ThreadContextKt\$countAll\$1,kotlinx.coroutines.internal.ThreadContextKt\$updateState\$1,kotlinx.coroutines.scheduling.DefaultScheduler,kotlin.coroutines.ContinuationInterceptor\$Key")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.effect.Offset")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.AbstractPrimaryTimer\$MainLoop")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.SingleLoopClipEnvelope")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.GeneralClipInterpolator")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.TimelineClipCore")
             buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.Control")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.PopupControl")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Labeled\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextField\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextInputControl\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.ScrollBar\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Separator\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressIndicatorSkin")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressBarSkin\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.SkinBase\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin\$StyleableProperties")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.behavior.TextInputControlBehavior")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.Properties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.web.WebEngine")
             buildArgs.add("--initialize-at-run-time=javafx.stage.Screen")
             buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.ControlHelper")
             buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.LabeledHelper")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.Toolkit")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.QuantumToolkit")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.QuantumRenderer")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.PaintCollector")
+            buildArgs.add("--initialize-at-run-time=com.sun.glass.utils.NativeLibLoader")
+
+            // Ensure JavaFX native libraries (DLLs) are bundled for Prism/Glass on Windows
+            buildArgs.add("-H:IncludeResources=^prism_sw\\\\.dll$")
+            buildArgs.add(
+                "-H:ReflectionConfigurationFiles=${project.file("src/main/resources/native-image/reflect-config.json")}"
+            )
 
             // Module support for the native compiler
             buildArgs.addAll(listOf("--class-path", appClassPath))
@@ -90,6 +129,34 @@ graalvmNative {
                     "jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics,javafx.media"
                 )
             )
+        }
+    }
+}
+
+val javafxNativeLibPatterns = listOf(
+    "**/jfxwebkit*.dll",
+    "**/jfxwebkit*.pak",
+    "**/icudtl.dat",
+    "**/prism_sw.dll",
+    "**/prism_d3d.dll",
+    "**/prism_common.dll",
+    "**/glass.dll",
+    "**/javafx_font.dll",
+    "**/javafx_iio.dll",
+    "**/jfxmedia.dll"
+)
+
+tasks.named("nativeCompile").configure {
+    doLast {
+        val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile
+        val runtimeJars = configurations.runtimeClasspath.get().files.filter { it.extension == "jar" }
+        runtimeJars.forEach { jar ->
+            copy {
+                from(zipTree(jar)) {
+                    include(javafxNativeLibPatterns)
+                }
+                into(outputDir)
+            }
         }
     }
 }
@@ -112,10 +179,14 @@ compose.desktop {
                 includeAllModules = true
                 // Note: If you don't have an icon yet, comment out the line below
                 iconFile.set(project.file("src/main/resources/icon.ico"))
+                shortcut = true
+                menuGroup = "AION2 DPS Meter"
+                upgradeUuid = "d1f8995e-c0af-4f01-9067-a69ee897361a"
+                msiPackageVersion = computeMsiVersion(appVersion)
             }
             targetFormats(TargetFormat.Msi)
-            packageName = "aion2meter-tw"
-            packageVersion = "0.1.6"
+            packageName = "AION2 DPS Meter"
+            packageVersion = appVersion
         }
     }
 }

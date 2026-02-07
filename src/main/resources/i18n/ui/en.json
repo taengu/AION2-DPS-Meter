@@ -68,6 +68,7 @@
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
     "discord": "Get support on our Discord",
+    "version": "Version",
     "theme": {
       "label": "Theme",
       "options": {
