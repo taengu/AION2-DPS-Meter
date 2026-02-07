@@ -83,6 +83,7 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextInputControl\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.ScrollBar\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressIndicatorSkin")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.SkinBase\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin\$StyleableProperties")
             buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.behavior.TextInputControlBehavior")
