@@ -1206,6 +1206,7 @@ class DpsApp {
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
     this.quitButton = document.querySelector(".quitButton");
+    this.settingsVersionValue = document.querySelector(".settingsVersionValue");
     this.languageDropdownBtn = document.querySelector(".languageDropdownBtn");
     this.languageDropdownMenu = document.querySelector(".languageDropdownMenu");
     this.themeDropdownBtn = document.querySelector(".themeDropdownBtn");
@@ -1355,6 +1356,8 @@ class DpsApp {
     this.quitButton?.addEventListener("click", () => {
       window.javaBridge?.exitApp?.();
     });
+
+    this.updateSettingsVersion();
   }
 
   initializeSettingsDropdowns() {
@@ -2050,6 +2053,14 @@ class DpsApp {
   refreshSettingsPanelIfOpen() {
     if (!this.settingsPanel?.classList.contains("isOpen")) return;
     this.refreshConnectionInfo({ skipSettingsRefresh: true });
+    this.updateSettingsVersion();
+  }
+
+  updateSettingsVersion() {
+    if (!this.settingsVersionValue) return;
+    const rawVersion = String(window.dpsData?.getVersion?.() || "").trim();
+    const normalized = rawVersion.replace(/^v/i, "");
+    this.settingsVersionValue.textContent = normalized ? `v${normalized}` : "-";
   }
 
   updateConnectionStatusUi() {

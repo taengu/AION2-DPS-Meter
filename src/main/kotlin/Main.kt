@@ -48,7 +48,12 @@ class AionMeterApp : Application() {
 
         // Initialize and show the browser
         val browserApp = BrowserApp(calculator, dispatcher) { markUiReady() }
-        browserApp.start(primaryStage)
+        try {
+            browserApp.start(primaryStage)
+        } catch (e: Exception) {
+            CrashLogWriter.log("Failed to start JavaFX browser window", e)
+            throw e
+        }
 
         // Launch background tasks after UI initialization
         appScope.launch {
@@ -86,6 +91,8 @@ class AionMeterApp : Application() {
 }
 
 fun main(args: Array<String>) {
+    configureJavaFxPipeline()
+
     // 1. Check Admin
     ensureAdminOnWindows()
 
@@ -102,6 +109,16 @@ fun main(args: Array<String>) {
     // 3. Launch the Application
     // This blocks the main thread until the window is closed
     Application.launch(AionMeterApp::class.java, *args)
+}
+
+private fun configureJavaFxPipeline() {
+    val osName = System.getProperty("os.name") ?: return
+    val isWindows = osName.startsWith("Windows", ignoreCase = true)
+    val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
+    if (!isWindows || !isNativeImage) return
+    if (!System.getProperty("prism.order").isNullOrBlank()) return
+
+    System.setProperty("prism.order", "sw")
 }
 
 private fun ensureAdminOnWindows() {

@@ -5,13 +5,17 @@
     RETRY = 500,
     LIMIT = 5;
 
-  const n = (v) => {
-    const [a = 0, b = 0, c = 0] = String(v || "")
-      .trim()
-      .replace(/^v/i, "")
+  const parseVersion = (v) => {
+    const cleaned = String(v || "").trim().replace(/^v/i, "");
+    const [base, prerelease] = cleaned.split("-", 2);
+    const [a = 0, b = 0, c = 0] = String(base || "")
       .split(".")
       .map(Number);
-    return a * 1e6 + b * 1e3 + c;
+    return {
+      base,
+      prerelease: Boolean(prerelease),
+      value: a * 1e6 + b * 1e3 + c,
+    };
   };
 
   let modal;
@@ -65,7 +69,17 @@
         }
         return !release?.draft && !release?.prerelease;
       })?.tag_name;
-      if (latest && n(latest) > n(current)) {
+      if (latest) {
+        const latestInfo = parseVersion(latest);
+        const currentInfo = parseVersion(current);
+        const hasUpdate =
+          latestInfo.value > currentInfo.value ||
+          (latestInfo.value === currentInfo.value &&
+            currentInfo.prerelease &&
+            !latestInfo.prerelease);
+        if (!hasUpdate) {
+          return;
+        }
         const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.`;
         text.textContent =
           window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;

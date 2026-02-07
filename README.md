@@ -72,6 +72,11 @@ git clone https://github.com/taengu/Aion2-Dps-Meter.git
 # Enter the directory
 cd Aion2-Dps-Meter
 
+# Run in IntelliJ Terminal (keeps output in the same window)
+# If IntelliJ starts a separate cmd window, enable "Run in terminal" under
+# Settings > Build, Execution, Deployment > Gradle.
+./gradlew run
+
 # Build the distribution (Windows)
 ./gradlew packageDistributionForCurrentOS
 ```
