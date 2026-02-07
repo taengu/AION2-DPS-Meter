@@ -75,6 +75,9 @@ graalvmNative {
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,kotlinx.coroutines")
             buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
             buildArgs.add("--initialize-at-run-time=javafx.scene.control.Control")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control.PopupControl")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.web.WebEngine")
+            buildArgs.add("--initialize-at-run-time=javafx.stage.Screen")
 
             // Module support for the native compiler
             buildArgs.addAll(listOf("--class-path", appClassPath))
