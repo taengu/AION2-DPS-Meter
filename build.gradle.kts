@@ -122,6 +122,30 @@ graalvmNative {
     }
 }
 
+val javafxNativeLibs = listOf(
+    "prism_sw.dll",
+    "prism_d3d.dll",
+    "glass.dll",
+    "javafx_font.dll",
+    "javafx_iio.dll",
+    "jfxmedia.dll"
+)
+
+tasks.named("nativeCompile").configure {
+    doLast {
+        val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile
+        val runtimeJars = configurations.runtimeClasspath.get().files.filter { it.extension == "jar" }
+        runtimeJars.forEach { jar ->
+            copy {
+                from(zipTree(jar)) {
+                    include(javafxNativeLibs.map { "**/$it" })
+                }
+                into(outputDir)
+            }
+        }
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "com.tbread.Launcher"
