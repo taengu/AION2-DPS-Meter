@@ -157,6 +157,7 @@
   },
   "target": {
     "all": "All Targets",
+    "identifying": "Identifying you...",
     "train": "Training Scarecrow"
   }
 }

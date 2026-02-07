@@ -2214,7 +2214,7 @@ class DpsApp {
       return this.getDefaultTargetLabel(targetMode);
     }
     if (targetMode === "lastHitByMe" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
-      return "Identifying you...";
+      return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
     }
     if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
       return `Mob #${Number(targetId)}`;
