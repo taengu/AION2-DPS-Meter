@@ -48,6 +48,7 @@ graalvmNative {
     binaries {
         named("main") {
             mainClass.set("com.tbread.Launcher")
+            val runtimeClasspath = configurations.runtimeClasspath.get().asPath
 
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
             buildArgs.add("-H:+AddAllCharsets")
@@ -59,7 +60,8 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
 
             // Module support for the native compiler
-            buildArgs.add("--add-modules=jdk.jsobject,jdk.net,javafx.controls,javafx.web,javafx.graphics,javafx.media")
+            buildArgs.add("--module-path=$runtimeClasspath")
+            buildArgs.add("--add-modules=jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics,javafx.media")
         }
     }
 }
