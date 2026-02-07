@@ -48,7 +48,12 @@ class AionMeterApp : Application() {
 
         // Initialize and show the browser
         val browserApp = BrowserApp(calculator, dispatcher) { markUiReady() }
-        browserApp.start(primaryStage)
+        try {
+            browserApp.start(primaryStage)
+        } catch (e: Exception) {
+            CrashLogWriter.log("Failed to start JavaFX browser window", e)
+            throw e
+        }
 
         // Launch background tasks after UI initialization
         appScope.launch {
