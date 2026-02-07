@@ -1344,7 +1344,13 @@ class DpsApp {
     }
     if (this.meterOpacityInput && this.meterOpacityValue) {
       const defaultOpacity = this.getDefaultMeterFillOpacity();
-      const resolvedOpacity = this.normalizeMeterOpacity(storedMeterOpacity, defaultOpacity);
+      const hasStoredOpacity =
+        storedMeterOpacity !== null &&
+        storedMeterOpacity !== undefined &&
+        String(storedMeterOpacity).trim() !== "";
+      const resolvedOpacity = hasStoredOpacity
+        ? this.normalizeMeterOpacity(storedMeterOpacity, defaultOpacity)
+        : defaultOpacity;
       this.applyMeterFillOpacity(resolvedOpacity, { persist: false });
       this.meterOpacityInput.value = String(resolvedOpacity);
       this.meterOpacityValue.textContent = `${resolvedOpacity}%`;
@@ -2274,17 +2280,27 @@ class DpsApp {
     }
   }
 
+  isLocalUserIdentified() {
+    return Boolean(String(this.USER_NAME ?? "").trim());
+  }
+
   getDefaultTargetLabel(targetMode = "") {
     if (targetMode === "allTargets") {
       return this.i18n?.t("target.all", "All Targets") ?? "All Targets";
     }
     if (targetMode === "trainTargets") {
+      if (!this.isLocalUserIdentified()) {
+        return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
+      }
       return this.i18n?.t("target.train", "Training Scarecrow") ?? "Training Scarecrow";
     }
     return this.i18n?.t("header.title", "DPS METER") ?? "DPS METER";
   }
 
   getTargetLabel({ targetId = 0, targetName = "", targetMode = "" } = {}) {
+    if (targetMode === "trainTargets" && !this.isLocalUserIdentified()) {
+      return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
+    }
     if (targetMode === "allTargets" || targetMode === "trainTargets") {
       return this.getDefaultTargetLabel(targetMode);
     }

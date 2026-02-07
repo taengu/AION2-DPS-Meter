@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.nio.file.Paths
+import java.nio.charset.StandardCharsets
 import javax.imageio.ImageIO
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
@@ -166,7 +167,9 @@ class BrowserApp(
         fun readResource(path: String): String? {
             val normalized = if (path.startsWith("/")) path else "/$path"
             return try {
-                javaClass.getResourceAsStream(normalized)?.bufferedReader()?.use { it.readText() }
+                javaClass.getResourceAsStream(normalized)?.bufferedReader(StandardCharsets.UTF_8)?.use {
+                    it.readText()
+                }
             } catch (e: Exception) {
                 null
             }
@@ -424,7 +427,8 @@ class BrowserApp(
                 else -> Unit
             }
         }
-        engine.load(javaClass.getResource("/index.html")?.toExternalForm())
+        val indexUrl = requireNotNull(javaClass.getResource("/index.html")) { "index.html not found" }
+        engine.load(indexUrl.toExternalForm())
         if (engine.loadWorker.state == Worker.State.SUCCEEDED) {
             injectBridge()
         }
