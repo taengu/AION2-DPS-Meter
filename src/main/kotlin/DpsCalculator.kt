@@ -1262,6 +1262,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     name = SKILL_MAP[inferredCode] ?: "",
                     time = 0,
                     dmg = 0,
+                    multiHitCount = 0,
+                    multiHitDamage = 0,
                     crit = 0,
                     parry = 0,
                     back = 0,
@@ -1280,7 +1282,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             var updated = next.copy(
                 time = next.time + 1,
                 dmg = next.dmg + damage,
-                heal = next.heal + pdp.getHealAmount()
+                heal = next.heal + pdp.getHealAmount(),
+                multiHitCount = next.multiHitCount + pdp.getMultiHitCount(),
+                multiHitDamage = next.multiHitDamage + pdp.getMultiHitDamage()
             )
 
             if (!isDot) {

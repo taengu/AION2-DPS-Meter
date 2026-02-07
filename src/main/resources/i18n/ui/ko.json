@@ -16,6 +16,14 @@
       "ariaLabel": "상세 설정 열기"
     },
     "panelBackground": "패널 배경",
+    "screenshots": {
+      "label": "스크린샷",
+      "includeMeter": "메인 DPS 미터 포함",
+      "saveToFolder": "스크린샷을 폴더에 저장"
+    },
+    "columns": {
+      "label": "스킬 열"
+    },
     "screenshot": {
       "ariaLabel": "클립보드에 스크린샷 저장",
       "captured": "스크린샷 캡처됨",
@@ -34,6 +42,8 @@
       "perfect": "퍼펙트",
       "double": "더블",
       "back": "백",
+      "multiHit": "다중타",
+      "multiHitDamage": "다중타 피해",
       "totalDamage": "총 피해",
       "heal": "치유"
     },
@@ -83,10 +93,10 @@
       "label": "언어"
     },
     "meterOpacity": {
-      "label": "Meter opacity"
+      "label": "미터 불투명도"
     },
     "targetWindow": {
-      "label": "Target time range",
+      "label": "대상 시간 범위",
       "options": {
         "5s": "5 seconds",
         "10s": "10 seconds",

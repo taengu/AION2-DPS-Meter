@@ -350,6 +350,12 @@ const createDetailsUI = ({
     const healEl = document.createElement("div");
     healEl.className = "cell center heal";
 
+    const multiHitEl = document.createElement("div");
+    multiHitEl.className = "cell center mhit";
+
+    const multiHitDamageEl = document.createElement("div");
+    multiHitDamageEl.className = "cell center mdmg";
+
     const dmgEl = document.createElement("div");
     dmgEl.className = "cell dmg right";
 
@@ -370,6 +376,8 @@ const createDetailsUI = ({
     rowEl.appendChild(doubleEl);
     rowEl.appendChild(backEl);
     rowEl.appendChild(healEl);
+    rowEl.appendChild(multiHitEl);
+    rowEl.appendChild(multiHitDamageEl);
 
     rowEl.appendChild(dmgEl);
 
@@ -384,6 +392,8 @@ const createDetailsUI = ({
       perfectEl,
       doubleEl,
       healEl,
+      multiHitEl,
+      multiHitDamageEl,
       dmgFillEl,
       dmgTextEl,
     };
@@ -433,6 +443,8 @@ const createDetailsUI = ({
       const double = skill.double || 0;
       const back = skill.back || 0;
       const heal = skill.heal || 0;
+      const multiHitCount = skill.multiHitCount || 0;
+      const multiHitDamage = skill.multiHitDamage || 0;
 
       const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
 
@@ -456,6 +468,8 @@ const createDetailsUI = ({
       view.perfectEl.textContent = `${perfectRate}%`;
       view.doubleEl.textContent = `${doubleRate}%`;
       view.healEl.textContent = `${formatNum(heal)}`;
+      view.multiHitEl.textContent = `${formatNum(multiHitCount)}`;
+      view.multiHitDamageEl.textContent = `${formatNum(multiHitDamage)}`;
 
       view.dmgTextEl.textContent = `${formatNum(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
@@ -678,10 +692,14 @@ const createDetailsUI = ({
     let totalBack = 0;
     let totalPerfect = 0;
     let totalDouble = 0;
+    let totalMultiHitCount = 0;
+    let totalMultiHitDamage = 0;
 
     skills.forEach((skill) => {
       const dmg = Number(skill?.dmg) || 0;
       totalDmg += dmg;
+      totalMultiHitCount += Number(skill?.multiHitCount) || 0;
+      totalMultiHitDamage += Number(skill?.multiHitDamage) || 0;
       if (!skill?.isDot) {
         totalTimes += Number(skill?.time) || 0;
         totalCrit += Number(skill?.crit) || 0;
@@ -703,6 +721,8 @@ const createDetailsUI = ({
       totalBackPct: pct(totalBack, totalTimes),
       totalPerfectPct: pct(totalPerfect, totalTimes),
       totalDoublePct: pct(totalDouble, totalTimes),
+      multiHitCount: totalMultiHitCount,
+      multiHitDamage: totalMultiHitDamage,
       combatTime: formatBattleTime(battleTimeMs),
       battleTimeMs,
       skills,
