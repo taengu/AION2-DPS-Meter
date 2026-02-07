@@ -358,11 +358,27 @@ html[lang="ko"] * {
     display: flex;
     align-items: center;
     width: 88px;
+    position: relative;
     img {
       -webkit-user-drag: none;
 
       width: 100%;
     }
+  }
+  .bossIconOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    background: rgba(0, 0, 0, 0.35);
+    transition: opacity 150ms ease;
+    pointer-events: none;
+    border-radius: 8px;
+  }
+  .bossIcon:hover .bossIconOverlay {
+    opacity: 1;
   }
 
   .bossNames {
@@ -994,7 +1010,7 @@ html[lang="ko"] * {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 4px 6px 4px 150px;
+      padding: 4px 6px 4px 50px;
       border-radius: 6px;
       border: none;
       background: transparent;
@@ -1114,6 +1130,12 @@ html[lang="ko"] * {
       justify-content: space-between;
       gap: 12px;
     }
+    .label {
+      font-weight: 700;
+    }
+    .value {
+      font-weight: 400;
+    }
   }
 
   .detailsSettings {
@@ -1182,6 +1204,7 @@ html[lang="ko"] * {
       align-items: center;
       gap: 12px;
       padding: 6px 12px;
+      font-weight: 700;
 
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       .cell.name {
@@ -1256,6 +1279,7 @@ html[lang="ko"] * {
       font-size: 12px;
       opacity: 0.6;
       padding: 6px 12px 0;
+      font-weight: 400;
     }
   }
 }
@@ -1873,7 +1897,7 @@ html[lang="ko"] * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 6px 4px 150px;
+  padding: 4px 6px 4px 100px;
   border-radius: 6px;
   border: none;
   background: transparent;
@@ -2093,7 +2117,7 @@ html[lang="ko"] * {
   gap: 12px;
 }
 .detailsPanel .detailsStats .stat .label {
-  font-weight: 600;
+  font-weight: 700;
 }
 .detailsPanel .detailsStats .stat .value {
   font-weight: 400;
@@ -2138,6 +2162,7 @@ html[lang="ko"] * {
   gap: 12px;
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
@@ -2235,6 +2260,7 @@ html[lang="ko"] * {
   font-size: 12px;
   opacity: 0.6;
   padding: 6px 12px 0;
+  font-weight: 400;
 }
 
 .updateModal.isOpen {
