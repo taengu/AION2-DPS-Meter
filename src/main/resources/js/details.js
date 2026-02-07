@@ -140,7 +140,6 @@ const createDetailsUI = ({
     createStatView(def.key, def.fallback, { isPlaceholder: def.isPlaceholder })
   );
   statSlots.forEach((value) => detailsStatsEl.appendChild(value.statEl));
-  bindSkillHeaderSorting();
 
   const getTargetById = (targetId) =>
     detailsTargets.find((target) => Number(target?.targetId) === Number(targetId));
@@ -543,6 +542,8 @@ const createDetailsUI = ({
     });
     updateSkillHeaderSortState();
   };
+
+  bindSkillHeaderSorting();
 
   const renderSkills = (details) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
