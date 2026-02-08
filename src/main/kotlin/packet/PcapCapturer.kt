@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
 
 class PcapCapturer(
     private val config: PcapCapturerConfig,
@@ -34,10 +33,35 @@ class PcapCapturer(
             }
     }
 
+    private fun isLoopbackLike(nif: PcapNetworkInterface): Boolean {
+        if (nif.isLoopBack) return true
+        val name = nif.name.lowercase()
+        val description = nif.description?.lowercase().orEmpty()
+        if (name.contains("loopback") || description.contains("loopback")) return true
+        return nif.addresses.any { addr -> addr.address?.isLoopbackAddress == true }
+    }
+
     private fun getLoopbackDevice(devices: List<PcapNetworkInterface>): PcapNetworkInterface? =
-        devices.firstOrNull {
-            it.isLoopBack || it.description?.contains("loopback", ignoreCase = true) == true
+        devices.firstOrNull { isLoopbackLike(it) }
+
+    private fun logDeviceInventory(devices: List<PcapNetworkInterface>) {
+        if (!DebugLogWriter.isEnabled()) return
+        devices.forEach { nif ->
+            val description = nif.description ?: ""
+            val addresses = nif.addresses.joinToString { address ->
+                address.address?.hostAddress ?: "unknown"
+            }
+            DebugLogWriter.info(
+                logger,
+                "Capture device available name='{}' desc='{}' loopbackFlag={} loopbackLike={} addrs=[{}]",
+                nif.name,
+                description,
+                nif.isLoopBack,
+                isLoopbackLike(nif),
+                addresses
+            )
         }
+    }
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
     private val running = AtomicBoolean(false)
@@ -91,6 +115,8 @@ class PcapCapturer(
             PacketCaptureStatus.setNpcapAvailable(false)
             return
         }
+
+        logDeviceInventory(devices)
 
         val loopback = getLoopbackDevice(devices)
         val started = mutableSetOf<String>()
