@@ -2,6 +2,7 @@ package com.tbread.packet
 
 import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.DebugLogWriter
 import kotlinx.coroutines.channels.Channel
 import org.pcap4j.core.*
 import org.pcap4j.packet.Packet
@@ -53,6 +54,7 @@ class PcapCapturer(
                 config.timeout
             )
             activeHandles[nif.name] = handle
+            DebugLogWriter.info(logger, "Capture started on device {}", deviceLabel)
 
             val filter = "tcp"
             handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
@@ -74,6 +76,7 @@ class PcapCapturer(
         } catch (e: Exception) {
             logger.error("Packet capture failed on {}", nif.description ?: nif.name, e)
             CrashLogWriter.log("Packet capture failed on ${nif.description ?: nif.name}", e)
+            DebugLogWriter.info(logger, "Capture failed on device {}", deviceLabel)
         } finally {
             activeHandles.remove(nif.name)
         }

@@ -1,6 +1,7 @@
 package com.tbread.packet
 
 import com.tbread.DataStorage
+import com.tbread.logging.DebugLogWriter
 import com.tbread.logging.CrashLogWriter
 import com.tbread.windows.WindowTitleDetector
 import kotlinx.coroutines.channels.Channel
@@ -29,6 +30,9 @@ class CaptureDispatcher(
     private val MAGIC = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
     private val TLS_CONTENT_TYPES = setOf(0x14, 0x15, 0x16, 0x17)
     private val TLS_VERSIONS = setOf(0x00, 0x01, 0x02, 0x03, 0x04)
+    private var lastCaptureLogMs = 0L
+    private var lastEncapLogMs = 0L
+    private var lastTlsSkipLogMs = 0L
 
     suspend fun run() {
         for (cap in channel) {
@@ -40,7 +44,9 @@ class CaptureDispatcher(
                 if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
+                logCaptureSample(cap)
                 val decodedPayloads = decodePayloads(cap)
+                logEncapsulationSample(cap, decodedPayloads)
                 for (decoded in decodedPayloads) {
                     val a = minOf(decoded.srcPort, decoded.dstPort)
                     val b = maxOf(decoded.srcPort, decoded.dstPort)
@@ -65,6 +71,7 @@ class CaptureDispatcher(
                     }
 
                     if (looksLikeTlsPayload(decoded.data)) {
+                        logTlsSkipSample(decoded)
                         continue
                     }
                     val parsed = assembler.processChunk(decoded.data)
@@ -149,6 +156,50 @@ class CaptureDispatcher(
         )
     }
 
+    private fun logCaptureSample(cap: CapturedPayload) {
+        if (!DebugLogWriter.isEnabled()) return
+        val now = System.currentTimeMillis()
+        if (now - lastCaptureLogMs < LOG_SAMPLE_INTERVAL_MS) return
+        lastCaptureLogMs = now
+        DebugLogWriter.info(
+            logger,
+            "Capture sample device={} src={} dst={} bytes={}",
+            cap.deviceName ?: "unknown",
+            cap.srcPort,
+            cap.dstPort,
+            cap.data.size
+        )
+    }
+
+    private fun logEncapsulationSample(cap: CapturedPayload, decoded: List<DecodedPayload>) {
+        if (!DebugLogWriter.isEnabled()) return
+        val now = System.currentTimeMillis()
+        if (now - lastEncapLogMs < LOG_SAMPLE_INTERVAL_MS) return
+        lastEncapLogMs = now
+        val summary = decoded.joinToString { "${it.srcPort}->${it.dstPort}(${it.data.size})" }
+        DebugLogWriter.info(
+            logger,
+            "Decoded payloads device={} count={} [{}]",
+            cap.deviceName ?: "unknown",
+            decoded.size,
+            summary
+        )
+    }
+
+    private fun logTlsSkipSample(decoded: DecodedPayload) {
+        if (!DebugLogWriter.isEnabled()) return
+        val now = System.currentTimeMillis()
+        if (now - lastTlsSkipLogMs < LOG_SAMPLE_INTERVAL_MS) return
+        lastTlsSkipLogMs = now
+        DebugLogWriter.info(
+            logger,
+            "Skipping TLS-like payload src={} dst={} bytes={}",
+            decoded.srcPort,
+            decoded.dstPort,
+            decoded.data.size
+        )
+    }
+
     private data class EncapsulatedTcp(
         val srcPort: Int,
         val dstPort: Int,
@@ -228,5 +279,6 @@ class CaptureDispatcher(
     companion object {
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
+        private const val LOG_SAMPLE_INTERVAL_MS = 5_000L
     }
 }
