@@ -71,6 +71,7 @@
   "settings": {
     "title": "Settings",
     "lockedPort": "Detected device/port",
+    "forceLoopback": "Force local loopback",
     "resetDetection": "Reset",
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",

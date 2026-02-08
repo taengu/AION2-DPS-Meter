@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 
 object CombatPortDetector {
     private val logger = LoggerFactory.getLogger(CombatPortDetector::class.java)
+    private const val FORCE_LOOPBACK_KEY = "dpsMeter.forceLoopback"
     @Volatile private var lockedPort: Int? = null
     @Volatile private var lockedDevice: String? = null
     @Volatile private var lastParsedAtMs: Long = 0
@@ -38,6 +39,9 @@ object CombatPortDetector {
 
     @Synchronized
     fun registerCandidate(port: Int, flowKey: Pair<Int, Int>, deviceName: String?) {
+        if (isForceLoopbackEnabled() && !isLoopbackDevice(deviceName)) {
+            return
+        }
         val trimmedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
         if (lockedPort != null) {
             promoteLoopback(port, trimmedDevice)
@@ -60,6 +64,9 @@ object CombatPortDetector {
 
     @Synchronized
     fun confirmCandidate(portA: Int, portB: Int, deviceName: String?) {
+        if (isForceLoopbackEnabled() && !isLoopbackDevice(deviceName)) {
+            return
+        }
         if (lockedPort != null) return
         val port = when {
             candidates.containsKey(portA) -> portA
@@ -107,5 +114,9 @@ object CombatPortDetector {
         lastParsedAtMs = 0
         candidates.clear()
         deviceFlows.clear()
+    }
+
+    private fun isForceLoopbackEnabled(): Boolean {
+        return PropertyHandler.getProperty(FORCE_LOOPBACK_KEY)?.toBoolean() == true
     }
 }

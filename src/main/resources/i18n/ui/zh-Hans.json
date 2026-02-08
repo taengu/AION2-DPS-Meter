@@ -69,6 +69,7 @@
   "settings": {
     "title": "设置",
     "lockedPort": "检测到的设备/端口",
+    "forceLoopback": "强制本地回环",
     "resetDetection": "重置检测",
     "characterName": "Name#ID",
     "characterNamePlaceholder": "输入你的角色名称",

@@ -7,6 +7,7 @@ class DpsApp {
     this.USER_NAME = "";
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
+    this.forceLoopbackEnabled = false;
     this.pinMeToTop = false;
     this.includeMainMeterScreenshot = false;
     this.saveScreenshotToFolder = false;
@@ -28,6 +29,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
+      forceLoopback: "dpsMeter.forceLoopback",
       pinMeToTop: "dpsMeter.pinMeToTop",
       theme: "dpsMeter.theme",
     };
@@ -1242,6 +1244,7 @@ class DpsApp {
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
+    this.forceLoopbackCheckbox = document.querySelector(".forceLoopbackCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
@@ -1275,6 +1278,7 @@ class DpsApp {
     const storedMeterOpacity = this.safeGetSetting(this.storageKeys.meterFillOpacity) ||
       this.safeGetStorage(this.storageKeys.meterFillOpacity);
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
+    const storedForceLoopback = this.safeGetSetting(this.storageKeys.forceLoopback) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
@@ -1283,6 +1287,7 @@ class DpsApp {
     this.setUserName(storedName, { persist: false, syncBackend: true });
     this.setOnlyShowUser(false, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
+    this.setForceLoopback(storedForceLoopback, { persist: false, syncBackend: true });
     this.setPinMeToTop(storedPinMeToTop, { persist: false });
     const normalizedTargetSelection =
       storedTargetSelection === "allTargets" || storedTargetSelection === "trainTargets"
@@ -1349,6 +1354,13 @@ class DpsApp {
       this.debugLoggingCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setDebugLogging(isChecked, { persist: true, syncBackend: true });
+      });
+    }
+    if (this.forceLoopbackCheckbox) {
+      this.forceLoopbackCheckbox.checked = this.forceLoopbackEnabled;
+      this.forceLoopbackCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setForceLoopback(isChecked, { persist: true, syncBackend: true, resetDetection: true });
       });
     }
     if (this.pinMeToTopCheckbox) {
@@ -1985,6 +1997,23 @@ class DpsApp {
     }
     if (syncBackend) {
       window.javaBridge?.setDebugLoggingEnabled?.(this.debugLoggingEnabled);
+    }
+  }
+
+  setForceLoopback(enabled, { persist = false, syncBackend = false, resetDetection = false } = {}) {
+    this.forceLoopbackEnabled = !!enabled;
+    if (this.forceLoopbackCheckbox && document.activeElement !== this.forceLoopbackCheckbox) {
+      this.forceLoopbackCheckbox.checked = this.forceLoopbackEnabled;
+    }
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.forceLoopback, String(this.forceLoopbackEnabled));
+    }
+    if (syncBackend) {
+      window.javaBridge?.setSetting?.(this.storageKeys.forceLoopback, String(this.forceLoopbackEnabled));
+    }
+    if (resetDetection) {
+      window.javaBridge?.resetAutoDetection?.();
+      this.refreshConnectionInfo();
     }
   }
 

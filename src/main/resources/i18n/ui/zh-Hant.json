@@ -69,6 +69,7 @@
   "settings": {
     "title": "設定",
     "lockedPort": "偵測到的裝置/連接埠",
+    "forceLoopback": "強制本地回環",
     "resetDetection": "重置偵測",
     "characterName": "Name#ID",
     "characterNamePlaceholder": "輸入你的角色名稱",

@@ -69,6 +69,7 @@
   "settings": {
     "title": "설정",
     "lockedPort": "감지된 장치/포트",
+    "forceLoopback": "로컬 루프백 강제",
     "resetDetection": "감지 초기화",
     "characterName": "Name#ID",
     "characterNamePlaceholder": "캐릭터 이름 입력",
