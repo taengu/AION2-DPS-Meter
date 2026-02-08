@@ -204,14 +204,13 @@ class CaptureDispatcher(
     }
 
     private fun findIpv4HeaderOffset(data: ByteArray, startIndex: Int): Int? {
-        val maxIndex = minOf(data.size - 20, startIndex + 64)
+        val maxIndex = data.size - 20
         for (idx in startIndex..maxIndex) {
-            if (data[idx] != 0x45.toByte()) continue
-            if (idx + 20 > data.size) continue
             val versionIhl = data[idx].toInt() and 0xff
-            if (versionIhl shr 4 != 4) continue
+            if ((versionIhl and 0xf0) != 0x40) continue
             val ihl = (versionIhl and 0x0f) * 4
             if (ihl < 20 || ihl > 60) continue
+            if (idx + ihl > data.size) continue
             val totalLength =
                 ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
             if (totalLength <= ihl || idx + totalLength > data.size) continue
