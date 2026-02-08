@@ -2164,6 +2164,7 @@ class DpsApp {
     }
     const info = this.safeParseJSON(raw, {});
     const previousLocalId = this.localPlayerId;
+    this.npcapAvailable = info?.npcapAvailable !== false;
     const deviceName = typeof info?.device === "string" && info.device.trim() ? info.device : "";
     const rawIp = info?.ip || "-";
     const ip =
@@ -2218,6 +2219,12 @@ class DpsApp {
     if (!this.aionRunning) {
       this.applyConnectionStatusOverride(
         this.i18n?.t("battleTime.notRunning", "AION2 not running") ?? "AION2 not running"
+      );
+      return;
+    }
+    if (this.npcapAvailable === false) {
+      this.applyConnectionStatusOverride(
+        this.i18n?.t("connection.npcapMissing", "NPcap not found") ?? "NPcap not found"
       );
       return;
     }

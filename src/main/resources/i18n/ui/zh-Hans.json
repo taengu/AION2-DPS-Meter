@@ -156,6 +156,7 @@
   "connection": {
     "auto": "自动",
     "detecting": "Detecting AION2 connection...",
+    "npcapMissing": "未找到 NPcap",
     "loopback": "本地回环"
   },
   "target": {

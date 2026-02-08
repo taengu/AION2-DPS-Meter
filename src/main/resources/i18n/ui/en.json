@@ -158,6 +158,7 @@
   "connection": {
     "auto": "Auto",
     "detecting": "Detecting AION2 connection...",
+    "npcapMissing": "NPcap not found",
     "loopback": "Local Loopback"
   },
   "target": {

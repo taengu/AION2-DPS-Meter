@@ -21,11 +21,15 @@ class PcapCapturer(
         private const val FALLBACK_DELAY_MS = 5000L
 
         private fun getAllDevices(): List<PcapNetworkInterface> =
-            try { Pcaps.findAllDevs() ?: emptyList() }
-            catch (e: PcapNativeException) {
+            try {
+                val devices = Pcaps.findAllDevs() ?: emptyList()
+                PacketCaptureStatus.setNpcapAvailable(devices.isNotEmpty())
+                devices
+            } catch (e: PcapNativeException) {
                 logger.error("Failed to initialize pcap", e)
                 CrashLogWriter.log("Failed to initialize pcap", e)
-                exitProcess(2)
+                PacketCaptureStatus.setNpcapAvailable(false)
+                emptyList()
             }
     }
 
@@ -81,7 +85,8 @@ class PcapCapturer(
         if (devices.isEmpty()) {
             logger.error("No capture devices found")
             CrashLogWriter.log("No capture devices found")
-            exitProcess(1)
+            PacketCaptureStatus.setNpcapAvailable(false)
+            return
         }
 
         val loopback = getLoopbackDevice(devices)

@@ -6,6 +6,7 @@ import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
 import com.tbread.packet.LocalPlayer
+import com.tbread.packet.PacketCaptureStatus
 import com.tbread.packet.PropertyHandler
 import com.tbread.windows.WindowTitleDetector
 import javafx.animation.KeyFrame
@@ -61,7 +62,8 @@ class BrowserApp(
         val locked: Boolean,
         val characterName: String?,
         val device: String?,
-        val localPlayerId: Long?
+        val localPlayerId: Long?,
+        val npcapAvailable: Boolean
     )
 
     inner class JSBridge(
@@ -143,7 +145,8 @@ class BrowserApp(
                 locked = lockedPort != null,
                 characterName = LocalPlayer.characterName,
                 device = lockedDevice,
-                localPlayerId = LocalPlayer.playerId
+                localPlayerId = LocalPlayer.playerId,
+                npcapAvailable = PacketCaptureStatus.isNpcapAvailable()
             )
             return Json.encodeToString(info)
         }

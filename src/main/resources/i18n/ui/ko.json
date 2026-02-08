@@ -156,6 +156,7 @@
   "connection": {
     "auto": "자동",
     "detecting": "Detecting AION2 connection...",
+    "npcapMissing": "NPcap을 찾을 수 없습니다",
     "loopback": "로컬 루프백"
   },
   "target": {
