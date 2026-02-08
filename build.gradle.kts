@@ -179,6 +179,7 @@ compose.desktop {
             "-XX:+UnlockExperimentalVMOptions",
             "-XX:+UseCompactObjectHeaders",
             "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "-Dprism.order=sw",
             // We removed the --add-modules here.
             // JavaFX will load from the classpath as 'unnamed' modules.
             "-Dapple.laf.useScreenMenuBar=true"
