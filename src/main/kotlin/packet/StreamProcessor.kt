@@ -105,6 +105,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             logger.debug("Truncated tail packet skipped: {}", toHex(packet))
             return parsed
         }
+        if (!parsed) {
+            parsed = parseEmbeddedPackets(packet) || parsed
+        }
         return parsed
     }
 
@@ -500,54 +503,56 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             parseLootAttributionActorName(packet) ||
             parsingNickname(packet)
         val parsedSummon = parseSummonPacket(packet)
-        if (!parsedDamage && !parsedName && !parsedSummon) {
+        val parsedDot = if (!parsedDamage && !parsedName && !parsedSummon) {
             parseDoTPacket(packet)
+        } else {
+            false
         }
-        return parsedDamage || parsedName
+        return parsedDamage || parsedName || parsedDot
     }
 
-    private fun parseDoTPacket(packet:ByteArray){
+    private fun parseDoTPacket(packet:ByteArray): Boolean {
         var offset = 0
         val pdp = ParsedDamagePacket()
         pdp.setDot(true)
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return
+        if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 
-        if (packet[offset] != 0x05.toByte()) return
-        if (packet[offset+1] != 0x38.toByte()) return
+        if (packet[offset] != 0x05.toByte()) return false
+        if (packet[offset+1] != 0x38.toByte()) return false
         offset += 2
-        if (packet.size < offset) return
+        if (packet.size < offset) return false
 
         val targetInfo = readVarInt(packet,offset)
-        if (targetInfo.length < 0) return
+        if (targetInfo.length < 0) return false
         offset += targetInfo.length
-        if (packet.size < offset) return
+        if (packet.size < offset) return false
         pdp.setTargetId(targetInfo)
 
         offset += 1
-        if (packet.size < offset) return
+        if (packet.size < offset) return false
 
         val actorInfo = readVarInt(packet,offset)
-        if (actorInfo.length < 0) return
-        if (actorInfo.value == targetInfo.value) return
-        if (!isActorAllowed(actorInfo.value)) return
+        if (actorInfo.length < 0) return false
+        if (actorInfo.value == targetInfo.value) return false
+        if (!isActorAllowed(actorInfo.value)) return false
         offset += actorInfo.length
-        if (packet.size < offset) return
+        if (packet.size < offset) return false
         pdp.setActorId(actorInfo)
 
         val unknownInfo = readVarInt(packet,offset)
-        if (unknownInfo.length <0) return
+        if (unknownInfo.length <0) return false
         offset += unknownInfo.length
 
-        if (offset + 4 > packet.size) return
+        if (offset + 4 > packet.size) return false
         val skillCode:Int = parseUInt32le(packet,offset) / 100
         offset += 4
-        if (packet.size <= offset) return
+        if (packet.size <= offset) return false
         pdp.setSkillCode(skillCode)
 
         val damageInfo = readVarInt(packet,offset)
-        if (damageInfo.length < 0) return
+        if (damageInfo.length < 0) return false
         pdp.setDamage(damageInfo)
         pdp.setHexPayload(toHex(packet))
 
@@ -573,7 +578,32 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
+        return true
+    }
 
+    private fun parseEmbeddedPackets(packet: ByteArray): Boolean {
+        var parsed = false
+        if (packet.size < 4) return false
+        for (i in 1 until packet.size - 1) {
+            val isDamage = packet[i] == 0x04.toByte() && packet[i + 1] == 0x38.toByte()
+            val isDot = packet[i] == 0x05.toByte() && packet[i + 1] == 0x38.toByte()
+            if (!isDamage && !isDot) continue
+            val start = i - 1
+            val length = packet[start].toInt() and 0xFF
+            val candidates = mutableListOf<ByteArray>()
+            if (length >= 4 && start + length <= packet.size) {
+                candidates.add(packet.copyOfRange(start, start + length))
+            }
+            candidates.add(packet.copyOfRange(start, packet.size))
+            for (slice in candidates) {
+                val parsedNow = if (isDamage) parsingDamage(slice) else parseDoTPacket(slice)
+                if (parsedNow) {
+                    parsed = true
+                    break
+                }
+            }
+        }
+        return parsed
     }
 
     private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
