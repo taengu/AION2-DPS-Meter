@@ -6,6 +6,8 @@ import com.tbread.logging.CrashLogWriter
 import com.tbread.windows.WindowTitleDetector
 import kotlinx.coroutines.channels.Channel
 import org.slf4j.LoggerFactory
+import java.io.File
+import java.io.FileWriter
 
 class CaptureDispatcher(
     private val channel: Channel<CapturedPayload>,
@@ -33,6 +35,7 @@ class CaptureDispatcher(
     private var lastCaptureLogMs = 0L
     private var lastEncapLogMs = 0L
     private var lastTlsSkipLogMs = 0L
+    private var prelockLogFullNotified = false
 
     suspend fun run() {
         for (cap in channel) {
@@ -47,6 +50,7 @@ class CaptureDispatcher(
                 logCaptureSample(cap)
                 val decodedPayloads = decodePayloads(cap)
                 logEncapsulationSample(cap, decodedPayloads)
+                logPrelockPayloads(cap, decodedPayloads)
                 for (decoded in decodedPayloads) {
                     val a = minOf(decoded.srcPort, decoded.dstPort)
                     val b = maxOf(decoded.srcPort, decoded.dstPort)
@@ -200,6 +204,45 @@ class CaptureDispatcher(
         )
     }
 
+    private fun logPrelockPayloads(cap: CapturedPayload, decoded: List<DecodedPayload>) {
+        if (CombatPortDetector.currentPort() != null) return
+        if (!DebugLogWriter.isEnabled()) return
+        if (prelockLogFullNotified) return
+        synchronized(prelockLogLock) {
+            val logFile = File(PRELOCK_LOG_FILE)
+            val existingSize = logFile.length()
+            if (existingSize >= PRELOCK_LOG_MAX_BYTES) {
+                if (!prelockLogFullNotified) {
+                    prelockLogFullNotified = true
+                    DebugLogWriter.info(logger, "Prelock payload log size cap reached; stopping payload capture")
+                }
+                return
+            }
+            val lines = buildString {
+                append("RAW device=").append(cap.deviceName ?: "unknown")
+                    .append(" src=").append(cap.srcPort)
+                    .append(" dst=").append(cap.dstPort)
+                    .append(" bytes=").append(cap.data.size)
+                    .append(" hex=").append(toHex(cap.data))
+                    .append('\n')
+                decoded.forEach { payload ->
+                    append("DECODED src=").append(payload.srcPort)
+                        .append(" dst=").append(payload.dstPort)
+                        .append(" bytes=").append(payload.data.size)
+                        .append(" hex=").append(toHex(payload.data))
+                        .append('\n')
+                }
+            }
+            FileWriter(logFile, true).use { writer ->
+                writer.append(lines)
+            }
+        }
+    }
+
+    private fun toHex(bytes: ByteArray): String {
+        return bytes.joinToString(" ") { "%02X".format(it) }
+    }
+
     private data class EncapsulatedTcp(
         val srcPort: Int,
         val dstPort: Int,
@@ -280,5 +323,8 @@ class CaptureDispatcher(
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
         private const val LOG_SAMPLE_INTERVAL_MS = 5_000L
+        private const val PRELOCK_LOG_FILE = "prelock_payloads.log"
+        private const val PRELOCK_LOG_MAX_BYTES = 5_000_000L
+        private val prelockLogLock = Any()
     }
 }
