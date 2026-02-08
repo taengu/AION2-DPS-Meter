@@ -10,6 +10,8 @@ object CombatPortDetector {
     @Volatile private var lastParsedAtMs: Long = 0
     private val candidates = LinkedHashMap<Int, String?>()
     private val deviceFlows = mutableMapOf<String, MutableSet<Pair<Int, Int>>>()
+    private val magicCounts = mutableMapOf<Int, Int>()
+    private const val MAGIC_LOCK_THRESHOLD = 3
 
     private fun isLoopbackDevice(deviceName: String?): Boolean {
         if (deviceName.isNullOrBlank()) return false
@@ -24,6 +26,7 @@ object CombatPortDetector {
             logger.info("🔥 Combat port locked: {}", port)
             candidates.clear()
             deviceFlows.clear()
+            magicCounts.clear()
         }
     }
 
@@ -53,6 +56,16 @@ object CombatPortDetector {
                 lock(port, trimmedDevice)
                 return
             }
+        }
+        val updatedCount = (magicCounts[port] ?: 0) + 1
+        magicCounts[port] = updatedCount
+        if (updatedCount >= MAGIC_LOCK_THRESHOLD) {
+            val loopbackDevice = deviceFlows.keys.firstOrNull { isLoopbackDevice(it) }
+            if (loopbackDevice != null && !isLoopbackDevice(trimmedDevice)) {
+                return
+            }
+            lock(port, trimmedDevice)
+            return
         }
         val existing = candidates[port]
         if (existing.isNullOrBlank() && !trimmedDevice.isNullOrBlank()) {
@@ -93,6 +106,7 @@ object CombatPortDetector {
         if (lockedPort == null) {
             candidates.clear()
             deviceFlows.clear()
+            magicCounts.clear()
         }
     }
 
@@ -114,6 +128,7 @@ object CombatPortDetector {
         lastParsedAtMs = 0
         candidates.clear()
         deviceFlows.clear()
+        magicCounts.clear()
     }
 
     private fun isForceLoopbackEnabled(): Boolean {
