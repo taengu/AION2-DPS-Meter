@@ -65,6 +65,7 @@ class PcapCapturer(
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
     private val running = AtomicBoolean(false)
+    private val tcpProtocol = 0x06
 
     private fun captureOnDevice(nif: PcapNetworkInterface) = thread(name = "pcap-${nif.name}") {
         val deviceLabel = nif.description ?: nif.name
@@ -85,15 +86,24 @@ class PcapCapturer(
             logger.info("Packet filter set to \"$filter\" on {}", nif.description ?: nif.name)
 
             val listener = PacketListener { packet: Packet ->
-                val tcp = packet.get(TcpPacket::class.java) ?: return@PacketListener
-                val payload = tcp.payload ?: return@PacketListener
-                val data = payload.rawData
-                if (data.isEmpty()) return@PacketListener
+                val tcp = packet.get(TcpPacket::class.java)
+                if (tcp != null) {
+                    val payload = tcp.payload ?: return@PacketListener
+                    val data = payload.rawData
+                    if (data.isEmpty()) return@PacketListener
 
-                val src = tcp.header.srcPort.valueAsInt()
-                val dst = tcp.header.dstPort.valueAsInt()
+                    val src = tcp.header.srcPort.valueAsInt()
+                    val dst = tcp.header.dstPort.valueAsInt()
 
-                channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                    channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                    return@PacketListener
+                }
+
+                val rawData = packet.rawData ?: return@PacketListener
+                val decoded = parseRawTcpPayload(rawData) ?: return@PacketListener
+                if (decoded.payload.isNotEmpty()) {
+                    channel.trySend(CapturedPayload(decoded.srcPort, decoded.dstPort, decoded.payload, deviceLabel))
+                }
             }
 
             handle.use { h -> h.loop(-1, listener) }
@@ -167,5 +177,47 @@ class PcapCapturer(
             }
         }
         activeHandles.clear()
+    }
+
+    private data class RawTcpPayload(val srcPort: Int, val dstPort: Int, val payload: ByteArray)
+
+    private fun parseRawTcpPayload(data: ByteArray): RawTcpPayload? {
+        val offset = findIpv4HeaderOffset(data) ?: return null
+        val versionIhl = data[offset].toInt() and 0xff
+        val ihl = (versionIhl and 0x0f) * 4
+        if (ihl < 20 || offset + ihl > data.size) return null
+        val totalLength =
+            ((data[offset + 2].toInt() and 0xff) shl 8) or (data[offset + 3].toInt() and 0xff)
+        val packetEnd = offset + totalLength
+        if (totalLength <= ihl || packetEnd > data.size) return null
+        val protocol = data[offset + 9].toInt() and 0xff
+        if (protocol != tcpProtocol) return null
+
+        val tcpOffset = offset + ihl
+        if (tcpOffset + 20 > packetEnd) return null
+        val tcpHeaderLength = ((data[tcpOffset + 12].toInt() and 0xf0) shr 4) * 4
+        val payloadStart = tcpOffset + tcpHeaderLength
+        if (payloadStart >= packetEnd || payloadStart > data.size) return null
+
+        val srcPort = ((data[tcpOffset].toInt() and 0xff) shl 8) or (data[tcpOffset + 1].toInt() and 0xff)
+        val dstPort = ((data[tcpOffset + 2].toInt() and 0xff) shl 8) or (data[tcpOffset + 3].toInt() and 0xff)
+        val payload = data.copyOfRange(payloadStart, packetEnd)
+        return RawTcpPayload(srcPort, dstPort, payload)
+    }
+
+    private fun findIpv4HeaderOffset(data: ByteArray): Int? {
+        val maxIndex = data.size - 20
+        for (idx in 0..maxIndex) {
+            val versionIhl = data[idx].toInt() and 0xff
+            if ((versionIhl and 0xf0) != 0x40) continue
+            val ihl = (versionIhl and 0x0f) * 4
+            if (ihl < 20 || ihl > 60) continue
+            if (idx + ihl > data.size) continue
+            val totalLength =
+                ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
+            if (totalLength <= ihl || idx + totalLength > data.size) continue
+            return idx
+        }
+        return null
     }
 }
