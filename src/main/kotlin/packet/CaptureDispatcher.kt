@@ -13,8 +13,7 @@ class CaptureDispatcher(
     private data class DecodedPayload(
         val srcPort: Int,
         val dstPort: Int,
-        val data: ByteArray,
-        val encapsulated: Boolean
+        val data: ByteArray
     )
 
     private val logger = LoggerFactory.getLogger(CaptureDispatcher::class.java)
@@ -41,38 +40,40 @@ class CaptureDispatcher(
                 if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
-                val decoded = decodePayload(cap)
-                val a = minOf(decoded.srcPort, decoded.dstPort)
-                val b = maxOf(decoded.srcPort, decoded.dstPort)
-                val key = a to b
+                val decodedPayloads = decodePayloads(cap)
+                for (decoded in decodedPayloads) {
+                    val a = minOf(decoded.srcPort, decoded.dstPort)
+                    val b = maxOf(decoded.srcPort, decoded.dstPort)
+                    val key = a to b
 
-                val assembler = assemblers.getOrPut(key) {
-                    StreamAssembler(StreamProcessor(sharedDataStorage))
-                }
+                    val assembler = assemblers.getOrPut(key) {
+                        StreamAssembler(StreamProcessor(sharedDataStorage))
+                    }
 
-                // "Lock" is informational for now; don't filter until parsing confirmed stable
-                if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(decoded.data)) {
-                    // Choose srcPort for now (since magic typically comes from the sender)
-                    CombatPortDetector.registerCandidate(decoded.srcPort, key, cap.deviceName)
-                    logger.info(
-                        "Magic seen on flow {}-{} (src={}, dst={}, device={})",
-                        a,
-                        b,
-                        decoded.srcPort,
-                        decoded.dstPort,
-                        cap.deviceName
-                    )
-                }
+                    // "Lock" is informational for now; don't filter until parsing confirmed stable
+                    if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(decoded.data)) {
+                        // Choose srcPort for now (since magic typically comes from the sender)
+                        CombatPortDetector.registerCandidate(decoded.srcPort, key, cap.deviceName)
+                        logger.info(
+                            "Magic seen on flow {}-{} (src={}, dst={}, device={})",
+                            a,
+                            b,
+                            decoded.srcPort,
+                            decoded.dstPort,
+                            cap.deviceName
+                        )
+                    }
 
-                if (looksLikeTlsPayload(decoded.data)) {
-                    continue
-                }
-                val parsed = assembler.processChunk(decoded.data)
-                if (parsed && CombatPortDetector.currentPort() == null) {
-                    CombatPortDetector.confirmCandidate(decoded.srcPort, decoded.dstPort, cap.deviceName)
-                }
-                if (parsed) {
-                    CombatPortDetector.markPacketParsed()
+                    if (looksLikeTlsPayload(decoded.data)) {
+                        continue
+                    }
+                    val parsed = assembler.processChunk(decoded.data)
+                    if (parsed && CombatPortDetector.currentPort() == null) {
+                        CombatPortDetector.confirmCandidate(decoded.srcPort, decoded.dstPort, cap.deviceName)
+                    }
+                    if (parsed) {
+                        CombatPortDetector.markPacketParsed()
+                    }
                 }
             } catch (e: Exception) {
                 CrashLogWriter.log(
@@ -128,21 +129,23 @@ class CaptureDispatcher(
         return trimmedPacket.equals(lockedDevice, ignoreCase = true)
     }
 
-    private fun decodePayload(cap: CapturedPayload): DecodedPayload {
-        val encapsulated = parseEncapsulatedTcp(cap.data)
-        if (encapsulated != null) {
-            return DecodedPayload(
-                srcPort = encapsulated.srcPort,
-                dstPort = encapsulated.dstPort,
-                data = encapsulated.payload,
-                encapsulated = true
-            )
+    private fun decodePayloads(cap: CapturedPayload): List<DecodedPayload> {
+        val encapsulatedPackets = parseEncapsulatedTcp(cap.data)
+        if (encapsulatedPackets.isNotEmpty()) {
+            return encapsulatedPackets.map { packet ->
+                DecodedPayload(
+                    srcPort = packet.srcPort,
+                    dstPort = packet.dstPort,
+                    data = packet.payload
+                )
+            }
         }
-        return DecodedPayload(
-            srcPort = cap.srcPort,
-            dstPort = cap.dstPort,
-            data = cap.data,
-            encapsulated = false
+        return listOf(
+            DecodedPayload(
+                srcPort = cap.srcPort,
+                dstPort = cap.dstPort,
+                data = cap.data
+            )
         )
     }
 
@@ -152,40 +155,69 @@ class CaptureDispatcher(
         val payload: ByteArray
     )
 
-    private fun parseEncapsulatedTcp(data: ByteArray): EncapsulatedTcp? {
-        if (data.size < 20) return null
-        val startOffset = when {
-            data.size >= 24 &&
-                data[0] == 0x02.toByte() &&
-                data[1] == 0x00.toByte() &&
-                data[2] == 0x00.toByte() &&
-                data[3] == 0x00.toByte() &&
-                data[4] == 0x45.toByte() -> 4
-            data[0] == 0x45.toByte() -> 0
-            else -> return null
-        }
-        if (startOffset + 20 > data.size) return null
-        val versionIhl = data[startOffset].toInt() and 0xff
-        if (versionIhl shr 4 != 4) return null
-        val ipHeaderLength = (versionIhl and 0x0f) * 4
-        if (startOffset + ipHeaderLength > data.size) return null
-        val totalLength =
-            ((data[startOffset + 2].toInt() and 0xff) shl 8) or (data[startOffset + 3].toInt() and 0xff)
-        if (totalLength <= ipHeaderLength) return null
-        val protocol = data[startOffset + 9].toInt() and 0xff
-        if (protocol != 0x06) return null
+    private fun parseEncapsulatedTcp(data: ByteArray): List<EncapsulatedTcp> {
+        if (data.size < 20) return emptyList()
+        val results = mutableListOf<EncapsulatedTcp>()
+        var offset = 0
+        while (offset <= data.size - 20) {
+            val startOffset = findIpv4HeaderOffset(data, offset) ?: break
+            val versionIhl = data[startOffset].toInt() and 0xff
+            val ipHeaderLength = (versionIhl and 0x0f) * 4
+            if (startOffset + ipHeaderLength > data.size) {
+                offset = startOffset + 1
+                continue
+            }
+            val totalLength =
+                ((data[startOffset + 2].toInt() and 0xff) shl 8) or (data[startOffset + 3].toInt() and 0xff)
+            val packetEnd = startOffset + totalLength
+            if (totalLength <= ipHeaderLength || packetEnd > data.size) {
+                offset = startOffset + 1
+                continue
+            }
+            val protocol = data[startOffset + 9].toInt() and 0xff
+            if (protocol != 0x06) {
+                offset = packetEnd
+                continue
+            }
 
-        val tcpOffset = startOffset + ipHeaderLength
-        if (tcpOffset + 20 > data.size) return null
-        val srcPort = ((data[tcpOffset].toInt() and 0xff) shl 8) or (data[tcpOffset + 1].toInt() and 0xff)
-        val dstPort = ((data[tcpOffset + 2].toInt() and 0xff) shl 8) or (data[tcpOffset + 3].toInt() and 0xff)
-        val tcpHeaderLength = ((data[tcpOffset + 12].toInt() and 0xf0) shr 4) * 4
-        val payloadStart = tcpOffset + tcpHeaderLength
-        val payloadEnd = minOf(startOffset + totalLength, data.size)
-        if (payloadStart >= payloadEnd || payloadStart > data.size) return null
-        val payload = data.copyOfRange(payloadStart, payloadEnd)
-        if (payload.isEmpty()) return null
-        return EncapsulatedTcp(srcPort, dstPort, payload)
+            val tcpOffset = startOffset + ipHeaderLength
+            if (tcpOffset + 20 > data.size) {
+                offset = startOffset + 1
+                continue
+            }
+            val tcpHeaderLength = ((data[tcpOffset + 12].toInt() and 0xf0) shr 4) * 4
+            val payloadStart = tcpOffset + tcpHeaderLength
+            val payloadEnd = minOf(packetEnd, data.size)
+            if (payloadStart >= payloadEnd || payloadStart > data.size) {
+                offset = packetEnd
+                continue
+            }
+            val srcPort = ((data[tcpOffset].toInt() and 0xff) shl 8) or (data[tcpOffset + 1].toInt() and 0xff)
+            val dstPort = ((data[tcpOffset + 2].toInt() and 0xff) shl 8) or (data[tcpOffset + 3].toInt() and 0xff)
+            val payload = data.copyOfRange(payloadStart, payloadEnd)
+            if (payload.isNotEmpty()) {
+                results.add(EncapsulatedTcp(srcPort, dstPort, payload))
+            }
+            offset = packetEnd
+        }
+        return results
+    }
+
+    private fun findIpv4HeaderOffset(data: ByteArray, startIndex: Int): Int? {
+        val maxIndex = minOf(data.size - 20, startIndex + 64)
+        for (idx in startIndex..maxIndex) {
+            if (data[idx] != 0x45.toByte()) continue
+            if (idx + 20 > data.size) continue
+            val versionIhl = data[idx].toInt() and 0xff
+            if (versionIhl shr 4 != 4) continue
+            val ihl = (versionIhl and 0x0f) * 4
+            if (ihl < 20 || ihl > 60) continue
+            val totalLength =
+                ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
+            if (totalLength <= ihl || idx + totalLength > data.size) continue
+            return idx
+        }
+        return null
     }
 
     fun getParsingBacklog(): Int {
