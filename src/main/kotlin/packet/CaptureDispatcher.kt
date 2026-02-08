@@ -30,6 +30,10 @@ class CaptureDispatcher(
                 if (!ensureAionRunning()) {
                     continue
                 }
+                val lockedDevice = CombatPortDetector.currentDevice()
+                if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
+                    continue
+                }
                 val a = minOf(cap.srcPort, cap.dstPort)
                 val b = maxOf(cap.srcPort, cap.dstPort)
                 val key = a to b
@@ -109,6 +113,11 @@ class CaptureDispatcher(
             if (ok) return true
         }
         return false
+    }
+
+    private fun deviceMatches(lockedDevice: String, packetDevice: String?): Boolean {
+        val trimmedPacket = packetDevice?.trim()?.takeIf { it.isNotBlank() } ?: return false
+        return trimmedPacket.equals(lockedDevice, ignoreCase = true)
     }
 
     fun getParsingBacklog(): Int {

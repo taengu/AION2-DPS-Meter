@@ -27,9 +27,22 @@ object CombatPortDetector {
     }
 
     @Synchronized
+    private fun promoteLoopback(port: Int, deviceName: String?) {
+        if (lockedPort != port) return
+        if (!isLoopbackDevice(deviceName)) return
+        if (isLoopbackDevice(lockedDevice)) return
+        val previous = lockedDevice ?: "unknown"
+        lockedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
+        logger.info("🔁 Switching combat device to loopback: {} -> {}", previous, lockedDevice ?: "loopback")
+    }
+
+    @Synchronized
     fun registerCandidate(port: Int, flowKey: Pair<Int, Int>, deviceName: String?) {
-        if (lockedPort != null) return
         val trimmedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
+        if (lockedPort != null) {
+            promoteLoopback(port, trimmedDevice)
+            return
+        }
         if (trimmedDevice != null) {
             deviceFlows.getOrPut(trimmedDevice) { mutableSetOf() }.add(flowKey)
             if (isLoopbackDevice(trimmedDevice)) {
