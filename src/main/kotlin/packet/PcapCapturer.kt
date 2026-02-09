@@ -70,6 +70,7 @@ class PcapCapturer(
     private fun captureOnDevice(nif: PcapNetworkInterface) = thread(name = "pcap-${nif.name}") {
         val deviceLabel = nif.description ?: nif.name
         logger.info("Using capture device: {}", deviceLabel)
+        DebugLogWriter.info(logger, "Capture thread starting on device {}", deviceLabel)
 
         try {
             if (!running.get()) return@thread
@@ -129,6 +130,11 @@ class PcapCapturer(
         logDeviceInventory(devices)
 
         val loopback = getLoopbackDevice(devices)
+        if (DebugLogWriter.isEnabled()) {
+            val loopbackLabel = loopback?.description ?: loopback?.name ?: "none"
+            DebugLogWriter.info(logger, "Loopback device selection: {}", loopbackLabel)
+            DebugLogWriter.info(logger, "Capture device count: {}", devices.size)
+        }
         val started = mutableSetOf<String>()
         val nonLoopbacks = devices.filterNot { it == loopback || it.isLoopBack }
 
