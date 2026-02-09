@@ -40,7 +40,17 @@ class CaptureDispatcher(
     suspend fun run() {
         for (cap in channel) {
             try {
+                val decodedPayloads = decodePayloads(cap)
                 if (!ensureAionRunning()) {
+                    if (CombatPortDetector.currentPort() == null) {
+                        decodedPayloads.forEach { decoded ->
+                            if (isUnencryptedCandidate(decoded.data)) {
+                                val a = minOf(decoded.srcPort, decoded.dstPort)
+                                val b = maxOf(decoded.srcPort, decoded.dstPort)
+                                CombatPortDetector.registerCandidate(decoded.srcPort, a to b, cap.deviceName)
+                            }
+                        }
+                    }
                     continue
                 }
                 val lockedDevice = CombatPortDetector.currentDevice()
@@ -48,7 +58,6 @@ class CaptureDispatcher(
                     continue
                 }
                 logCaptureSample(cap)
-                val decodedPayloads = decodePayloads(cap)
                 logEncapsulationSample(cap, decodedPayloads)
                 logPrelockPayloads(cap, decodedPayloads)
                 for (decoded in decodedPayloads) {
