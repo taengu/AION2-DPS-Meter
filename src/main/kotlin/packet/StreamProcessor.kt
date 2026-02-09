@@ -584,17 +584,36 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseEmbeddedPackets(packet: ByteArray): Boolean {
         var parsed = false
         if (packet.size < 4) return false
+        val magic = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
         for (i in 1 until packet.size - 1) {
             val isDamage = packet[i] == 0x04.toByte() && packet[i + 1] == 0x38.toByte()
             val isDot = packet[i] == 0x05.toByte() && packet[i + 1] == 0x38.toByte()
             if (!isDamage && !isDot) continue
-            val start = i - 1
-            val length = packet[start].toInt() and 0xFF
             val candidates = mutableListOf<ByteArray>()
-            if (length >= 4 && start + length <= packet.size) {
-                candidates.add(packet.copyOfRange(start, start + length))
+            for (back in 1..3) {
+                val start = i - back
+                if (start < 0) continue
+                val lengthInfo = readVarInt(packet, start)
+                if (lengthInfo.length <= 0) continue
+                if (start + lengthInfo.length != i) continue
+                val endExclusive = start + lengthInfo.value
+                if (lengthInfo.value >= 4 && endExclusive <= packet.size) {
+                    candidates.add(packet.copyOfRange(start, endExclusive))
+                    if (endExclusive - 3 >= start &&
+                        packet.copyOfRange(endExclusive - 3, endExclusive).contentEquals(magic)
+                    ) {
+                        candidates.add(packet.copyOfRange(start, endExclusive - 3))
+                    }
+                }
             }
-            candidates.add(packet.copyOfRange(start, packet.size))
+            if (candidates.isEmpty()) {
+                val start = i - 1
+                val length = packet[start].toInt() and 0xFF
+                if (length >= 4 && start + length <= packet.size) {
+                    candidates.add(packet.copyOfRange(start, start + length))
+                }
+                candidates.add(packet.copyOfRange(start, packet.size))
+            }
             for (slice in candidates) {
                 val parsedNow = if (isDamage) parsingDamage(slice) else parseDoTPacket(slice)
                 if (parsedNow) {
