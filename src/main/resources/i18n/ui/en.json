@@ -71,6 +71,7 @@
   "settings": {
     "title": "Settings",
     "lockedPort": "Detected device/port",
+    "forceLoopback": "Force local loopback",
     "resetDetection": "Reset",
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
@@ -158,6 +159,7 @@
   "connection": {
     "auto": "Auto",
     "detecting": "Detecting AION2 connection...",
+    "npcapMissing": "NPcap not found",
     "loopback": "Local Loopback"
   },
   "target": {

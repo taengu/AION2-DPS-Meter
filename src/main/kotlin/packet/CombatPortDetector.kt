@@ -4,11 +4,14 @@ import org.slf4j.LoggerFactory
 
 object CombatPortDetector {
     private val logger = LoggerFactory.getLogger(CombatPortDetector::class.java)
+    private const val FORCE_LOOPBACK_KEY = "dpsMeter.forceLoopback"
     @Volatile private var lockedPort: Int? = null
     @Volatile private var lockedDevice: String? = null
     @Volatile private var lastParsedAtMs: Long = 0
     private val candidates = LinkedHashMap<Int, String?>()
     private val deviceFlows = mutableMapOf<String, MutableSet<Pair<Int, Int>>>()
+    private val magicCounts = mutableMapOf<Int, Int>()
+    private const val MAGIC_LOCK_THRESHOLD = 3
 
     private fun isLoopbackDevice(deviceName: String?): Boolean {
         if (deviceName.isNullOrBlank()) return false
@@ -23,6 +26,7 @@ object CombatPortDetector {
             logger.info("🔥 Combat port locked: {}", port)
             candidates.clear()
             deviceFlows.clear()
+            magicCounts.clear()
         }
     }
 
@@ -38,6 +42,9 @@ object CombatPortDetector {
 
     @Synchronized
     fun registerCandidate(port: Int, flowKey: Pair<Int, Int>, deviceName: String?) {
+        if (isForceLoopbackEnabled() && !isLoopbackDevice(deviceName)) {
+            return
+        }
         val trimmedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
         if (lockedPort != null) {
             promoteLoopback(port, trimmedDevice)
@@ -50,6 +57,16 @@ object CombatPortDetector {
                 return
             }
         }
+        val updatedCount = (magicCounts[port] ?: 0) + 1
+        magicCounts[port] = updatedCount
+        if (updatedCount >= MAGIC_LOCK_THRESHOLD) {
+            val loopbackDevice = deviceFlows.keys.firstOrNull { isLoopbackDevice(it) }
+            if (loopbackDevice != null && !isLoopbackDevice(trimmedDevice)) {
+                return
+            }
+            lock(port, trimmedDevice)
+            return
+        }
         val existing = candidates[port]
         if (existing.isNullOrBlank() && !trimmedDevice.isNullOrBlank()) {
             candidates[port] = trimmedDevice
@@ -60,6 +77,9 @@ object CombatPortDetector {
 
     @Synchronized
     fun confirmCandidate(portA: Int, portB: Int, deviceName: String?) {
+        if (isForceLoopbackEnabled() && !isLoopbackDevice(deviceName)) {
+            return
+        }
         if (lockedPort != null) return
         val port = when {
             candidates.containsKey(portA) -> portA
@@ -86,6 +106,7 @@ object CombatPortDetector {
         if (lockedPort == null) {
             candidates.clear()
             deviceFlows.clear()
+            magicCounts.clear()
         }
     }
 
@@ -107,5 +128,10 @@ object CombatPortDetector {
         lastParsedAtMs = 0
         candidates.clear()
         deviceFlows.clear()
+        magicCounts.clear()
+    }
+
+    private fun isForceLoopbackEnabled(): Boolean {
+        return PropertyHandler.getProperty(FORCE_LOOPBACK_KEY)?.toBoolean() == true
     }
 }

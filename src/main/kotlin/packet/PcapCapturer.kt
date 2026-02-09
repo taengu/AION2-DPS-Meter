@@ -2,6 +2,7 @@ package com.tbread.packet
 
 import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.DebugLogWriter
 import kotlinx.coroutines.channels.Channel
 import org.pcap4j.core.*
 import org.pcap4j.packet.Packet
@@ -10,7 +11,6 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
 
 class PcapCapturer(
     private val config: PcapCapturerConfig,
@@ -21,25 +21,78 @@ class PcapCapturer(
         private const val FALLBACK_DELAY_MS = 5000L
 
         private fun getAllDevices(): List<PcapNetworkInterface> =
-            try { Pcaps.findAllDevs() ?: emptyList() }
-            catch (e: PcapNativeException) {
+            try {
+                val devices = Pcaps.findAllDevs() ?: emptyList()
+                PacketCaptureStatus.setNpcapAvailable(devices.isNotEmpty())
+                devices
+            } catch (e: PcapNativeException) {
                 logger.error("Failed to initialize pcap", e)
                 CrashLogWriter.log("Failed to initialize pcap", e)
-                exitProcess(2)
+                PacketCaptureStatus.setNpcapAvailable(false)
+                emptyList()
             }
+
+        fun logDeviceSnapshot(reason: String) {
+            if (!DebugLogWriter.isEnabled()) return
+            val devices = getAllDevices()
+            DebugLogWriter.info(logger, "Capture device snapshot ({}) count={}", reason, devices.size)
+            devices.forEach { nif ->
+                val description = nif.description ?: ""
+                val addresses = nif.addresses.joinToString { address ->
+                    address.address?.hostAddress ?: "unknown"
+                }
+                DebugLogWriter.info(
+                    logger,
+                    "Capture device available name='{}' desc='{}' loopbackFlag={} addrs=[{}]",
+                    nif.name,
+                    description,
+                    nif.isLoopBack,
+                    addresses
+                )
+            }
+        }
+    }
+
+    private fun isLoopbackLike(nif: PcapNetworkInterface): Boolean {
+        if (nif.isLoopBack) return true
+        val name = nif.name.lowercase()
+        val description = nif.description?.lowercase().orEmpty()
+        if (name == "npf_loopback" || name.contains("npf_loopback")) return true
+        if (description.contains("loopback traffic capture")) return true
+        if (name.contains("loopback") || description.contains("loopback")) return true
+        return nif.addresses.any { addr -> addr.address?.isLoopbackAddress == true }
     }
 
     private fun getLoopbackDevice(devices: List<PcapNetworkInterface>): PcapNetworkInterface? =
-        devices.firstOrNull {
-            it.isLoopBack || it.description?.contains("loopback", ignoreCase = true) == true
+        devices.firstOrNull { isLoopbackLike(it) }
+
+    private fun logDeviceInventory(devices: List<PcapNetworkInterface>) {
+        if (!DebugLogWriter.isEnabled()) return
+        devices.forEach { nif ->
+            val description = nif.description ?: ""
+            val addresses = nif.addresses.joinToString { address ->
+                address.address?.hostAddress ?: "unknown"
+            }
+            DebugLogWriter.info(
+                logger,
+                "Capture device available name='{}' desc='{}' loopbackFlag={} loopbackLike={} addrs=[{}]",
+                nif.name,
+                description,
+                nif.isLoopBack,
+                isLoopbackLike(nif),
+                addresses
+            )
         }
+    }
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
     private val running = AtomicBoolean(false)
+    private val tcpProtocol = 0x06
 
     private fun captureOnDevice(nif: PcapNetworkInterface) = thread(name = "pcap-${nif.name}") {
         val deviceLabel = nif.description ?: nif.name
         logger.info("Using capture device: {}", deviceLabel)
+        DebugLogWriter.info(logger, "Capture thread starting on device {}", deviceLabel)
 
         try {
             if (!running.get()) return@thread
@@ -49,27 +102,38 @@ class PcapCapturer(
                 config.timeout
             )
             activeHandles[nif.name] = handle
+            DebugLogWriter.info(logger, "Capture started on device {}", deviceLabel)
 
             val filter = "tcp"
             handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
             logger.info("Packet filter set to \"$filter\" on {}", nif.description ?: nif.name)
 
             val listener = PacketListener { packet: Packet ->
-                val tcp = packet.get(TcpPacket::class.java) ?: return@PacketListener
-                val payload = tcp.payload ?: return@PacketListener
-                val data = payload.rawData
-                if (data.isEmpty()) return@PacketListener
+                val tcp = packet.get(TcpPacket::class.java)
+                if (tcp != null) {
+                    val payload = tcp.payload ?: return@PacketListener
+                    val data = payload.rawData
+                    if (data.isEmpty()) return@PacketListener
 
-                val src = tcp.header.srcPort.valueAsInt()
-                val dst = tcp.header.dstPort.valueAsInt()
+                    val src = tcp.header.srcPort.valueAsInt()
+                    val dst = tcp.header.dstPort.valueAsInt()
 
-                channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                    channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                    return@PacketListener
+                }
+
+                val rawData = packet.rawData ?: return@PacketListener
+                val decoded = parseRawTcpPayload(rawData) ?: return@PacketListener
+                if (decoded.payload.isNotEmpty()) {
+                    channel.trySend(CapturedPayload(decoded.srcPort, decoded.dstPort, decoded.payload, deviceLabel))
+                }
             }
 
             handle.use { h -> h.loop(-1, listener) }
         } catch (e: Exception) {
             logger.error("Packet capture failed on {}", nif.description ?: nif.name, e)
             CrashLogWriter.log("Packet capture failed on ${nif.description ?: nif.name}", e)
+            DebugLogWriter.info(logger, "Capture failed on device {}", deviceLabel)
         } finally {
             activeHandles.remove(nif.name)
         }
@@ -81,10 +145,18 @@ class PcapCapturer(
         if (devices.isEmpty()) {
             logger.error("No capture devices found")
             CrashLogWriter.log("No capture devices found")
-            exitProcess(1)
+            PacketCaptureStatus.setNpcapAvailable(false)
+            return
         }
 
+        logDeviceInventory(devices)
+
         val loopback = getLoopbackDevice(devices)
+        if (DebugLogWriter.isEnabled()) {
+            val loopbackLabel = loopback?.description ?: loopback?.name ?: "none"
+            DebugLogWriter.info(logger, "Loopback device selection: {}", loopbackLabel)
+            DebugLogWriter.info(logger, "Capture device count: {}", devices.size)
+        }
         val started = mutableSetOf<String>()
         val nonLoopbacks = devices.filterNot { it == loopback || it.isLoopBack }
 
@@ -133,5 +205,47 @@ class PcapCapturer(
             }
         }
         activeHandles.clear()
+    }
+
+    private data class RawTcpPayload(val srcPort: Int, val dstPort: Int, val payload: ByteArray)
+
+    private fun parseRawTcpPayload(data: ByteArray): RawTcpPayload? {
+        val offset = findIpv4HeaderOffset(data) ?: return null
+        val versionIhl = data[offset].toInt() and 0xff
+        val ihl = (versionIhl and 0x0f) * 4
+        if (ihl < 20 || offset + ihl > data.size) return null
+        val totalLength =
+            ((data[offset + 2].toInt() and 0xff) shl 8) or (data[offset + 3].toInt() and 0xff)
+        if (totalLength <= ihl) return null
+        val packetEnd = minOf(offset + totalLength, data.size)
+        val protocol = data[offset + 9].toInt() and 0xff
+        if (protocol != tcpProtocol) return null
+
+        val tcpOffset = offset + ihl
+        if (tcpOffset + 20 > packetEnd) return null
+        val tcpHeaderLength = ((data[tcpOffset + 12].toInt() and 0xf0) shr 4) * 4
+        val payloadStart = tcpOffset + tcpHeaderLength
+        if (payloadStart >= packetEnd || payloadStart > data.size) return null
+
+        val srcPort = ((data[tcpOffset].toInt() and 0xff) shl 8) or (data[tcpOffset + 1].toInt() and 0xff)
+        val dstPort = ((data[tcpOffset + 2].toInt() and 0xff) shl 8) or (data[tcpOffset + 3].toInt() and 0xff)
+        val payload = data.copyOfRange(payloadStart, packetEnd)
+        return RawTcpPayload(srcPort, dstPort, payload)
+    }
+
+    private fun findIpv4HeaderOffset(data: ByteArray): Int? {
+        val maxIndex = data.size - 20
+        for (idx in 0..maxIndex) {
+            val versionIhl = data[idx].toInt() and 0xff
+            if ((versionIhl and 0xf0) != 0x40) continue
+            val ihl = (versionIhl and 0x0f) * 4
+            if (ihl < 20 || ihl > 60) continue
+            if (idx + ihl > data.size) continue
+            val totalLength =
+                ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
+            if (totalLength <= ihl) continue
+            return idx
+        }
+        return null
     }
 }
