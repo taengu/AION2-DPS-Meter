@@ -5,6 +5,7 @@ import com.tbread.entity.DpsData
 import com.tbread.logging.DebugLogWriter
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
+import com.tbread.packet.PcapCapturer
 import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PacketCaptureStatus
 import com.tbread.packet.PropertyHandler
@@ -85,6 +86,7 @@ class BrowserApp(
         }
 
         fun resetAutoDetection() {
+            PcapCapturer.logDeviceSnapshot("resetAutoDetection")
             CombatPortDetector.reset()
         }
 

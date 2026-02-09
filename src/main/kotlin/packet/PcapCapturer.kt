@@ -31,6 +31,26 @@ class PcapCapturer(
                 PacketCaptureStatus.setNpcapAvailable(false)
                 emptyList()
             }
+
+        fun logDeviceSnapshot(reason: String) {
+            if (!DebugLogWriter.isEnabled()) return
+            val devices = getAllDevices()
+            DebugLogWriter.info(logger, "Capture device snapshot ({}) count={}", reason, devices.size)
+            devices.forEach { nif ->
+                val description = nif.description ?: ""
+                val addresses = nif.addresses.joinToString { address ->
+                    address.address?.hostAddress ?: "unknown"
+                }
+                DebugLogWriter.info(
+                    logger,
+                    "Capture device available name='{}' desc='{}' loopbackFlag={} addrs=[{}]",
+                    nif.name,
+                    description,
+                    nif.isLoopBack,
+                    addresses
+                )
+            }
+        }
     }
 
     private fun isLoopbackLike(nif: PcapNetworkInterface): Boolean {
