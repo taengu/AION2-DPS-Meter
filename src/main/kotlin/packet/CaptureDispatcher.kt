@@ -263,11 +263,11 @@ class CaptureDispatcher(
             }
             val totalLength =
                 ((data[startOffset + 2].toInt() and 0xff) shl 8) or (data[startOffset + 3].toInt() and 0xff)
-            val packetEnd = startOffset + totalLength
-            if (totalLength <= ipHeaderLength || packetEnd > data.size) {
+            if (totalLength <= ipHeaderLength) {
                 offset = startOffset + 1
                 continue
             }
+            val packetEnd = minOf(startOffset + totalLength, data.size)
             val protocol = data[startOffset + 9].toInt() and 0xff
             if (protocol != 0x06) {
                 offset = packetEnd
@@ -307,7 +307,7 @@ class CaptureDispatcher(
             if (idx + ihl > data.size) continue
             val totalLength =
                 ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
-            if (totalLength <= ihl || idx + totalLength > data.size) continue
+            if (totalLength <= ihl) continue
             return idx
         }
         return null

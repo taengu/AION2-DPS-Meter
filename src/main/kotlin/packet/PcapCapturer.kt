@@ -188,8 +188,8 @@ class PcapCapturer(
         if (ihl < 20 || offset + ihl > data.size) return null
         val totalLength =
             ((data[offset + 2].toInt() and 0xff) shl 8) or (data[offset + 3].toInt() and 0xff)
-        val packetEnd = offset + totalLength
-        if (totalLength <= ihl || packetEnd > data.size) return null
+        if (totalLength <= ihl) return null
+        val packetEnd = minOf(offset + totalLength, data.size)
         val protocol = data[offset + 9].toInt() and 0xff
         if (protocol != tcpProtocol) return null
 
@@ -215,7 +215,7 @@ class PcapCapturer(
             if (idx + ihl > data.size) continue
             val totalLength =
                 ((data[idx + 2].toInt() and 0xff) shl 8) or (data[idx + 3].toInt() and 0xff)
-            if (totalLength <= ihl || idx + totalLength > data.size) continue
+            if (totalLength <= ihl) continue
             return idx
         }
         return null
