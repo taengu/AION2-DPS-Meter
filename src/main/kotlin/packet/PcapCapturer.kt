@@ -37,6 +37,8 @@ class PcapCapturer(
         if (nif.isLoopBack) return true
         val name = nif.name.lowercase()
         val description = nif.description?.lowercase().orEmpty()
+        if (name == "npf_loopback" || name.contains("npf_loopback")) return true
+        if (description.contains("loopback traffic capture")) return true
         if (name.contains("loopback") || description.contains("loopback")) return true
         return nif.addresses.any { addr -> addr.address?.isLoopbackAddress == true }
     }
