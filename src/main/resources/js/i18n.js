@@ -64,12 +64,33 @@ const createI18n = ({
     return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
   };
 
+  const decodeBase64Utf8 = (base64Text) => {
+    if (!base64Text) return null;
+    if (typeof TextDecoder !== "function") return null;
+    try {
+      const binary = atob(base64Text);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder("utf-8").decode(bytes);
+    } catch {
+      return null;
+    }
+  };
+
   const loadJsonFromBridge = (path) => {
-    const raw = window.javaBridge?.readResource?.(normalizeBridgePath(path));
+    const normalized = normalizeBridgePath(path);
+    const base64 = window.javaBridge?.readResourceBase64?.(normalized);
+    const decoded = decodeBase64Utf8(base64);
+    if (decoded) return parseJsonText(decoded);
+    const raw = window.javaBridge?.readResource?.(normalized);
     return parseJsonText(raw);
   };
 
   const loadJson = async (path) => {
+    const bridgeData = loadJsonFromBridge(path);
+    if (Object.keys(bridgeData).length) return bridgeData;
     const url = resolveUrl(path);
     try {
       const res = await fetch(url, { cache: "no-store" });
@@ -116,7 +137,7 @@ const createI18n = ({
       if (Object.keys(parsed).length) return parsed;
     }
 
-    return loadJsonFromBridge(path);
+    return bridgeData;
   };
 
   const resolveKey = (obj, key) => {

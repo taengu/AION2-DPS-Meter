@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import javax.imageio.ImageIO
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
@@ -169,6 +170,17 @@ class BrowserApp(
             return try {
                 javaClass.getResourceAsStream(normalized)?.bufferedReader(StandardCharsets.UTF_8)?.use {
                     it.readText()
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        fun readResourceBase64(path: String): String? {
+            val normalized = if (path.startsWith("/")) path else "/$path"
+            return try {
+                javaClass.getResourceAsStream(normalized)?.use { stream ->
+                    Base64.getEncoder().encodeToString(stream.readBytes())
                 }
             } catch (e: Exception) {
                 null
