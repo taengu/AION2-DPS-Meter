@@ -2522,7 +2522,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   opacity: 0.8;
   border-radius: var(--rounded-xs);
   transform-origin: left center;
-  will-change: transform;
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgText {
   position: relative;
