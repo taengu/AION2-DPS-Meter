@@ -2730,3 +2730,8 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   color: rgba(255, 255, 255, 0.8);
   text-align: center;
 }
+
+
+.list.dragInteracting .item {
+  pointer-events: none;
+}
