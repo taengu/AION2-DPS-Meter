@@ -2349,9 +2349,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   overflow-x: hidden;
   scrollbar-gutter: stable;
   min-width: 900px;
-  contain: content;
-  will-change: scroll-position;
-  overscroll-behavior: contain;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2509,7 +2506,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   gap: 12px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  contain: layout paint;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;

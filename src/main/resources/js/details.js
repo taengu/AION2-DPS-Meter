@@ -629,8 +629,9 @@ const createDetailsUI = ({
     const groupedSkills = new Map();
     skills.forEach((skill) => {
       if (!skill) return;
+      const code = String(skill.code ?? "");
       const name = String(skill.name ?? "");
-      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
+      const key = `${code || name}::${skill.isDot ? "dot" : "hit"}`;
       const existing = groupedSkills.get(key);
       if (!existing) {
         groupedSkills.set(key, { ...skill });
@@ -662,11 +663,8 @@ const createDetailsUI = ({
     // .slice(0, 12);
 
     const totalDamage = Number(details?.totalDmg);
-    if (!Number.isFinite(totalDamage) || totalDamage <= 0) {
-      // uiDebug?.log("details:invalidTotalDmg", details);
-      return;
-    }
-    const percentBaseTotal = totalDamage;
+    const aggregatedDamage = topSkills.reduce((sum, skill) => sum + (Number(skill?.dmg) || 0), 0);
+    const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
 
     ensureSkillSlots(topSkills.length);
     syncSkillNameColumnWidth(topSkills);
