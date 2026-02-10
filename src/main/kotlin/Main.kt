@@ -3,6 +3,7 @@ package com.tbread
 import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.*
+import com.tbread.profiling.MemoryProfiler
 import com.tbread.webview.BrowserApp
 import com.tbread.windows.WindowTitleDetector
 import com.sun.jna.platform.win32.Advapi32
@@ -29,6 +30,10 @@ private val logger = LoggerFactory.getLogger("Main")
 
 class AionMeterApp : Application() {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    companion object {
+        var memoryProfilerConfig: MemoryProfiler.Config = MemoryProfiler.Config()
+    }
 
     override fun start(primaryStage: Stage) {
         // We initialize the logic inside start() to ensure the toolkit is ready
@@ -57,6 +62,8 @@ class AionMeterApp : Application() {
             UnifiedLogger.crash("Failed to start JavaFX browser window", e)
             throw e
         }
+
+        MemoryProfiler.start(appScope, memoryProfilerConfig)
 
         // Launch background tasks after UI initialization
         appScope.launch {
@@ -94,6 +101,7 @@ class AionMeterApp : Application() {
 }
 
 fun main(args: Array<String>) {
+    AionMeterApp.memoryProfilerConfig = MemoryProfiler.fromArgs(args)
     configureJavaFxPipeline()
 
     // 1. Check Admin
