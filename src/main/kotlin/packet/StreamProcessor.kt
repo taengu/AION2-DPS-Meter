@@ -375,12 +375,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
                     val sanitizedName = sanitizeNickname(possibleName)
                     if (sanitizedName != null) {
-                        logger.info(
+                        logger.debug(
                             "Potential nickname found in cast net: {} (hex={})",
                             sanitizedName,
                             toHex(possibleNameBytes)
                         )
-                        UnifiedLogger.info(
+                        UnifiedLogger.debug(
                             logger,
                             "Potential nickname found in cast net: {} (hex={})",
                             sanitizedName,
@@ -486,13 +486,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val existingNickname = dataStorage.getNickname()[actorId]
         if (existingNickname != sanitizedName) {
-            logger.info(
+            logger.debug(
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
                 sanitizedName,
                 toHex(possibleNameBytes)
             )
-            UnifiedLogger.info(
+            UnifiedLogger.debug(
                 logger,
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
