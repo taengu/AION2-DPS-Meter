@@ -532,67 +532,151 @@ const createDetailsUI = ({
   };
 
   const syncSkillColumnMinWidths = () => {
+    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
-    if (!headerCells?.length) return;
-    const compactColumns = new Set(["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"]);
+    if (!headerEl || !headerCells?.length) return;
 
-    const panelRect = detailsPanel?.getBoundingClientRect?.();
+    const compactColumns = ["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"];
+    const compactSet = new Set(compactColumns);
+    const columnOrder = ["name", ...compactColumns, "dmg"];
+
     const compactColumnMaxWidths = {
-      hit: 70,
-      mhit: 82,
-      mdmg: 96,
-      crit: 78,
-      parry: 78,
-      perfect: 84,
-      double: 80,
-      back: 78,
-      heal: 90,
+      hit: 64,
+      mhit: 74,
+      mdmg: 86,
+      crit: 70,
+      parry: 70,
+      perfect: 74,
+      double: 72,
+      back: 68,
+      heal: 80,
     };
 
-    headerCells.forEach((headerCell) => {
-      const columnClass = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"]
-        .find((klass) => headerCell.classList.contains(klass));
-      if (!columnClass) return;
+    const compactColumnMinWidths = {
+      hit: 46,
+      mhit: 56,
+      mdmg: 64,
+      crit: 52,
+      parry: 52,
+      perfect: 58,
+      double: 56,
+      back: 52,
+      heal: 56,
+    };
 
+    const isVisibleCell = (cell) => {
+      if (!cell) return false;
+      const style = window.getComputedStyle(cell);
+      return style.display !== "none";
+    };
+
+    const measuredWidths = new Map();
+    const headerMinWidths = new Map();
+
+    columnOrder.forEach((columnClass) => {
+      const headerCell = [...headerCells].find(
+        (cell) => cell.classList.contains(columnClass) && isVisibleCell(cell)
+      );
+      if (!headerCell) return;
+
+      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`) || [];
+      const visibleCells = [...columnCells].filter((cell) => {
+        if (!isVisibleCell(cell)) return false;
+        const row = cell?.closest?.(".skillRow");
+        return !row || row.style.display !== "none";
+      });
+      if (!visibleCells.length) return;
+
+      const headerWidth = Math.ceil(headerCell.scrollWidth || 0);
+      if (!Number.isFinite(headerWidth) || headerWidth <= 0) return;
+
+      headerMinWidths.set(columnClass, headerWidth + 4);
+
+      let targetWidth = headerWidth + 8;
+      if (columnClass === "name") {
+        const currentNameWidth = parseFloat(
+          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "180"
+        );
+        if (Number.isFinite(currentNameWidth) && currentNameWidth > 0) {
+          targetWidth = Math.max(targetWidth, Math.ceil(currentNameWidth));
+        }
+        targetWidth = Math.min(Math.max(120, targetWidth), 220);
+      } else if (compactSet.has(columnClass)) {
+        visibleCells.forEach((cell) => {
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 8);
+        });
+        targetWidth = Math.min(targetWidth, compactColumnMaxWidths[columnClass] || 74);
+      } else if (columnClass === "dmg") {
+        visibleCells.forEach((cell) => {
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 8);
+        });
+        targetWidth = Math.min(Math.max(120, targetWidth), 170);
+      }
+
+      measuredWidths.set(columnClass, Math.ceil(targetWidth));
+    });
+
+    const visibleColumns = columnOrder.filter((columnClass) => measuredWidths.has(columnClass));
+    if (!visibleColumns.length) return;
+
+    const gap = 8;
+    const totalGap = Math.max(0, visibleColumns.length - 1) * gap;
+    const availableWidth = Math.max(300, Math.floor(headerEl.clientWidth - 4));
+    const getTotalWidth = () => visibleColumns.reduce((sum, key) => sum + (measuredWidths.get(key) || 0), 0) + totalGap;
+
+    let overflow = getTotalWidth() - availableWidth;
+
+    if (overflow > 0 && measuredWidths.has("name")) {
+      const current = measuredWidths.get("name") || 0;
+      const minName = Math.max(headerMinWidths.get("name") || 84, 108);
+      const reducible = Math.max(0, current - minName);
+      const delta = Math.min(reducible, overflow);
+      measuredWidths.set("name", current - delta);
+      overflow -= delta;
+    }
+
+    if (overflow > 0 && measuredWidths.has("dmg")) {
+      const current = measuredWidths.get("dmg") || 0;
+      const minDmg = Math.max(headerMinWidths.get("dmg") || 100, 108);
+      const reducible = Math.max(0, current - minDmg);
+      const delta = Math.min(reducible, overflow);
+      measuredWidths.set("dmg", current - delta);
+      overflow -= delta;
+    }
+
+    if (overflow > 0) {
+      const shrinkable = compactColumns.filter((columnClass) => measuredWidths.has(columnClass));
+      for (let round = 0; round < 4 && overflow > 0; round++) {
+        for (let i = 0; i < shrinkable.length && overflow > 0; i++) {
+          const key = shrinkable[i];
+          const current = measuredWidths.get(key) || 0;
+          const minWidth = Math.max(compactColumnMinWidths[key] || 48, headerMinWidths.get(key) || 48);
+          if (current <= minWidth) continue;
+          measuredWidths.set(key, current - 1);
+          overflow -= 1;
+        }
+      }
+    }
+
+    visibleColumns.forEach((columnClass) => {
+      const width = Math.max(36, Math.floor(measuredWidths.get(columnClass) || 0));
       const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
       if (!columnCells?.length) return;
 
-      const headerWidth = Math.ceil(headerCell.scrollWidth);
-      if (!Number.isFinite(headerWidth) || headerWidth <= 0) return;
-
-      let targetWidth = headerWidth;
-      if (compactColumns.has(columnClass)) {
-        columnCells.forEach((cell) => {
-          const row = cell?.closest?.(".skillRow");
-          if (row && row.style.display === "none") return;
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth));
-        });
-        const maxWidth = compactColumnMaxWidths[columnClass] || 84;
-        targetWidth = Math.min(Math.ceil(targetWidth + 8), maxWidth);
-      }
-
-      columnCells?.forEach?.((cell) => {
-        if (columnClass === "name") {
-          return;
-        }
-        cell.style.minWidth = `${targetWidth}px`;
-        if (compactColumns.has(columnClass)) {
-          cell.style.width = `${targetWidth}px`;
-          cell.style.maxWidth = `${targetWidth}px`;
-          cell.style.flex = `0 0 ${targetWidth}px`;
-        } else {
-          cell.style.width = "";
-          cell.style.maxWidth = "";
-          cell.style.flex = "";
-        }
+      columnCells.forEach((cell) => {
+        if (!isVisibleCell(cell)) return;
+        cell.style.minWidth = `${width}px`;
+        cell.style.width = `${width}px`;
+        cell.style.maxWidth = `${width}px`;
+        cell.style.flex = `0 0 ${width}px`;
       });
+
+      if (columnClass === "name") {
+        detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${width}px`);
+      }
     });
 
-    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
-    if (!headerEl) return;
-    const requiredWidth = Math.ceil(headerEl.scrollWidth + 24);
-    if (!Number.isFinite(requiredWidth) || requiredWidth <= 0) return;
-
+    const panelRect = detailsPanel?.getBoundingClientRect?.();
     const currentWidth = Math.ceil(panelRect?.width || 0);
     const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
     if (currentWidth > maxAllowedWidth) {
@@ -620,8 +704,8 @@ const createDetailsUI = ({
 
     const panelRect = detailsPanel?.getBoundingClientRect?.();
     const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
-    const maxNameColumnWidth = Math.max(180, Math.floor(panelWidth * 0.34));
-    const nextWidth = Math.min(Math.max(110, Math.ceil(widest + 24)), maxNameColumnWidth);
+    const maxNameColumnWidth = Math.max(140, Math.floor(panelWidth * 0.28));
+    const nextWidth = Math.min(Math.max(96, Math.ceil(widest + 20)), maxNameColumnWidth);
     if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
     lastSkillNameColumnWidth = nextWidth;
     detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);
