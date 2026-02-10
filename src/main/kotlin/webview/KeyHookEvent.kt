@@ -19,6 +19,8 @@ class KeyHookEvent(private val engine: WebEngine) {
     private val hotkeyTargetProcess = "Aion2.exe"
     private val hotkeyTargetTitle = "Aion2"
     private val pmRemoveFlag = 0x0001
+    private val vkLWin = 0x5B
+    private val vkRWin = 0x5C
 
     @Volatile
     private var lastHotkeyMods = 0
@@ -43,8 +45,15 @@ class KeyHookEvent(private val engine: WebEngine) {
 
     init {
         runCatching {
-            lastHotkeyMods = PropertyHandler.getProperty(HOTKEY_MODS_KEY)?.toIntOrNull() ?: DEFAULT_MODS
-            lastHotkeyKey = PropertyHandler.getProperty(HOTKEY_KEY_KEY)?.toIntOrNull() ?: DEFAULT_KEY_CODE
+            val storedMods = PropertyHandler.getProperty(HOTKEY_MODS_KEY)?.toIntOrNull()
+            val storedKey = PropertyHandler.getProperty(HOTKEY_KEY_KEY)?.toIntOrNull()
+            val normalized = normalizeHotkey(storedMods ?: DEFAULT_MODS, storedKey ?: DEFAULT_KEY_CODE)
+            lastHotkeyMods = normalized.first
+            lastHotkeyKey = normalized.second
+            if (storedMods != lastHotkeyMods || storedKey != lastHotkeyKey) {
+                PropertyHandler.setProperty(HOTKEY_MODS_KEY, lastHotkeyMods.toString())
+                PropertyHandler.setProperty(HOTKEY_KEY_KEY, lastHotkeyKey.toString())
+            }
             updateHotkeyRegistration(true)
         }.onFailure { error ->
             logger.warn("Failed to initialize hotkey registration", error)
@@ -52,10 +61,11 @@ class KeyHookEvent(private val engine: WebEngine) {
     }
 
     fun setHotkey(modifiers: Int, keyCode: Int) {
-        lastHotkeyMods = modifiers
-        lastHotkeyKey = keyCode
-        PropertyHandler.setProperty(HOTKEY_MODS_KEY, modifiers.toString())
-        PropertyHandler.setProperty(HOTKEY_KEY_KEY, keyCode.toString())
+        val normalized = normalizeHotkey(modifiers, keyCode)
+        lastHotkeyMods = normalized.first
+        lastHotkeyKey = normalized.second
+        PropertyHandler.setProperty(HOTKEY_MODS_KEY, lastHotkeyMods.toString())
+        PropertyHandler.setProperty(HOTKEY_KEY_KEY, lastHotkeyKey.toString())
         updateHotkeyRegistration(true)
     }
 
@@ -99,9 +109,6 @@ class KeyHookEvent(private val engine: WebEngine) {
                             continue
                         }
                         if (msg.wParam.toInt() != hotkeyId || !matchesRegisteredHotkey(msg.lParam.toLong())) {
-                            continue
-                        }
-                        if (!isHotkeyComboCurrentlyPressed(registeredHotkeyMods, registeredHotkeyKey)) {
                             continue
                         }
                         val foreground = User32.INSTANCE.GetForegroundWindow()
@@ -220,37 +227,26 @@ class KeyHookEvent(private val engine: WebEngine) {
     }
 
     private fun matchesRegisteredHotkey(lParam: Long): Boolean {
-        val messageMods = (lParam and 0xFFFF).toInt()
+        val messageMods = (lParam and 0xFFFF).toInt() and HOTKEY_MODIFIER_MASK
         val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
-        return messageMods == registeredHotkeyMods && messageKey == registeredHotkeyKey
-    }
-
-    private fun isHotkeyComboCurrentlyPressed(modifiers: Int, keyCode: Int): Boolean {
-        if (keyCode <= 0 || isModifierVirtualKey(keyCode)) {
-            return false
-        }
-
-        if ((modifiers and WinUser.MOD_CONTROL) != 0 && !isVirtualKeyDown(WinUser.VK_CONTROL)) return false
-        if ((modifiers and WinUser.MOD_ALT) != 0 && !isVirtualKeyDown(WinUser.VK_MENU)) return false
-        if ((modifiers and WinUser.MOD_SHIFT) != 0 && !isVirtualKeyDown(WinUser.VK_SHIFT)) return false
-        if ((modifiers and WinUser.MOD_WIN) != 0 &&
-            !isVirtualKeyDown(WinUser.VK_LWIN) &&
-            !isVirtualKeyDown(WinUser.VK_RWIN)
-        ) return false
-
-        return isVirtualKeyDown(keyCode)
-    }
-
-    private fun isVirtualKeyDown(vk: Int): Boolean {
-        return (User32.INSTANCE.GetAsyncKeyState(vk) and 0x8000.toShort()) != 0.toShort()
+        val expectedMods = registeredHotkeyMods and HOTKEY_MODIFIER_MASK
+        return messageMods == expectedMods && messageKey == registeredHotkeyKey
     }
 
     private fun isModifierVirtualKey(vk: Int): Boolean {
         return vk == WinUser.VK_CONTROL ||
             vk == WinUser.VK_MENU ||
             vk == WinUser.VK_SHIFT ||
-            vk == WinUser.VK_LWIN ||
-            vk == WinUser.VK_RWIN
+            vk == vkLWin ||
+            vk == vkRWin
+    }
+
+    private fun normalizeHotkey(modifiers: Int, keyCode: Int): Pair<Int, Int> {
+        val normalizedMods = modifiers and HOTKEY_MODIFIER_MASK
+        val normalizedKey = if (isModifierVirtualKey(keyCode) || keyCode <= 0) DEFAULT_KEY_CODE else keyCode
+        val modifierCount = Integer.bitCount(normalizedMods)
+        val finalMods = if (modifierCount < 2) DEFAULT_MODS else normalizedMods
+        return finalMods to normalizedKey
     }
 
     companion object {
@@ -258,5 +254,6 @@ class KeyHookEvent(private val engine: WebEngine) {
         private const val HOTKEY_KEY_KEY = "dpsMeter.hotkey.keyCode"
         private const val DEFAULT_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
         private const val DEFAULT_KEY_CODE = 82 // R
+        private const val HOTKEY_MODIFIER_MASK = WinUser.MOD_ALT or WinUser.MOD_CONTROL or WinUser.MOD_SHIFT or WinUser.MOD_WIN
     }
 }
