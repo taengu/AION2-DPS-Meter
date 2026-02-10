@@ -60,6 +60,7 @@ class DpsApp {
     // reset 직후 서버가 구 데이터 계속 주는 현상 방지
     this.resetPending = false;
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
 
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
@@ -92,6 +93,7 @@ class DpsApp {
     this._recentLocalIdByName = new Map();
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.latestRowsById = new Map();
 
     DpsApp.instance = this;
   }
@@ -168,16 +170,7 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       onHoverUserRow: (row) => {
-        if (!row || this.pinnedDetailsRowId !== null) return;
-        const rowId = Number(row?.id);
-        if (!Number.isFinite(rowId) || rowId <= 0) return;
-        if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
-        this.hoveredDetailsRowId = rowId;
-        this.detailsUI?.open?.(row, {
-          pin: false,
-          restartOnSwitch: false,
-          ...this.getDefaultDetailsOpenOptions(),
-        });
+        this.openHoverDetailsRow(row);
       },
       onLeaveUserRow: () => {
         this.hoveredDetailsRowId = null;
@@ -198,6 +191,8 @@ class DpsApp {
         });
       },
     });
+
+    this.bindInstantDetailsHover();
 
     const withBacklog = (text) => {
       if (!window.javaBridge?.isRunningFromIde?.()) return text;
@@ -490,6 +485,42 @@ class DpsApp {
 
 
 
+  openHoverDetailsRow(row) {
+    if (!row || this.pinnedDetailsRowId !== null) return;
+    const rowId = Number(row?.id);
+    if (!Number.isFinite(rowId) || rowId <= 0) return;
+    if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
+    this.hoveredDetailsRowId = rowId;
+    this.detailsUI?.open?.(row, {
+      pin: false,
+      restartOnSwitch: false,
+      ...this.getDefaultDetailsOpenOptions(),
+    });
+  }
+
+  bindInstantDetailsHover() {
+    if (!this.elList) return;
+
+    this.elList.addEventListener("mousemove", (event) => {
+      if (this.pinnedDetailsRowId !== null) return;
+      const rowEl = event?.target?.closest?.(".item");
+      const rowId = Number(rowEl?.dataset?.rowId);
+      if (!Number.isFinite(rowId) || rowId <= 0) return;
+      const row = this.latestRowsById?.get?.(String(rowId));
+      if (!row) return;
+      this.openHoverDetailsRow(row);
+    });
+
+    this.elList.addEventListener("mouseleave", () => {
+      if (this.pinnedDetailsRowId !== null) return;
+      this.hoveredDetailsRowId = null;
+      this.detailsUI?.close?.({ keepPinned: false });
+    });
+  }
+
+
+
+
   fetchDps() {
     if (this.isCollapse) return;
     const now = this.nowMs();
@@ -528,16 +559,24 @@ class DpsApp {
     const { rows, targetName, targetMode, battleTimeMs, targetId, localPlayerId } =
       this.buildRowsFromPayload(raw);
     if (this.refreshPending) {
-      if (rows.length > 0) {
+      const pendingAgeMs = Math.max(0, now - (Number(this.refreshPendingStartedAt) || 0));
+      const allowFallbackResume = rows.length > 0 && pendingAgeMs >= 2500;
+
+      if (rows.length > 0 && !allowFallbackResume) {
         return;
       }
+
       this.refreshPending = false;
-      this.lastJson = raw;
-      this.lastSnapshot = [];
-      this._lastRenderedListSignature = "";
-      this._lastRenderedRowsSummary = null;
-      this.meterUI?.onResetMeterUi?.();
-      return;
+      this.refreshPendingStartedAt = 0;
+
+      if (rows.length === 0) {
+        this.lastJson = raw;
+        this.lastSnapshot = [];
+        this._lastRenderedListSignature = "";
+        this._lastRenderedRowsSummary = null;
+        this.meterUI?.onResetMeterUi?.();
+        return;
+      }
     }
 
     this.lastJson = raw;
@@ -671,6 +710,7 @@ class DpsApp {
       this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
+    this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
     this.meterUI.updateFromRows(rowsToRender);
   }
 
@@ -861,6 +901,7 @@ class DpsApp {
     this.resetTargetTrackingState();
     window.javaBridge?.restartTargetSelection?.();
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
     this.resetPending = false;
     this.lastJson = null;
     this.lastSnapshot = null;
@@ -2317,6 +2358,7 @@ class DpsApp {
 
   refreshDamageData({ reason = "refresh" } = {}) {
     this.refreshPending = true;
+    this.refreshPendingStartedAt = this.nowMs();
     this.lastSnapshot = null;
     this.lastJson = null;
     this.lastTargetMode = "";

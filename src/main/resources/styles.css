@@ -912,16 +912,17 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
+  right: 12px;
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(940px, calc(100vw - 24px));
+  width: min(1030px, max(280px, calc(100vw - 384px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
-  max-width: calc(100vw - 24px);
+  max-width: max(280px, calc(100vw - 384px));
   overflow: hidden;
 
   &.flash {
@@ -2280,7 +2281,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-sort-key] {
@@ -2305,15 +2306,22 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 var(--details-skill-name-width, 180px);
-  min-width: var(--details-skill-name-width, 180px);
+  flex: 0 0 var(--details-skill-name-width, 144px);
+  min-width: var(--details-skill-name-width, 144px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
 }
+.detailsPanel .detailsSkills .cell.name .skillNameText {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
   flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .detailsPanel .detailsSkills .cell.heal {
   flex: 0.9 1 0;
@@ -2333,11 +2341,14 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 .detailsPanel .detailsSkills .skillHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
-  min-width: 900px;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
@@ -2349,7 +2360,10 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
-  min-width: 900px;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2504,7 +2518,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 .detailsPanel .detailsSkills .skills .skillRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
