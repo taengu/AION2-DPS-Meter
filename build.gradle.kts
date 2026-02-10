@@ -21,6 +21,19 @@ version = "0.1.6"
 
 val appVersion = version.toString()
 
+val javafxModuleNames = setOf(
+    "javafx-base",
+    "javafx-graphics",
+    "javafx-controls",
+    "javafx-web"
+)
+
+fun runtimeJavafxModulePath(): String {
+    return configurations.runtimeClasspath.get().files
+        .filter { file -> javafxModuleNames.any { name -> file.name.startsWith(name) } }
+        .joinToString(File.pathSeparator) { it.absolutePath }
+}
+
 fun computeMsiVersion(version: String): String {
     val base = version.substringBefore("-")
     val parts = base.split(".").mapNotNull { it.toIntOrNull() }
@@ -69,15 +82,7 @@ graalvmNative {
         named("main") {
             mainClass.set("com.tbread.Launcher")
             val runtimeClasspath = configurations.runtimeClasspath.get()
-            val javafxModuleNames = setOf(
-                "javafx-base",
-                "javafx-graphics",
-                "javafx-controls",
-                "javafx-web"
-            )
-            val javafxModulePath = runtimeClasspath.files
-                .filter { file -> javafxModuleNames.any { name -> file.name.startsWith(name) } }
-                .joinToString(File.pathSeparator) { it.absolutePath }
+            val javafxModulePath = runtimeJavafxModulePath()
             val appClassPath = runtimeClasspath.files
                 .filterNot { file -> javafxModuleNames.any { name -> file.name.startsWith(name) } }
                 .joinToString(File.pathSeparator) { it.absolutePath }
@@ -171,13 +176,14 @@ compose.desktop {
     application {
         mainClass = "com.tbread.Launcher"
 
+        val javafxModulePath = runtimeJavafxModulePath()
         jvmArgs(
             "-XX:+UnlockExperimentalVMOptions",
             "-XX:+UseCompactObjectHeaders",
             "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--module-path", javafxModulePath,
+            "--add-modules", "javafx.base,javafx.controls,javafx.web,javafx.graphics",
             "-Dprism.order=sw",
-            // We removed the --add-modules here.
-            // JavaFX will load from the classpath as 'unnamed' modules.
             "-Dapple.laf.useScreenMenuBar=true"
         )
 
