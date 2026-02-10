@@ -1763,7 +1763,7 @@ class DpsApp {
 
     this.detailsSettingsBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
-      this.toggleDetailsSettingsMenu();
+      this.toggleDetailsSettingsMenu(event);
     });
 
     this.detailsSettingsMenu?.addEventListener("click", (event) => {
@@ -1910,13 +1910,39 @@ class DpsApp {
     return `AION2_DPS_${stamp}.png`;
   }
 
-  toggleDetailsSettingsMenu() {
+  toggleDetailsSettingsMenu(event) {
     if (!this.detailsSettingsMenu) return;
-    this.detailsSettingsMenu.classList.toggle("isOpen");
+    if (this.detailsSettingsMenu.classList.contains("isOpen")) {
+      this.closeDetailsSettingsMenu();
+      return;
+    }
+    this.openDetailsSettingsMenu(event);
+  }
+
+  openDetailsSettingsMenu(event) {
+    if (!this.detailsSettingsMenu) return;
+    this.detailsSettingsMenu.classList.add("isOpen");
+    const menu = this.detailsSettingsMenu;
+    const padding = 8;
+    const buttonRect = this.detailsSettingsBtn?.getBoundingClientRect();
+    const baseX = Number.isFinite(event?.clientX) ? event.clientX : buttonRect?.right ?? padding;
+    const baseY = Number.isFinite(event?.clientY) ? event.clientY : buttonRect?.bottom ?? padding;
+    const rect = menu.getBoundingClientRect();
+    let left = baseX + padding;
+    let top = baseY + padding;
+    const maxLeft = window.innerWidth - rect.width - padding;
+    const maxTop = window.innerHeight - rect.height - padding;
+    left = Math.min(Math.max(padding, left), Math.max(padding, maxLeft));
+    top = Math.min(Math.max(padding, top), Math.max(padding, maxTop));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
   }
 
   closeDetailsSettingsMenu() {
-    this.detailsSettingsMenu?.classList.remove("isOpen");
+    if (!this.detailsSettingsMenu) return;
+    this.detailsSettingsMenu.classList.remove("isOpen");
+    this.detailsSettingsMenu.style.left = "";
+    this.detailsSettingsMenu.style.top = "";
   }
 
   toggleSettingsPanel() {
