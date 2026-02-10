@@ -364,6 +364,7 @@ class DpsApp {
     });
     window.ReleaseChecker?.start?.();
     this.setupConsoleDebugging();
+    this.bindNativeHotkeyBridge();
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
@@ -371,6 +372,15 @@ class DpsApp {
     this.startPolling();
     this.startWindowTitlePolling();
     this.fetchDps();
+  }
+
+  bindNativeHotkeyBridge() {
+    if (this._nativeHotkeyBridgeBound) return;
+    this._nativeHotkeyBridgeBound = true;
+
+    window.addEventListener("nativeResetHotKey", () => {
+      this.refreshDamageData({ reason: "native hotkey refresh" });
+    });
   }
 
   nowMs() {
