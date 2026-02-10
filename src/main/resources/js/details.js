@@ -629,9 +629,8 @@ const createDetailsUI = ({
     const groupedSkills = new Map();
     skills.forEach((skill) => {
       if (!skill) return;
-      const code = String(skill.code ?? "");
       const name = String(skill.name ?? "");
-      const key = `${code || name}::${skill.isDot ? "dot" : "hit"}`;
+      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
       const existing = groupedSkills.get(key);
       if (!existing) {
         groupedSkills.set(key, { ...skill });
@@ -818,6 +817,28 @@ const createDetailsUI = ({
     const actor = detailsActors.get(Number(actorId));
     if (actor?.nickname && actor.nickname !== String(actorId)) return actor.nickname;
     return `Player #${actorId}`;
+  };
+
+  const getActorIdsByLabel = (label) => {
+    const normalizedLabel = String(label ?? "").trim().toLowerCase();
+    if (!normalizedLabel) return [];
+    const ids = [];
+    detailsActors.forEach((actor, actorId) => {
+      const nickname = String(actor?.nickname ?? "").trim().toLowerCase();
+      if (!nickname) return;
+      if (nickname === normalizedLabel) {
+        ids.push(actorId);
+      }
+    });
+    return ids;
+  };
+
+  const syncSelectedAttackersFromLabel = () => {
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) return;
+    if (!detailsActors.size) return;
+    const matchingActorIds = getActorIdsByLabel(selectedAttackerLabel);
+    if (!matchingActorIds.length) return;
+    selectedAttackerIds = matchingActorIds;
   };
 
   const resolveRowLabel = (row) => {
@@ -1211,6 +1232,7 @@ const createDetailsUI = ({
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
     loadDetailsContext();
+    syncSelectedAttackersFromLabel();
     if (defaultTargetAll) {
       selectedTargetId = null;
     } else if (Number.isFinite(Number(defaultTargetId)) && Number(defaultTargetId) > 0) {
@@ -1269,6 +1291,7 @@ const createDetailsUI = ({
     loadDetailsContext();
     selectedTargetId = previousTargetId;
     selectedAttackerIds = previousAttackerIds;
+    syncSelectedAttackersFromLabel();
     renderNicknameMenu();
     renderTargetMenu();
     syncSortButtons();
