@@ -138,8 +138,11 @@
   },
   "support": {
     "button": "지원하기 ☕",
-    "title": "爱发电에서 작성자 후원",
+    "title": "Support the author on Ko-fi",
     "titleWechat": "Support the author on WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
     "copy": {
       "btc": "BTC 주소가 복사되었습니다",
       "eth": "ETH 주소가 복사되었습니다",

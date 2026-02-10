@@ -140,8 +140,11 @@
   },
   "support": {
     "button": "Support me ☕",
-    "title": "Support the author on Afdian",
+    "title": "Support the author on Ko-fi",
     "titleWechat": "Support the author on WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
     "copy": {
       "btc": "BTC address copied",
       "eth": "ETH address copied",

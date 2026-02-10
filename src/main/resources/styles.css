@@ -1687,7 +1687,7 @@ html[lang="ko"] * {
   font-weight: 600;
   font-size: 14px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #8f6af3, #7f58e8);
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
   display: inline-flex;
   align-items: center;
@@ -2644,7 +2644,7 @@ html[lang="ko"] * {
   letter-spacing: 0.02em;
 }
 .supportModal .supportIconButton[data-support="afdian"] {
-  background: linear-gradient(90deg, #8f6af3, #7f58e8);
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
   color: #ffffff;
 }
 .supportModal .supportIconButton[data-support="wechat"] {
@@ -2656,8 +2656,8 @@ html[lang="ko"] * {
   color: #8fc9ff;
 }
 .supportModal .supportIconButton[data-support="kofi"] {
-  background: rgba(255, 95, 95, 0.22);
-  color: #ffd1d1;
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
+  color: #ffffff;
 }
 .supportModal .supportIconButton[data-support="btc"] {
   background: rgba(247, 147, 26, 0.22);

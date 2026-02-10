@@ -140,6 +140,9 @@
     "button": "支持我一下 ☕",
     "title": "在爱发电支持作者",
     "titleWechat": "在微信支持作者",
+    "label": {
+      "wechat": "微信"
+    },
     "copy": {
       "btc": "已复制 BTC 地址",
       "eth": "已复制 ETH 地址",

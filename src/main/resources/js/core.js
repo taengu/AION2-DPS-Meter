@@ -1584,9 +1584,15 @@ class DpsApp {
 
   updateSupportTitle(type) {
     if (!this.supportModalTitle) return;
+    const currentLanguage = this.i18n?.getLanguage?.();
+    const isChinese = this.isChineseLanguage(currentLanguage);
     const isWeChat = type === "wechat";
     const titleKey = isWeChat ? "support.titleWechat" : "support.title";
-    const fallback = isWeChat ? "Support the author on WeChat" : "Support the author on Afdian";
+    const fallback = isWeChat
+      ? "Support the author on WeChat"
+      : isChinese
+        ? "Support the author on Afdian"
+        : "Support the author on Ko-fi";
     this.supportModalTitle.textContent = this.i18n?.t?.(titleKey, fallback) || fallback;
   }
 
