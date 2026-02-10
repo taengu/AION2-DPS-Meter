@@ -545,12 +545,23 @@ const createDetailsUI = ({
 
       const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
       columnCells?.forEach?.((cell) => {
-        if (columnClass === "name" || columnClass === "dmg") {
+        if (columnClass === "name") {
           return;
         }
         cell.style.minWidth = `${minWidth}px`;
       });
     });
+
+    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
+    if (!headerEl) return;
+    const requiredWidth = Math.ceil(headerEl.scrollWidth + 24);
+    if (!Number.isFinite(requiredWidth) || requiredWidth <= 0) return;
+
+    const panelRect = detailsPanel.getBoundingClientRect();
+    const currentWidth = Math.ceil(panelRect.width || 0);
+    if (currentWidth > 0 && currentWidth < requiredWidth) {
+      detailsPanel.style.width = `${requiredWidth}px`;
+    }
   };
 
   const syncSkillNameColumnWidth = (skills = []) => {

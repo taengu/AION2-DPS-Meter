@@ -2324,6 +2324,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 }
 .detailsPanel .detailsSkills .cell.dmg {
   flex: 2.5 1 0;
+  min-width: 170px;
   justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {
