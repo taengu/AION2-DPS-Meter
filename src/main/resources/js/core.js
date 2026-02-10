@@ -1492,7 +1492,7 @@ class DpsApp {
     }
 
     if (url) {
-      const externalOnly = supportType === "paypal";
+      const externalOnly = supportType === "paypal" || supportType === "afdian";
       this.openExternalLink(url, { externalOnly });
     }
 
