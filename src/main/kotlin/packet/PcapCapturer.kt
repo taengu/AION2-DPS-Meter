@@ -19,6 +19,7 @@ class PcapCapturer(
     companion object {
         private val logger = LoggerFactory.getLogger(PcapCapturer::class.java)
         private const val FALLBACK_DELAY_MS = 5000L
+        private const val DEVICE_STATUS_INTERVAL_MS = 10_000L
 
         private fun getAllDevices(): List<PcapNetworkInterface> =
             try { Pcaps.findAllDevs() ?: emptyList() }
@@ -75,6 +76,58 @@ class PcapCapturer(
         }
     }
 
+
+    private fun logDeviceStatusesWhileUnlocked() = thread(name = "pcap-device-status") {
+        while (running.get()) {
+            try {
+                Thread.sleep(DEVICE_STATUS_INTERVAL_MS)
+            } catch (_: InterruptedException) {
+                return@thread
+            }
+            if (!running.get()) return@thread
+            if (CombatPortDetector.currentPort() != null) continue
+
+            val devices = getAllDevices()
+            devices.forEachIndexed { index, device ->
+                val label = device.description ?: device.name
+                val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
+                val hasHandle = activeHandles.containsKey(device.name)
+                val reason = when {
+                    hasHandle -> "capturing"
+                    device.addresses.isEmpty() -> "not capturing: no interface addresses"
+                    else -> "not capturing: handle inactive (not started yet, failed, or waiting)"
+                }
+                logger.debug(
+                    "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
+                    index,
+                    device.name,
+                    label,
+                    device.isLoopBack,
+                    device.isUp,
+                    device.isRunning,
+                    hasHandle,
+                    addresses,
+                    reason
+                )
+                if (UnifiedLogger.isDebugEnabled()) {
+                    UnifiedLogger.debug(
+                        logger,
+                        "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
+                        index,
+                        device.name,
+                        label,
+                        device.isLoopBack,
+                        device.isUp,
+                        device.isRunning,
+                        hasHandle,
+                        addresses,
+                        reason
+                    )
+                }
+            }
+        }
+    }
+
     fun start() {
         if (!running.compareAndSet(false, true)) return
         val devices = getAllDevices()
@@ -111,6 +164,8 @@ class PcapCapturer(
                 )
             }
         }
+
+        logDeviceStatusesWhileUnlocked()
 
         val loopback = getLoopbackDevice(devices)
         val started = mutableSetOf<String>()
