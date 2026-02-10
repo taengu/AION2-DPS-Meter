@@ -244,7 +244,8 @@ class KeyHookEvent(private val engine: WebEngine) {
     private fun normalizeHotkey(modifiers: Int, keyCode: Int): Pair<Int, Int> {
         val normalizedMods = modifiers and HOTKEY_MODIFIER_MASK
         val normalizedKey = if (isModifierVirtualKey(keyCode) || keyCode <= 0) DEFAULT_KEY_CODE else keyCode
-        val finalMods = if (normalizedMods == 0) DEFAULT_MODS else normalizedMods
+        val modifierCount = Integer.bitCount(normalizedMods)
+        val finalMods = if (modifierCount < 2) DEFAULT_MODS else normalizedMods
         return finalMods to normalizedKey
     }
 
