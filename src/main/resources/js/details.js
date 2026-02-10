@@ -29,6 +29,7 @@ const createDetailsUI = ({
   let detectedJobByActorId = new Map();
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
+  const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
@@ -247,6 +248,7 @@ const createDetailsUI = ({
       } else {
         detailsNicknameBtn.textContent = selectedAttackerLabel || "-";
       }
+      applyCjkClass(detailsNicknameBtn, selectedAttackerLabel || "");
       const actorId = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length === 1
         ? selectedAttackerIds[0]
         : null;
@@ -689,6 +691,11 @@ const createDetailsUI = ({
     return String(row.name ?? "-");
   };
 
+  const applyCjkClass = (element, text) => {
+    if (!element) return;
+    element.classList.toggle("isCjk", cjkRegex.test(String(text || "")));
+  };
+
   const renderNicknameMenu = () => {
     if (!detailsNicknameMenu) return;
     detailsNicknameMenu.innerHTML = "";
@@ -718,6 +725,7 @@ const createDetailsUI = ({
       item.className = "detailsDropdownItem";
       item.dataset.value = String(entry.id);
       item.textContent = entry.label;
+      applyCjkClass(item, entry.label);
       const color = getJobColor(getActorJob(entry.id));
       if (color) {
         item.style.color = color;

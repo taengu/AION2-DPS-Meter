@@ -51,6 +51,7 @@
   --indicator-idle: #7f8a9a;
   --font: 16px;
   --details-bg-opacity: 0.8;
+  --cjk-font-stack: "Noto Sans SC", "Noto Sans TC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
 :root[data-theme="aion2"] {
@@ -811,7 +812,9 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       text-overflow: ellipsis;
     }
     .name.isCjk {
-      font-weight: 400;
+      font-family: var(--cjk-font-stack);
+      font-weight: 500;
+      letter-spacing: 0;
     }
     .dps {
       color: var(--dps-text);
@@ -1872,7 +1875,9 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   text-overflow: ellipsis;
 }
 .list .item .name.isCjk {
+  font-family: var(--cjk-font-stack);
   font-weight: 500;
+  letter-spacing: 0;
 }
 .list .item .dps {
   color: var(--dps-text);
@@ -1960,6 +1965,11 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 }
 .detailsPanel .detailsHeader .detailsNicknameBtn {
   color: var(--isUser-fill);
+}
+.detailsPanel .detailsHeader .detailsNicknameBtn.isCjk,
+.detailsPanel .detailsHeader .detailsDropdownItem.isCjk {
+  font-family: var(--cjk-font-stack);
+  letter-spacing: 0;
 }
 .detailsPanel .detailsHeader .detailsTargetBtn,
 .detailsPanel .detailsHeader .detailsTargetSuffix {
