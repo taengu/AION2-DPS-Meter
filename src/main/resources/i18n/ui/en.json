@@ -141,6 +141,7 @@
   "support": {
     "button": "Support me ☕",
     "title": "Support the author on Afdian",
+    "titleWechat": "Support the author on WeChat",
     "copy": {
       "btc": "BTC address copied",
       "eth": "ETH address copied",

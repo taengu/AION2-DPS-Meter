@@ -1257,6 +1257,7 @@ class DpsApp {
     this.supportWidget = document.querySelector(".supportWidget");
     this.supportButton = document.querySelector(".supportButton");
     this.supportModal = document.querySelector("#supportModal");
+    this.supportModalTitle = document.querySelector("#supportModalTitle");
     this.supportModalClose = document.querySelector(".supportModalClose");
     this.supportQrImage = document.querySelector(".supportQrImage");
     this.supportPrimaryButton = document.querySelector(".supportPrimaryButton");
@@ -1574,10 +1575,19 @@ class DpsApp {
     const src = this.supportQrImages?.[type];
     if (!src) return;
     this.supportQrImage.src = src;
+    this.updateSupportTitle(type);
     this.supportActionButtons?.forEach((button) => {
       const match = button.dataset.support === type || button.dataset.qr === type;
       button.classList.toggle("isActive", match);
     });
+  }
+
+  updateSupportTitle(type) {
+    if (!this.supportModalTitle) return;
+    const isWeChat = type === "wechat";
+    const titleKey = isWeChat ? "support.titleWechat" : "support.title";
+    const fallback = isWeChat ? "Support the author on WeChat" : "Support the author on Afdian";
+    this.supportModalTitle.textContent = this.i18n?.t?.(titleKey, fallback) || fallback;
   }
 
   initializeSettingsDropdowns() {
