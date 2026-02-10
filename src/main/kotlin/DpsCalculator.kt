@@ -1176,7 +1176,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         targetId: Int,
         actorId: Int,
         damage: Int,
-        payloadHex: String
+        payloadHex: String?
     ): Int? {
         // Check if skill code is in a valid range (even if not in our SKILL_CODES list)
         val isValidRange = skillCode in 11_000_000..19_999_999 ||
@@ -1208,10 +1208,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             actorId,
             damage
         )
-        logger.debug(
-            "Failed to infer skill code payload={}",
-            payloadHex
-        )
+        if (!payloadHex.isNullOrBlank()) {
+            logger.debug(
+                "Failed to infer skill code payload={}",
+                payloadHex
+            )
+        }
         UnifiedLogger.debug(
             logger,
             "Failed to infer skill code: {} (target {}, actor {}, damage {}) payload={}",
@@ -1219,7 +1221,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             targetId,
             actorId,
             damage,
-            payloadHex
+            payloadHex ?: "<omitted>"
         )
         return null
     }

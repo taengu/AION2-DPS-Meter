@@ -156,6 +156,8 @@ val javafxNativeLibPatterns = listOf(
     "**/jfxmedia.dll"
 )
 
+
+
 tasks.named("nativeCompile").configure {
     doLast {
         val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile
@@ -180,6 +182,10 @@ compose.desktop {
             "-XX:+UseCompactObjectHeaders",
             "--add-opens=java.base/java.nio=ALL-UNNAMED",
             "-Dprism.order=sw",
+            "-DdpsMeter.memProfileEnabled=true",
+            "-DdpsMeter.memProfileInterval=30",
+            "-DdpsMeter.memProfileTop=50",
+            "-DdpsMeter.memProfileOutput=build/memory-profile",
             // We removed the --add-modules here.
             // JavaFX will load from the classpath as 'unnamed' modules.
             "-Dapple.laf.useScreenMenuBar=true"
