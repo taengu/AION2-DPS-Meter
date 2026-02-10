@@ -137,6 +137,7 @@ Use at your own risk.
 - 💬 **Join our Discord:** https://discord.gg/Aion2Global
 - **Say thanks and fund new cool projects & features!**
   - ☕ [Buy me a Coffee](https://ko-fi.com/hiddencube)
+  - ☕ [在爱发电支持我](https://afdian.com/a/hiddencube)
   - 🅿️ [Send with PayPal](https://www.paypal.me/taengoo)
   - 🎁 [Donate with Crypto](https://nowpayments.io/donation/thehiddencube)
   - **BTC**: `1GexKhgVZPYRqpfCKydXLoNUXRRRUoAUwT`
