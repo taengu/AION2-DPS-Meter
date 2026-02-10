@@ -7,12 +7,9 @@ data class TargetInfo(
     private var damagedAmount: Int = 0,
     private var targetDamageStarted: Long,
     private var targetDamageEnded: Long,
-    private val processedUuid: MutableSet<UUID> = mutableSetOf(),
+    private var lastProcessedTimestamp: Long = Long.MIN_VALUE,
+    private var lastProcessedUuid: UUID? = null,
 ) {
-    fun processedUuid(): MutableSet<UUID> {
-        return processedUuid
-    }
-
     fun damagedAmount(): Int {
         return damagedAmount
     }
@@ -29,19 +26,27 @@ data class TargetInfo(
         return targetDamageEnded
     }
 
-    fun processPdp(pdp:ParsedDamagePacket){
-        if (processedUuid.contains(pdp.getUuid())) return
-        damagedAmount += pdp.getDamage()
+    fun processPdp(pdp: ParsedDamagePacket) {
         val ts = pdp.getTimeStamp()
-        if (ts < targetDamageStarted){
+        val id = pdp.getUuid()
+        if (ts < lastProcessedTimestamp) return
+        if (ts == lastProcessedTimestamp) {
+            val prev = lastProcessedUuid
+            if (prev != null && id <= prev) return
+        }
+
+        damagedAmount += pdp.getDamage()
+        if (ts < targetDamageStarted) {
             targetDamageStarted = ts
-        } else if (ts > targetDamageEnded){
+        } else if (ts > targetDamageEnded) {
             targetDamageEnded = ts
         }
-        processedUuid.add(pdp.getUuid())
+
+        lastProcessedTimestamp = ts
+        lastProcessedUuid = id
     }
 
-    fun parseBattleTime():Long{
+    fun parseBattleTime(): Long {
         return targetDamageEnded - targetDamageStarted
     }
 }

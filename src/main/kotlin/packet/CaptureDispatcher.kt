@@ -17,7 +17,7 @@ class CaptureDispatcher(
     private var isAionRunning = false
 
     // One assembler per (portA, portB) pair so streams don't mix
-    private val assemblers = mutableMapOf<Pair<Int, Int>, StreamAssembler>()
+    private val assemblers = mutableMapOf<Pair<Int, Int>, AssemblerState>()
 
     // raw magic detector for "lock" logging (but we do NOT filter yet)
     private val MAGIC = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
@@ -38,9 +38,11 @@ class CaptureDispatcher(
                 val b = maxOf(cap.srcPort, cap.dstPort)
                 val key = a to b
 
-                val assembler = assemblers.getOrPut(key) {
-                    StreamAssembler(StreamProcessor(sharedDataStorage))
+                val now = System.currentTimeMillis()
+                val assemblerState = assemblers.getOrPut(key) {
+                    AssemblerState(StreamAssembler(StreamProcessor(sharedDataStorage)), now)
                 }
+                assemblerState.lastSeenAtMs = now
 
                 // "Lock" is informational for now; don't filter until parsing confirmed stable
                 if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(cap.data)) {
@@ -59,13 +61,14 @@ class CaptureDispatcher(
                 if (looksLikeTlsPayload(cap.data)) {
                     continue
                 }
-                val parsed = assembler.processChunk(cap.data)
+                val parsed = assemblerState.assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
                 }
                 if (parsed) {
                     CombatPortDetector.markPacketParsed()
                 }
+                reclaimAssemblerMemory(now)
             } catch (e: Exception) {
                 UnifiedLogger.crash(
                     "Parser stopped while processing ${cap.deviceName} ${cap.srcPort}-${cap.dstPort}",
@@ -120,14 +123,35 @@ class CaptureDispatcher(
         return trimmedPacket.equals(lockedDevice, ignoreCase = true)
     }
 
+
+    private fun reclaimAssemblerMemory(now: Long) {
+        synchronized(assemblers) {
+            val iter = assemblers.entries.iterator()
+            while (iter.hasNext()) {
+                val (_, state) = iter.next()
+                val idleFor = now - state.lastSeenAtMs
+                if (idleFor < ASSEMBLER_IDLE_RECLAIM_MS) continue
+                if (state.assembler.bufferedBytes() == 0) {
+                    iter.remove()
+                }
+            }
+        }
+    }
+
+    private data class AssemblerState(
+        val assembler: StreamAssembler,
+        var lastSeenAtMs: Long,
+    )
+
     fun getParsingBacklog(): Int {
         synchronized(assemblers) {
-            return assemblers.values.sumOf { it.bufferedBytes() }
+            return assemblers.values.sumOf { it.assembler.bufferedBytes() }
         }
     }
 
     companion object {
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
+        private const val ASSEMBLER_IDLE_RECLAIM_MS = 2 * 60_000L
     }
 }

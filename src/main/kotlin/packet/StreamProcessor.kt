@@ -549,10 +549,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val damageInfo = readVarInt(packet,offset)
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
-        pdp.setHexPayload(toHex(packet))
-
-        logger.debug("{}", toHex(packet))
-        UnifiedLogger.debug(logger, "{}", toHex(packet))
+        if (UnifiedLogger.isDebugEnabled()) {
+            val packetHex = toHex(packet)
+            pdp.setHexPayload(packetHex)
+            logger.debug("{}", packetHex)
+            UnifiedLogger.debug(logger, "{}", packetHex)
+        }
         logger.debug(
             "Dot damage actor {}, target {}, skill {}, damage {}",
             pdp.getActorId(),
@@ -875,15 +877,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setHealAmount(healAmount)
         pdp.setUnknown(unknownInfo)
         pdp.setDamage(VarIntOutput(finalDamage, 1))
-        pdp.setHexPayload(toHex(packet))
+        val shouldStoreHex = UnifiedLogger.isDebugEnabled()
+        if (shouldStoreHex) {
+            pdp.setHexPayload(toHex(packet))
+        }
 
-        logger.trace("{}", toHex(packet))
-        logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
-        logger.trace(
-            "Type packet bits {}",
-            String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
-        )
-        logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        if (logger.isTraceEnabled) {
+            logger.trace("{}", toHex(packet))
+            logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
+            logger.trace(
+                "Type packet bits {}",
+                String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
+            )
+            logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        }
         logger.debug(
             "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
             pdp.getTargetId(),
@@ -902,7 +909,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getType(),
             pdp.getDamage(),
             pdp.getSpecials(),
-            toHex(packet)
+            if (shouldStoreHex) pdp.getHexPayload() else ""
         )
 
         if (pdp.getActorId() != pdp.getTargetId()) {

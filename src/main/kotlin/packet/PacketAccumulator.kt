@@ -7,7 +7,7 @@ import java.util.Arrays
 class PacketAccumulator {
     private val logger = LoggerFactory.getLogger(PacketAccumulator::class.java)
 
-    private val buffer = ByteArrayOutputStream(64 * 1024) // pre-size
+    private var buffer = ByteArrayOutputStream(INITIAL_BUFFER_SIZE) // pre-size
     private var cachedBytes: ByteArray? = null
 
     private val MAX_BUFFER_SIZE = 2 * 1024 * 1024
@@ -61,13 +61,28 @@ class PacketAccumulator {
     @Synchronized
     fun discardBytes(length: Int) {
         val allBytes = getCached()
-        buffer.reset()
-
-        if (length < allBytes.size) {
-            buffer.write(allBytes, length, allBytes.size - length)
+        val remaining = if (length < allBytes.size) {
+            Arrays.copyOfRange(allBytes, length, allBytes.size)
+        } else {
+            ByteArray(0)
         }
 
+        buffer.reset()
+        if (remaining.isNotEmpty()) {
+            buffer.write(remaining)
+        }
+        reclaimIfOversized(allBytes.size, remaining.size)
         cachedBytes = null
+    }
+
+    private fun reclaimIfOversized(previousSize: Int, remainingSize: Int) {
+        if (previousSize <= WARN_BUFFER_SIZE || remainingSize >= INITIAL_BUFFER_SIZE) return
+        val resized = ByteArrayOutputStream(INITIAL_BUFFER_SIZE)
+        val snapshot = buffer.toByteArray()
+        if (snapshot.isNotEmpty()) {
+            resized.write(snapshot)
+        }
+        buffer = resized
     }
 
     @Synchronized
@@ -83,5 +98,9 @@ class PacketAccumulator {
         val bytes = buffer.toByteArray()
         cachedBytes = bytes
         return bytes
+    }
+
+    companion object {
+        private const val INITIAL_BUFFER_SIZE = 64 * 1024
     }
 }

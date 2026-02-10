@@ -16,6 +16,7 @@ import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import kotlin.math.roundToInt
 import java.util.UUID
+import java.util.LinkedHashMap
 import java.nio.charset.StandardCharsets
 
 class DpsCalculator(private val dataStorage: DataStorage) {
@@ -498,6 +499,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 18800000,
                 18800001
             ).apply { sort() }
+
+        private const val NICKNAME_JOB_CACHE_LIMIT = 4096
     }
 
     private val targetInfoMap = hashMapOf<Int, TargetInfo>()
@@ -512,7 +515,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     @Volatile private var lastKnownLocalPlayerId: Long? = null
     @Volatile private var allTargetsWindowMs = 120_000L
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
-    private val nicknameJobCache = mutableMapOf<String, String>()
+    private val nicknameJobCache = object : LinkedHashMap<String, String>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+            return size > NICKNAME_JOB_CACHE_LIMIT
+        }
+    }
 
     fun setMode(mode: Mode) {
         this.mode = mode
