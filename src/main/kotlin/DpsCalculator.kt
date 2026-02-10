@@ -16,6 +16,7 @@ import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import kotlin.math.roundToInt
 import java.util.UUID
+import java.nio.charset.StandardCharsets
 
 class DpsCalculator(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -66,7 +67,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 3450
             )
 
-        val SKILL_MAP = mapOf(
+        private val BASE_SKILL_MAP = mapOf(
             /*
         Cleric
          */
@@ -492,6 +493,31 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             13700000 to "Assault Ambush"
 
         )
+
+
+        val SKILL_MAP: Map<Int, String> by lazy {
+            val merged = mutableMapOf<Int, String>()
+            merged.putAll(BASE_SKILL_MAP)
+            merged.putAll(loadSkillMapFromResource())
+            merged
+        }
+
+        private fun loadSkillMapFromResource(): Map<Int, String> {
+            val stream = DpsCalculator::class.java.classLoader
+                .getResourceAsStream("i18n/skills/en.json") ?: return emptyMap()
+            val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            val entryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
+            return entryRegex.findAll(text)
+                .mapNotNull { match ->
+                    val code = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+                    val rawName = match.groupValues.getOrNull(2) ?: return@mapNotNull null
+                    val name = rawName
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                    code to name
+                }
+                .toMap()
+        }
 
         val SKILL_CODES: IntArray =
             intArrayOf(
