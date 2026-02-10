@@ -912,16 +912,17 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
+  right: 12px;
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(940px, calc(100vw - 24px));
+  width: min(940px, max(280px, calc(100vw - 384px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
-  max-width: calc(100vw - 24px);
+  max-width: max(280px, calc(100vw - 384px));
   overflow: hidden;
 
   &.flash {

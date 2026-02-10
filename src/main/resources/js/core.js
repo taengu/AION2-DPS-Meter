@@ -92,6 +92,7 @@ class DpsApp {
     this._recentLocalIdByName = new Map();
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.latestRowsById = new Map();
 
     DpsApp.instance = this;
   }
@@ -168,16 +169,7 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       onHoverUserRow: (row) => {
-        if (!row || this.pinnedDetailsRowId !== null) return;
-        const rowId = Number(row?.id);
-        if (!Number.isFinite(rowId) || rowId <= 0) return;
-        if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
-        this.hoveredDetailsRowId = rowId;
-        this.detailsUI?.open?.(row, {
-          pin: false,
-          restartOnSwitch: false,
-          ...this.getDefaultDetailsOpenOptions(),
-        });
+        this.openHoverDetailsRow(row);
       },
       onLeaveUserRow: () => {
         this.hoveredDetailsRowId = null;
@@ -198,6 +190,8 @@ class DpsApp {
         });
       },
     });
+
+    this.bindInstantDetailsHover();
 
     const withBacklog = (text) => {
       if (!window.javaBridge?.isRunningFromIde?.()) return text;
@@ -490,6 +484,42 @@ class DpsApp {
 
 
 
+  openHoverDetailsRow(row) {
+    if (!row || this.pinnedDetailsRowId !== null) return;
+    const rowId = Number(row?.id);
+    if (!Number.isFinite(rowId) || rowId <= 0) return;
+    if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
+    this.hoveredDetailsRowId = rowId;
+    this.detailsUI?.open?.(row, {
+      pin: false,
+      restartOnSwitch: false,
+      ...this.getDefaultDetailsOpenOptions(),
+    });
+  }
+
+  bindInstantDetailsHover() {
+    if (!this.elList) return;
+
+    this.elList.addEventListener("mousemove", (event) => {
+      if (this.pinnedDetailsRowId !== null) return;
+      const rowEl = event?.target?.closest?.(".item");
+      const rowId = Number(rowEl?.dataset?.rowId);
+      if (!Number.isFinite(rowId) || rowId <= 0) return;
+      const row = this.latestRowsById?.get?.(String(rowId));
+      if (!row) return;
+      this.openHoverDetailsRow(row);
+    });
+
+    this.elList.addEventListener("mouseleave", () => {
+      if (this.pinnedDetailsRowId !== null) return;
+      this.hoveredDetailsRowId = null;
+      this.detailsUI?.close?.({ keepPinned: false });
+    });
+  }
+
+
+
+
   fetchDps() {
     if (this.isCollapse) return;
     const now = this.nowMs();
@@ -671,6 +701,7 @@ class DpsApp {
       this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
+    this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
     this.meterUI.updateFromRows(rowsToRender);
   }
 
