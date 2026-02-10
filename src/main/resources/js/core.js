@@ -2347,6 +2347,7 @@ class DpsApp {
     }
 
     window.javaBridge?.resetDps?.();
+    window.javaBridge?.restartTargetSelection?.();
     this.logDebug(`Damage data refreshed (${reason}).`);
   }
 
