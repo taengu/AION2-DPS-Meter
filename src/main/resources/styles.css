@@ -2305,7 +2305,8 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 2.4 1 0;
+  flex: 0 0 var(--details-skill-name-width, 180px);
+  min-width: var(--details-skill-name-width, 180px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
@@ -2348,6 +2349,9 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   overflow-x: hidden;
   scrollbar-gutter: stable;
   min-width: 900px;
+  contain: content;
+  will-change: scroll-position;
+  overscroll-behavior: contain;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2505,6 +2509,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   gap: 12px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  contain: layout paint;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;
@@ -2521,6 +2526,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   opacity: 0.8;
   border-radius: var(--rounded-xs);
   transform-origin: left center;
+  will-change: transform;
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgText {
   position: relative;

@@ -29,6 +29,8 @@ const createDetailsUI = ({
   let detectedJobByActorId = new Map();
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
+  let lastSkillNameColumnWidth = 0;
+  const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -459,6 +461,22 @@ const createDetailsUI = ({
       healEl,
       dmgFillEl,
       dmgTextEl,
+      renderState: {
+        hidden: false,
+        name: "",
+        color: "",
+        hit: "",
+        crit: "",
+        parry: "",
+        back: "",
+        perfect: "",
+        double: "",
+        heal: "",
+        multiHit: "",
+        multiHitDamage: "",
+        dmgText: "",
+        fill: "",
+      },
     };
   };
 
@@ -551,6 +569,37 @@ const createDetailsUI = ({
     });
   };
 
+  const syncSkillNameColumnWidth = (skills = []) => {
+    if (!skillNameMeasureCtx) return;
+    const fontSource =
+      detailsPanel?.querySelector?.(".detailsSkills .skills .skillRow .skillNameText") ||
+      detailsPanel?.querySelector?.(".detailsSkills .skillHeader .cell.name");
+    if (!fontSource) return;
+
+    const computed = window.getComputedStyle(fontSource);
+    const font = computed?.font || `${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
+    if (!font) return;
+
+    skillNameMeasureCtx.font = font;
+    let widest = 0;
+    for (let i = 0; i < skills.length; i++) {
+      const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
+      if (width > widest) widest = width;
+    }
+
+    const nextWidth = Math.max(110, Math.ceil(widest + 24));
+    if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
+    lastSkillNameColumnWidth = nextWidth;
+    detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);
+  };
+
+  const setTextIfChanged = (el, nextValue) => {
+    const value = String(nextValue ?? "");
+    if (el.textContent !== value) {
+      el.textContent = value;
+    }
+  };
+
   const bindSkillHeaderSorting = () => {
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell[data-sort-key]");
     headerCells?.forEach?.((cell) => {
@@ -620,18 +669,29 @@ const createDetailsUI = ({
     const percentBaseTotal = totalDamage;
 
     ensureSkillSlots(topSkills.length);
+    syncSkillNameColumnWidth(topSkills);
 
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
+      const state = view.renderState;
       const skill = topSkills[i];
 
       if (!skill) {
-        view.rowEl.style.display = "none";
-        view.dmgFillEl.style.transform = "scaleX(0)";
+        if (!state.hidden) {
+          view.rowEl.style.display = "none";
+          state.hidden = true;
+        }
+        if (state.fill !== "scaleX(0)") {
+          view.dmgFillEl.style.transform = "scaleX(0)";
+          state.fill = "scaleX(0)";
+        }
         continue;
       }
 
-      view.rowEl.style.display = "";
+      if (state.hidden) {
+        view.rowEl.style.display = "";
+        state.hidden = false;
+      }
 
       const damage = skill.dmg || 0;
       const barFillRatio = clamp01(damage / percentBaseTotal);
@@ -655,23 +715,74 @@ const createDetailsUI = ({
       const perfectRate = pct(perfect, hits);
       const doubleRate = pct(double, hits);
 
-      view.nameTextEl.textContent = skill.name ?? "";
+      const skillName = skill.name ?? "";
+      if (state.name !== skillName) {
+        setTextIfChanged(view.nameTextEl, skillName);
+        state.name = skillName;
+      }
       const resolvedJob = skill.job || getActorJob(skill.actorId);
       const skillColor = resolvedJob ? getJobColor(resolvedJob) : "";
-      view.nameTextEl.style.color = skillColor || "";
-      view.hitEl.textContent = `${hits}`;
-      view.critEl.textContent = `${critRate}%`;
+      if (state.color !== skillColor) {
+        view.nameTextEl.style.color = skillColor || "";
+        state.color = skillColor;
+      }
 
-      view.parryEl.textContent = `${parryRate}%`;
-      view.backEl.textContent = `${backRate}%`;
-      view.perfectEl.textContent = `${perfectRate}%`;
-      view.doubleEl.textContent = `${doubleRate}%`;
-      view.healEl.textContent = `${formatCount(heal)}`;
-      view.multiHitEl.textContent = `${formatCount(multiHitCount)}`;
-      view.multiHitDamageEl.textContent = `${formatDamageCompact(multiHitDamage)}`;
+      const hitText = `${hits}`;
+      const critText = `${critRate}%`;
+      const parryText = `${parryRate}%`;
+      const backText = `${backRate}%`;
+      const perfectText = `${perfectRate}%`;
+      const doubleText = `${doubleRate}%`;
+      const healText = `${formatCount(heal)}`;
+      const multiHitText = `${formatCount(multiHitCount)}`;
+      const multiHitDamageText = `${formatDamageCompact(multiHitDamage)}`;
+      const dmgText = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
+      const fillTransform = `scaleX(${barFillRatio})`;
 
-      view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
-      view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
+      if (state.hit !== hitText) {
+        setTextIfChanged(view.hitEl, hitText);
+        state.hit = hitText;
+      }
+      if (state.crit !== critText) {
+        setTextIfChanged(view.critEl, critText);
+        state.crit = critText;
+      }
+      if (state.parry !== parryText) {
+        setTextIfChanged(view.parryEl, parryText);
+        state.parry = parryText;
+      }
+      if (state.back !== backText) {
+        setTextIfChanged(view.backEl, backText);
+        state.back = backText;
+      }
+      if (state.perfect !== perfectText) {
+        setTextIfChanged(view.perfectEl, perfectText);
+        state.perfect = perfectText;
+      }
+      if (state.double !== doubleText) {
+        setTextIfChanged(view.doubleEl, doubleText);
+        state.double = doubleText;
+      }
+      if (state.heal !== healText) {
+        setTextIfChanged(view.healEl, healText);
+        state.heal = healText;
+      }
+      if (state.multiHit !== multiHitText) {
+        setTextIfChanged(view.multiHitEl, multiHitText);
+        state.multiHit = multiHitText;
+      }
+      if (state.multiHitDamage !== multiHitDamageText) {
+        setTextIfChanged(view.multiHitDamageEl, multiHitDamageText);
+        state.multiHitDamage = multiHitDamageText;
+      }
+      if (state.dmgText !== dmgText) {
+        setTextIfChanged(view.dmgTextEl, dmgText);
+        state.dmgText = dmgText;
+      }
+      if (state.fill !== fillTransform) {
+        view.dmgFillEl.style.transform = fillTransform;
+        state.fill = fillTransform;
+      }
     }
 
     syncSkillColumnMinWidths();
