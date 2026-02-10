@@ -2313,7 +2313,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 1 1 0;
+  flex: 0 1 auto;
 }
 .detailsPanel .detailsSkills .cell.heal {
   flex: 0.9 1 0;
