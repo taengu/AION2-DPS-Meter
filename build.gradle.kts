@@ -156,6 +156,18 @@ val javafxNativeLibPatterns = listOf(
     "**/jfxmedia.dll"
 )
 
+
+
+tasks.withType<JavaExec>().configureEach {
+    if (name == "run") {
+        jvmArgs(
+            "-DdpsMeter.memProfileEnabled=true",
+            "-DdpsMeter.memProfileInterval=30",
+            "-DdpsMeter.memProfileTop=50"
+        )
+    }
+}
+
 tasks.named("nativeCompile").configure {
     doLast {
         val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile

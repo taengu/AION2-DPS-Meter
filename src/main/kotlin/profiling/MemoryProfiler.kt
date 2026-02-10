@@ -33,10 +33,16 @@ object MemoryProfiler {
     )
 
     fun fromArgs(args: Array<String>): Config {
-        var enabled = false
-        var intervalSeconds = 60L
-        var outputDir = "memory-profile"
-        var topClasses = 30
+        var enabled = System.getProperty("dpsMeter.memProfileEnabled")?.toBooleanStrictOrNull() ?: false
+        var intervalSeconds = System.getProperty("dpsMeter.memProfileInterval")
+            ?.toLongOrNull()
+            ?.coerceAtLeast(5)
+            ?: 60L
+        var outputDir = System.getProperty("dpsMeter.memProfileOutput")?.ifBlank { null } ?: "memory-profile"
+        var topClasses = System.getProperty("dpsMeter.memProfileTop")
+            ?.toIntOrNull()
+            ?.coerceAtLeast(1)
+            ?: 30
 
         args.forEach { arg ->
             when {
