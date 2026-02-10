@@ -2616,14 +2616,14 @@ html[lang="ko"] * {
   background: rgba(255, 255, 255, 0.08);
   color: white;
   border-radius: 10px;
-  padding: 10px 0;
+  padding: 10px 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .supportModal .supportIconButton:hover {
@@ -2634,9 +2634,38 @@ html[lang="ko"] * {
   background: rgba(143, 106, 243, 0.35);
   box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
 }
-.supportModal .supportIconText {
+.supportModal .supportIcon {
+  font-size: 16px;
+  line-height: 1;
+}
+.supportModal .supportLabel {
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.supportModal .supportIconButton[data-support="afdian"] {
+  background: rgba(255, 112, 148, 0.18);
+  color: #ff9cb9;
+}
+.supportModal .supportIconButton[data-support="wechat"] {
+  background: rgba(16, 187, 89, 0.2);
+  color: #8df0b6;
+}
+.supportModal .supportIconButton[data-support="paypal"] {
+  background: rgba(0, 112, 186, 0.2);
+  color: #8fc9ff;
+}
+.supportModal .supportIconButton[data-support="btc"] {
+  background: rgba(247, 147, 26, 0.22);
+  color: #ffd0a1;
+}
+.supportModal .supportIconButton[data-support="eth"] {
+  background: rgba(98, 126, 234, 0.22);
+  color: #c2d2ff;
+}
+.supportModal .supportIconButton[data-support="usdc"] {
+  background: rgba(39, 117, 202, 0.22);
+  color: #bcd8ff;
 }
 .supportModal .supportCopyStatus {
   min-height: 18px;
