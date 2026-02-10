@@ -134,19 +134,6 @@
         "all": "전체",
         "highestDamage": "최대 피해"
       }
-    },
-    "hotkey": {
-      "label": "새로고침 단축키",
-      "change": "변경",
-      "cancel": "취소",
-      "hint": "변경을 누른 뒤 원하는 키 조합을 입력하세요.",
-      "capturePrompt": "키 조합을 입력하세요 (Ctrl/Alt/Shift + 키). Esc로 취소합니다.",
-      "saved": "단축키가 저장되었습니다.",
-      "cancelled": "단축키 입력이 취소되었습니다.",
-      "none": "설정 안 됨",
-      "modifierOnly": "보조키만으로는 설정할 수 없습니다. 일반 키를 함께 눌러주세요.",
-      "requireModifier": "Ctrl/Alt/Shift 중 하나 이상 포함해야 합니다.",
-      "invalidKey": "이 키는 단축키로 사용할 수 없습니다."
     }
   },
   "support": {

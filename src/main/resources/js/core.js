@@ -97,8 +97,6 @@ class DpsApp {
     this.isWindowDragging = false;
     this.deferFetchUntilDragEnd = false;
     this.suppressRowInteractionUntilMs = 0;
-    this.hotkeyCaptureActive = false;
-    this.hotkeyCaptureHandler = null;
 
     DpsApp.instance = this;
   }
@@ -363,10 +361,6 @@ class DpsApp {
       this.updateSupportVisibility(lang);
       this.updateSupportPrimaryAction(lang);
       this.updateSupportQrImage(this.supportPrimaryButton?.dataset.support || "afdian");
-      this.updateHotkeyValueLabel(window.javaBridge?.getCurrentHotKey?.());
-      if (!this.hotkeyCaptureActive) {
-        this.updateHotkeyCaptureStatus("settings.hotkey.hint", "Press change, then your key combination.");
-      }
     });
     window.ReleaseChecker?.start?.();
     this.setupConsoleDebugging();
@@ -387,143 +381,6 @@ class DpsApp {
     window.addEventListener("nativeResetHotKey", () => {
       this.refreshDamageData({ reason: "native hotkey refresh" });
     });
-  }
-
-  initializeHotkeySettings() {
-    this.updateHotkeyValueLabel(window.javaBridge?.getCurrentHotKey?.());
-    this.updateHotkeyCaptureStatus("settings.hotkey.hint", "Press change, then your key combination.");
-
-    if (!this.hotkeyCaptureBtn) return;
-    this.hotkeyCaptureBtn.addEventListener("click", () => {
-      if (this.hotkeyCaptureActive) {
-        this.stopHotkeyCapture({ cancelled: true });
-        return;
-      }
-      this.startHotkeyCapture();
-    });
-  }
-
-  updateHotkeyCaptureStatus(key, fallback) {
-    if (!this.hotkeyCaptureStatusEl) return;
-    this.hotkeyCaptureStatusEl.textContent = this.i18n?.t(key, fallback) ?? fallback;
-  }
-
-  updateHotkeyValueLabel(value) {
-    if (!this.hotkeyValueEl) return;
-    const resolved = String(value || "").trim();
-    this.hotkeyValueEl.textContent = resolved || (this.i18n?.t("settings.hotkey.none", "Not set") ?? "Not set");
-  }
-
-  startHotkeyCapture() {
-    this.hotkeyCaptureActive = true;
-    this.hotkeyCaptureBtn?.setAttribute(
-      "data-i18n",
-      "settings.hotkey.cancel"
-    );
-    if (this.hotkeyCaptureBtn) {
-      this.hotkeyCaptureBtn.textContent = this.i18n?.t("settings.hotkey.cancel", "Cancel") ?? "Cancel";
-    }
-    this.updateHotkeyCaptureStatus(
-      "settings.hotkey.capturePrompt",
-      "Press a key combo (Ctrl/Alt/Shift + key). Esc to cancel."
-    );
-
-    this.hotkeyCaptureHandler = (event) => this.handleHotkeyCaptureKeydown(event);
-    document.addEventListener("keydown", this.hotkeyCaptureHandler, true);
-  }
-
-  stopHotkeyCapture({ cancelled = false, keepStatus = false } = {}) {
-    if (!this.hotkeyCaptureActive) return;
-    this.hotkeyCaptureActive = false;
-
-    if (this.hotkeyCaptureHandler) {
-      document.removeEventListener("keydown", this.hotkeyCaptureHandler, true);
-      this.hotkeyCaptureHandler = null;
-    }
-
-    this.hotkeyCaptureBtn?.setAttribute("data-i18n", "settings.hotkey.change");
-    if (this.hotkeyCaptureBtn) {
-      this.hotkeyCaptureBtn.textContent = this.i18n?.t("settings.hotkey.change", "Change") ?? "Change";
-    }
-
-    if (!keepStatus) {
-      this.updateHotkeyCaptureStatus(
-        cancelled ? "settings.hotkey.cancelled" : "settings.hotkey.hint",
-        cancelled ? "Hotkey capture cancelled." : "Press change, then your key combination."
-      );
-    }
-  }
-
-  getHotkeyModifiers(event) {
-    let modifiers = 0;
-    if (event?.altKey) modifiers |= 0x0001;
-    if (event?.ctrlKey) modifiers |= 0x0002;
-    if (event?.shiftKey) modifiers |= 0x0004;
-    if (event?.metaKey) modifiers |= 0x0008;
-    return modifiers;
-  }
-
-  resolveKeyCode(event) {
-    const keyCode = Number(event?.keyCode || event?.which || 0);
-    if (Number.isFinite(keyCode) && keyCode > 0) {
-      return keyCode;
-    }
-
-    const code = String(event?.code || "");
-    if (/^Key[A-Z]$/.test(code)) return code.charCodeAt(3);
-    if (/^Digit[0-9]$/.test(code)) return code.charCodeAt(5);
-    const fnMatch = /^F([1-9]|1[0-2])$/.exec(code);
-    if (fnMatch) return 111 + Number(fnMatch[1]);
-    return 0;
-  }
-
-  isModifierOnlyKey(event) {
-    const key = String(event?.key || "");
-    return key === "Control" || key === "Alt" || key === "Shift" || key === "Meta";
-  }
-
-  handleHotkeyCaptureKeydown(event) {
-    if (!this.hotkeyCaptureActive) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.key === "Escape") {
-      this.stopHotkeyCapture({ cancelled: true });
-      return;
-    }
-
-    if (this.isModifierOnlyKey(event)) {
-      this.updateHotkeyCaptureStatus(
-        "settings.hotkey.modifierOnly",
-        "Add a non-modifier key to complete the shortcut."
-      );
-      return;
-    }
-
-    const modifiers = this.getHotkeyModifiers(event);
-    if (modifiers === 0) {
-      this.updateHotkeyCaptureStatus(
-        "settings.hotkey.requireModifier",
-        "Use at least one modifier key (Ctrl/Alt/Shift)."
-      );
-      return;
-    }
-
-    const keyCode = this.resolveKeyCode(event);
-    if (!keyCode) {
-      this.updateHotkeyCaptureStatus(
-        "settings.hotkey.invalidKey",
-        "That key cannot be used as a hotkey."
-      );
-      return;
-    }
-
-    window.javaBridge?.setHotkey?.(modifiers, keyCode);
-    const current = window.javaBridge?.getCurrentHotKey?.();
-    this.updateHotkeyValueLabel(current);
-    this.updateHotkeyCaptureStatus("settings.hotkey.saved", "Hotkey saved.");
-    this.stopHotkeyCapture({ keepStatus: true });
   }
 
   nowMs() {
@@ -1516,9 +1373,6 @@ class DpsApp {
     this.languageDropdownMenu = document.querySelector(".languageDropdownMenu");
     this.themeDropdownBtn = document.querySelector(".themeDropdownBtn");
     this.themeDropdownMenu = document.querySelector(".themeDropdownMenu");
-    this.hotkeyCaptureBtn = document.querySelector(".hotkeyCaptureBtn");
-    this.hotkeyValueEl = document.querySelector(".hotkeyValue");
-    this.hotkeyCaptureStatusEl = document.querySelector(".hotkeyCaptureStatus");
     this.settingsSelections = {
       language: "en",
       theme: this.theme,
@@ -1650,7 +1504,6 @@ class DpsApp {
     this.settingsSelections.language = currentLanguage;
     this.settingsSelections.theme = this.theme;
 
-    this.initializeHotkeySettings();
     this.initializeSettingsDropdowns();
 
     this.settingsBtn?.addEventListener("click", () => {

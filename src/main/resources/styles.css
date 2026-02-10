@@ -1531,15 +1531,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   font-size: 12px;
   opacity: 0.75;
 }
-
-.settingsPanel .hotkeyValue {
-  font-family: "Consolas", "SFMono-Regular", Menlo, Monaco, monospace;
-  letter-spacing: 0.02em;
-}
-.settingsPanel .hotkeyCaptureStatus {
-  margin-top: -6px;
-  margin-bottom: 4px;
-}
 .settingsPanel .settingsInfo {
   display: flex;
   flex-direction: column;

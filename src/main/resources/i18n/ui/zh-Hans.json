@@ -134,19 +134,6 @@
         "all": "全部",
         "highestDamage": "最高伤害"
       }
-    },
-    "hotkey": {
-      "label": "刷新快捷键",
-      "change": "修改",
-      "cancel": "取消",
-      "hint": "点击“修改”后，再按下键位组合。",
-      "capturePrompt": "请按下键位组合（Ctrl/Alt/Shift + 按键），按 Esc 取消。",
-      "saved": "快捷键已保存。",
-      "cancelled": "已取消快捷键设置。",
-      "none": "未设置",
-      "modifierOnly": "仅按修饰键无法完成设置，请再搭配普通按键。",
-      "requireModifier": "请至少包含一个修饰键（Ctrl/Alt/Shift）。",
-      "invalidKey": "该按键不能用作快捷键。"
     }
   },
   "support": {

@@ -136,19 +136,6 @@
         "all": "All",
         "highestDamage": "Highest Damage"
       }
-    },
-    "hotkey": {
-      "label": "Reload hotkey",
-      "change": "Change",
-      "cancel": "Cancel",
-      "hint": "Press change, then your key combination.",
-      "capturePrompt": "Press a key combo (Ctrl/Alt/Shift + key). Esc to cancel.",
-      "saved": "Hotkey saved.",
-      "cancelled": "Hotkey capture cancelled.",
-      "none": "Not set",
-      "modifierOnly": "Add a non-modifier key to complete the shortcut.",
-      "requireModifier": "Use at least one modifier key (Ctrl/Alt/Shift).",
-      "invalidKey": "That key cannot be used as a hotkey."
     }
   },
   "support": {
