@@ -134,6 +134,19 @@
         "all": "全部",
         "highestDamage": "最高傷害"
       }
+    },
+    "hotkey": {
+      "label": "重新整理快捷鍵",
+      "change": "變更",
+      "cancel": "取消",
+      "hint": "按下「變更」後，再輸入按鍵組合。",
+      "capturePrompt": "請按下按鍵組合（Ctrl/Alt/Shift + 按鍵），Esc 可取消。",
+      "saved": "快捷鍵已儲存。",
+      "cancelled": "已取消快捷鍵設定。",
+      "none": "未設定",
+      "modifierOnly": "僅按修飾鍵無法完成設定，請再搭配一般按鍵。",
+      "requireModifier": "請至少包含一個修飾鍵（Ctrl/Alt/Shift）。",
+      "invalidKey": "此按鍵無法作為快捷鍵。"
     }
   },
   "support": {
