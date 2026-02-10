@@ -98,6 +98,9 @@ class KeyHookEvent(private val engine: WebEngine) {
                         if (msg.message != WinUser.WM_HOTKEY) {
                             continue
                         }
+                        if (msg.wParam.toInt() != hotkeyId || !matchesRegisteredHotkey(msg.lParam.toLong())) {
+                            continue
+                        }
                         val foreground = User32.INSTANCE.GetForegroundWindow()
                         if (foreground == null || !isAion2Window(foreground)) {
                             isAion2ForegroundCached = false
@@ -211,6 +214,12 @@ class KeyHookEvent(private val engine: WebEngine) {
                 logger.debug("Failed to dispatch nativeResetHotKey", error)
             }
         }
+    }
+
+    private fun matchesRegisteredHotkey(lParam: Long): Boolean {
+        val messageMods = (lParam and 0xFFFF).toInt()
+        val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
+        return messageMods == registeredHotkeyMods && messageKey == registeredHotkeyKey
     }
 
     companion object {
