@@ -75,6 +75,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
     "pinMeToTop": "Always show me at the top",
+    "bold": {
+      "label": "Bold",
+      "names": "Names",
+      "dps": "DPS"
+    },
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
     "discord": "Find us on Discord",

@@ -8,6 +8,8 @@ class DpsApp {
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
     this.pinMeToTop = false;
+    this.mainPlayerNamesBold = false;
+    this.mainPlayerDpsBold = false;
     this.includeMainMeterScreenshot = false;
     this.saveScreenshotToFolder = false;
     this.screenshotFolder = "";
@@ -29,6 +31,8 @@ class DpsApp {
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
       pinMeToTop: "dpsMeter.pinMeToTop",
+      mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
+      mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
       theme: "dpsMeter.theme",
     };
 
@@ -1352,6 +1356,8 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
+    this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
+    this.playerDpsBoldCheckbox = document.querySelector(".playerDpsBoldCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
@@ -1395,6 +1401,8 @@ class DpsApp {
       this.safeGetStorage(this.storageKeys.meterFillOpacity);
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
+    const storedMainPlayerNamesBold = this.safeGetSetting(this.storageKeys.mainPlayerNamesBold) === "true";
+    const storedMainPlayerDpsBold = this.safeGetSetting(this.storageKeys.mainPlayerDpsBold) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
@@ -1403,6 +1411,8 @@ class DpsApp {
     this.setOnlyShowUser(false, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
     this.setPinMeToTop(storedPinMeToTop, { persist: false });
+    this.setMainPlayerNamesBold(storedMainPlayerNamesBold, { persist: false });
+    this.setMainPlayerDpsBold(storedMainPlayerDpsBold, { persist: false });
     const normalizedTargetSelection =
       storedTargetSelection === "allTargets" || storedTargetSelection === "trainTargets"
         ? storedTargetSelection
@@ -1475,6 +1485,20 @@ class DpsApp {
       this.pinMeToTopCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setPinMeToTop(isChecked, { persist: true });
+      });
+    }
+    if (this.playerNamesBoldCheckbox) {
+      this.playerNamesBoldCheckbox.checked = this.mainPlayerNamesBold;
+      this.playerNamesBoldCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setMainPlayerNamesBold(isChecked, { persist: true });
+      });
+    }
+    if (this.playerDpsBoldCheckbox) {
+      this.playerDpsBoldCheckbox.checked = this.mainPlayerDpsBold;
+      this.playerDpsBoldCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setMainPlayerDpsBold(isChecked, { persist: true });
       });
     }
     if (this.meterOpacityInput && this.meterOpacityValue) {
@@ -2319,6 +2343,28 @@ class DpsApp {
       this.safeSetSetting(this.storageKeys.pinMeToTop, String(this.pinMeToTop));
     }
     this.renderCurrentRows();
+  }
+
+  setMainPlayerNamesBold(enabled, { persist = false } = {}) {
+    this.mainPlayerNamesBold = !!enabled;
+    if (this.playerNamesBoldCheckbox && document.activeElement !== this.playerNamesBoldCheckbox) {
+      this.playerNamesBoldCheckbox.checked = this.mainPlayerNamesBold;
+    }
+    document.body?.classList.toggle("mainPlayerNamesBold", this.mainPlayerNamesBold);
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.mainPlayerNamesBold, String(this.mainPlayerNamesBold));
+    }
+  }
+
+  setMainPlayerDpsBold(enabled, { persist = false } = {}) {
+    this.mainPlayerDpsBold = !!enabled;
+    if (this.playerDpsBoldCheckbox && document.activeElement !== this.playerDpsBoldCheckbox) {
+      this.playerDpsBoldCheckbox.checked = this.mainPlayerDpsBold;
+    }
+    document.body?.classList.toggle("mainPlayerDpsBold", this.mainPlayerDpsBold);
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.mainPlayerDpsBold, String(this.mainPlayerDpsBold));
+    }
   }
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
