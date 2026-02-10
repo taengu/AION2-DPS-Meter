@@ -2,7 +2,7 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.entity.DpsData
-import com.tbread.logging.DebugLogWriter
+import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
 import com.tbread.packet.LocalPlayer
@@ -39,7 +39,6 @@ import java.util.concurrent.TimeUnit
 import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
 import javax.imageio.ImageIO
-import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 class BrowserApp(
@@ -184,13 +183,13 @@ class BrowserApp(
         }
 
         fun setDebugLoggingEnabled(enabled: Boolean) {
-            DebugLogWriter.setEnabled(enabled)
-            PropertyHandler.setProperty(DebugLogWriter.SETTING_KEY, enabled.toString())
+            UnifiedLogger.setDebugEnabled(enabled)
+            PropertyHandler.setProperty(UnifiedLogger.DEBUG_SETTING_KEY, enabled.toString())
         }
 
         fun logDebug(message: String?) {
             if (message.isNullOrBlank()) return
-            DebugLogWriter.debug(logger, "UI {}", message.trim())
+            UnifiedLogger.debug(logger, "UI {}", message.trim())
         }
 
         fun isRunningViaGradle(): Boolean {
@@ -352,7 +351,6 @@ class BrowserApp(
 
     @Volatile
     private var cachedWindowTitle: String? = null
-    private val windowTitlePollerStarted = AtomicBoolean(false)
     private val uiReadyReported = AtomicBoolean(false)
     private val uiReadyNotifier: () -> Unit = {
         if (uiReadyReported.compareAndSet(false, true)) {
@@ -361,12 +359,11 @@ class BrowserApp(
     }
 
     private fun startWindowTitlePolling() {
-        if (!windowTitlePollerStarted.compareAndSet(false, true)) return
-        thread(name = "window-title-poller", isDaemon = true) {
-            while (true) {
-                cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
-                Thread.sleep(1000)
-            }
+        Timeline(KeyFrame(Duration.seconds(1.0), {
+            cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
+        })).apply {
+            cycleCount = Timeline.INDEFINITE
+            play()
         }
     }
 
@@ -383,7 +380,7 @@ class BrowserApp(
     }
 
     override fun start(stage: Stage) {
-        DebugLogWriter.loadFromSettings()
+        UnifiedLogger.loadDebugFromSettings()
         startWindowTitlePolling()
         stage.setOnCloseRequest {
             exitProcess(0)

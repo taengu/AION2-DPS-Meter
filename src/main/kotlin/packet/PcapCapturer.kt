@@ -1,7 +1,7 @@
 package com.tbread.packet
 
 import com.tbread.config.PcapCapturerConfig
-import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.UnifiedLogger
 import kotlinx.coroutines.channels.Channel
 import org.pcap4j.core.*
 import org.pcap4j.packet.Packet
@@ -24,7 +24,7 @@ class PcapCapturer(
             try { Pcaps.findAllDevs() ?: emptyList() }
             catch (e: PcapNativeException) {
                 logger.error("Failed to initialize pcap", e)
-                CrashLogWriter.log("Failed to initialize pcap", e)
+                UnifiedLogger.crash("Failed to initialize pcap", e)
                 exitProcess(2)
             }
     }
@@ -69,7 +69,7 @@ class PcapCapturer(
             handle.use { h -> h.loop(-1, listener) }
         } catch (e: Exception) {
             logger.error("Packet capture failed on {}", nif.description ?: nif.name, e)
-            CrashLogWriter.log("Packet capture failed on ${nif.description ?: nif.name}", e)
+            UnifiedLogger.crash("Packet capture failed on ${nif.description ?: nif.name}", e)
         } finally {
             activeHandles.remove(nif.name)
         }
@@ -80,7 +80,7 @@ class PcapCapturer(
         val devices = getAllDevices()
         if (devices.isEmpty()) {
             logger.error("No capture devices found")
-            CrashLogWriter.log("No capture devices found")
+            UnifiedLogger.crash("No capture devices found")
             exitProcess(1)
         }
 
@@ -93,11 +93,18 @@ class PcapCapturer(
                 logger.warn("No non-loopback adapters available to start ({})", reason)
                 return
             }
-            logger.info("Starting capture on other adapters ({})", reason)
-            targets.forEach { nif ->
-                if (started.add(nif.name)) {
-                    captureOnDevice(nif)
-                }
+            val candidate = targets.firstOrNull { it.addresses.isNotEmpty() } ?: targets.first()
+            if (started.add(candidate.name)) {
+                logger.info(
+                    "Starting capture on adapter {} ({})",
+                    candidate.description ?: candidate.name,
+                    reason
+                )
+                captureOnDevice(candidate)
+            }
+            val skipped = (targets.size - 1).coerceAtLeast(0)
+            if (skipped > 0) {
+                logger.info("Skipped {} additional adapter(s) to reduce background capture threads", skipped)
             }
         }
 

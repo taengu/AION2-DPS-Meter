@@ -1,7 +1,7 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
-import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.*
 import com.tbread.webview.BrowserApp
 import com.tbread.windows.WindowTitleDetector
@@ -21,9 +21,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
 
 // This class handles the JavaFX lifecycle properly for Native Images
+private val logger = LoggerFactory.getLogger("Main")
+
 class AionMeterApp : Application() {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -51,7 +54,7 @@ class AionMeterApp : Application() {
         try {
             browserApp.start(primaryStage)
         } catch (e: Exception) {
-            CrashLogWriter.log("Failed to start JavaFX browser window", e)
+            UnifiedLogger.crash("Failed to start JavaFX browser window", e)
             throw e
         }
 
@@ -60,7 +63,7 @@ class AionMeterApp : Application() {
             try {
                 dispatcher.run()
             } catch (e: Exception) {
-                CrashLogWriter.log("Capture dispatcher stopped unexpectedly", e)
+                UnifiedLogger.crash("Capture dispatcher stopped unexpectedly", e)
                 throw e
             }
         }
@@ -98,13 +101,13 @@ fun main(args: Array<String>) {
 
     // 2. Setup Logging/Errors
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
-        println("Critical Error in thread ${t.name}: ${e.message}")
+        logger.error("Critical Error in thread {}: {}", t.name, e.message, e)
         e.printStackTrace()
-        CrashLogWriter.log("Uncaught exception in thread ${t.name}", e)
+        UnifiedLogger.crash("Uncaught exception in thread ${t.name}", e)
     }
 
-    println("Starting Native Aion2 Meter...")
-    println("Java: ${System.getProperty("java.version")} | Path: ${System.getProperty("java.home")}")
+    logger.info("Starting Native Aion2 Meter...")
+    logger.info("Java: {} | Path: {}", System.getProperty("java.version"), System.getProperty("java.home"))
 
     // 3. Launch the Application
     // This blocks the main thread until the window is closed
@@ -132,7 +135,7 @@ private fun ensureAdminOnWindows() {
     val args = currentProcess.info().arguments().orElse(emptyArray())
     val parameters = args.joinToString(" ") { "\"$it\"" }
 
-    println("Requesting Admin Privileges...")
+    logger.info("Requesting Admin Privileges...")
     Shell32.INSTANCE.ShellExecute(
         null,
         "runas",
