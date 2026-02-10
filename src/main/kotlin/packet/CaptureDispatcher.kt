@@ -23,11 +23,14 @@ class CaptureDispatcher(
     private val MAGIC = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
     private val TLS_CONTENT_TYPES = setOf(0x14, 0x15, 0x16, 0x17)
     private val TLS_VERSIONS = setOf(0x00, 0x01, 0x02, 0x03, 0x04)
+    private var skipLogWindowStartMs = 0L
+    private var skipLogCountInWindow = 0
 
     suspend fun run() {
         for (cap in channel) {
             try {
                 if (!ensureAionRunning()) {
+                    logUnlockedPacketSkip(cap, "AION window not detected")
                     continue
                 }
                 val lockedDevice = CombatPortDetector.currentDevice()
@@ -57,6 +60,7 @@ class CaptureDispatcher(
                 }
 
                 if (looksLikeTlsPayload(cap.data)) {
+                    logUnlockedPacketSkip(cap, "TLS payload ignored while waiting for combat lock")
                     continue
                 }
                 val parsed = assembler.processChunk(cap.data)
@@ -65,6 +69,8 @@ class CaptureDispatcher(
                 }
                 if (parsed) {
                     CombatPortDetector.markPacketParsed()
+                } else {
+                    logUnlockedPacketSkip(cap, "Stream chunk rejected or incomplete by assembler")
                 }
             } catch (e: Exception) {
                 UnifiedLogger.crash(
@@ -74,6 +80,45 @@ class CaptureDispatcher(
                 throw e
             }
         }
+    }
+
+    private fun logUnlockedPacketSkip(cap: CapturedPayload, reason: String) {
+        if (!UnifiedLogger.isDebugEnabled()) return
+        if (CombatPortDetector.currentPort() != null || CombatPortDetector.currentDevice() != null) return
+
+        val now = System.currentTimeMillis()
+        if (skipLogWindowStartMs == 0L || now - skipLogWindowStartMs >= SKIP_LOG_WINDOW_MS) {
+            skipLogWindowStartMs = now
+            skipLogCountInWindow = 0
+        }
+        if (skipLogCountInWindow >= SKIP_LOG_LIMIT_PER_WINDOW) return
+        skipLogCountInWindow++
+
+        val hex = toHex(cap.data)
+        UnifiedLogger.debug(
+            logger,
+            "Unlocked packet skipped/rejected #{}/{} in {}ms: reason={}, device={}, src={}, dst={}, hex={}",
+            skipLogCountInWindow,
+            SKIP_LOG_LIMIT_PER_WINDOW,
+            SKIP_LOG_WINDOW_MS,
+            reason,
+            cap.deviceName ?: "unknown",
+            cap.srcPort,
+            cap.dstPort,
+            hex
+        )
+    }
+
+    private fun toHex(bytes: ByteArray): String {
+        if (bytes.isEmpty()) return ""
+        val chars = CharArray(bytes.size * 2)
+        var idx = 0
+        for (b in bytes) {
+            val v = b.toInt() and 0xFF
+            chars[idx++] = HEX_DIGITS[v ushr 4]
+            chars[idx++] = HEX_DIGITS[v and 0x0F]
+        }
+        return String(chars)
     }
 
     private fun ensureAionRunning(): Boolean {
@@ -127,7 +172,10 @@ class CaptureDispatcher(
     }
 
     companion object {
+        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
+        private const val SKIP_LOG_WINDOW_MS = 30_000L
+        private const val SKIP_LOG_LIMIT_PER_WINDOW = 5
     }
 }
