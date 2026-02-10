@@ -1500,7 +1500,7 @@ class DpsApp {
       wechat:
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4c-3.87 0-7 2.69-7 6 0 1.9 1.03 3.59 2.62 4.69L4 19l3.66-1.85A8.4 8.4 0 0 0 9 17c3.87 0 7-2.69 7-6s-3.13-7-7-7z" fill="currentColor"/><path d="M16.5 10.5c3.04 0 5.5 2.01 5.5 4.5 0 1.42-.79 2.69-2.02 3.52L20.5 22l-2.79-1.41c-.39.08-.79.12-1.21.12-3.04 0-5.5-2.01-5.5-4.5s2.46-4.5 5.5-4.5z" fill="currentColor" opacity="0.78"/></svg>',
       paypal:
-        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 3h6.8c3.45 0 5.7 2.34 5.2 5.36-.43 2.67-2.67 4.38-5.75 4.38H10.8l-.73 4.26H5.9L8 3z" fill="currentColor"/><path d="M9.7 8.1h4.1c1.1 0 1.66.64 1.49 1.52-.17.91-.93 1.5-1.98 1.5H9.06l.64-3.02z" fill="#0b2f63" opacity="0.45"/></svg>',
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.2 3.2h7.2c3.2 0 5.3 1.9 4.9 4.7-.42 2.85-2.8 4.58-6.1 4.58h-2.4l-.75 4.35H5.9L7.2 3.2z" fill="currentColor"/><path d="M9.3 5.6h4.05c1.3 0 2.05.74 1.83 1.82-.22 1.13-1.2 1.84-2.49 1.84H8.55L9.3 5.6z" fill="currentColor" opacity="0.55"/><path d="M10.55 9.05h2.52c1.95 0 3.2 1.14 2.93 2.86-.3 1.92-1.95 3.12-4.19 3.12h-2.38l.56-3.18h2.2c.75 0 1.23-.4 1.33-1 .1-.56-.3-.93-1.02-.93h-2.15l.2-.87z" fill="#0b2f63" opacity="0.45"/></svg>',
     };
     return iconByType[type] || "";
   }
