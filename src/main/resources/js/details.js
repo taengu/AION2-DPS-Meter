@@ -103,7 +103,7 @@ const createDetailsUI = ({
     },
     { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     { key: "details.stats.combatTime", fallback: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
-    { key: "details.stats.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
+    { key: "details.skills.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
     { key: "details.stats.multiHitHits", fallback: "Multi-Hits", getValue: (d) => formatCount(d?.multiHitCount) },
     {
       key: "details.stats.multiHitDamage",
@@ -114,7 +114,7 @@ const createDetailsUI = ({
     { key: "details.stats.perfectRate", fallback: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
     { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
     { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
-    { key: "details.stats.selfHealing", fallback: "Self-Healing", getValue: (d) => formatCount(d?.totalHeal) },
+    { key: "details.skills.heal", fallback: "Heal", getValue: (d) => formatCount(d?.totalHeal) },
     { key: "details.stats.empty", fallback: "", getValue: () => "", isPlaceholder: true },
   ];
 
@@ -287,6 +287,7 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
+    syncSkillColumnMinWidths();
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -295,6 +296,7 @@ const createDetailsUI = ({
       case "details.stats.totalDamage":
         return formatDamageCompact(data.totalDmg);
       case "details.stats.hits":
+      case "details.skills.hits":
         return formatCount(data.totalHits);
       case "details.stats.multiHitDamage":
         return formatDamageCompact(data.multiHitDamage);
@@ -311,6 +313,7 @@ const createDetailsUI = ({
       case "details.stats.parryRate":
         return pctText(data.totalParryPct);
       case "details.stats.selfHealing":
+      case "details.skills.heal":
         return formatCount(data.totalHeal);
       case "details.stats.empty":
         return "";
@@ -354,7 +357,7 @@ const createDetailsUI = ({
           const span = document.createElement("span");
           if (statKey === "details.stats.totalDamage") {
             span.textContent = formatDamageCompact(actor.totalDmg);
-          } else if (statKey === "details.stats.hits") {
+          } else if (statKey === "details.stats.hits" || statKey === "details.skills.hits") {
             span.textContent = formatCount(actor.totalHits);
           } else if (statKey === "details.stats.multiHitDamage") {
             span.textContent = formatDamageCompact(actor.multiHitDamage);
@@ -526,6 +529,28 @@ const createDetailsUI = ({
     });
   };
 
+  const syncSkillColumnMinWidths = () => {
+    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
+    if (!headerCells?.length) return;
+
+    headerCells.forEach((headerCell) => {
+      const columnClass = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"]
+        .find((klass) => headerCell.classList.contains(klass));
+      if (!columnClass) return;
+
+      const minWidth = Math.ceil(headerCell.scrollWidth);
+      if (!Number.isFinite(minWidth) || minWidth <= 0) return;
+
+      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
+      columnCells?.forEach?.((cell) => {
+        if (columnClass === "name" || columnClass === "dmg") {
+          return;
+        }
+        cell.style.minWidth = `${minWidth}px`;
+      });
+    });
+  };
+
   const bindSkillHeaderSorting = () => {
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell[data-sort-key]");
     headerCells?.forEach?.((cell) => {
@@ -548,6 +573,7 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
+  syncSkillColumnMinWidths();
 
   const renderSkills = (details) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
@@ -647,6 +673,8 @@ const createDetailsUI = ({
       view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
+
+    syncSkillColumnMinWidths();
   };
 
   const loadDetailsContext = () => {

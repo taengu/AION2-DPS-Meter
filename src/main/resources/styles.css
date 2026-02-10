@@ -2291,6 +2291,13 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   display: flex;
   align-items: center;
 }
+.detailsPanel .detailsSkills .skillHeader .cell,
+.detailsPanel .detailsSkills .skills .skillRow .cell {
+  white-space: nowrap;
+}
+.detailsPanel .detailsSkills .skillHeader .cell {
+  min-width: max-content;
+}
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   font-weight: 400;
 }
