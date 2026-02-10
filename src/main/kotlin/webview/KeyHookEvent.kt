@@ -19,6 +19,8 @@ class KeyHookEvent(private val engine: WebEngine) {
     private val hotkeyTargetProcess = "Aion2.exe"
     private val hotkeyTargetTitle = "Aion2"
     private val pmRemoveFlag = 0x0001
+    private val vkLWin = 0x5B
+    private val vkRWin = 0x5C
 
     @Volatile
     private var lastHotkeyMods = 0
@@ -234,23 +236,23 @@ class KeyHookEvent(private val engine: WebEngine) {
         if ((modifiers and WinUser.MOD_ALT) != 0 && !isVirtualKeyDown(WinUser.VK_MENU)) return false
         if ((modifiers and WinUser.MOD_SHIFT) != 0 && !isVirtualKeyDown(WinUser.VK_SHIFT)) return false
         if ((modifiers and WinUser.MOD_WIN) != 0 &&
-            !isVirtualKeyDown(WinUser.VK_LWIN) &&
-            !isVirtualKeyDown(WinUser.VK_RWIN)
+            !isVirtualKeyDown(vkLWin) &&
+            !isVirtualKeyDown(vkRWin)
         ) return false
 
         return isVirtualKeyDown(keyCode)
     }
 
     private fun isVirtualKeyDown(vk: Int): Boolean {
-        return (User32.INSTANCE.GetAsyncKeyState(vk) and 0x8000.toShort()) != 0.toShort()
+        return (User32.INSTANCE.GetAsyncKeyState(vk).toInt() and 0x8000) != 0
     }
 
     private fun isModifierVirtualKey(vk: Int): Boolean {
         return vk == WinUser.VK_CONTROL ||
             vk == WinUser.VK_MENU ||
             vk == WinUser.VK_SHIFT ||
-            vk == WinUser.VK_LWIN ||
-            vk == WinUser.VK_RWIN
+            vk == vkLWin ||
+            vk == vkRWin
     }
 
     companion object {
