@@ -293,10 +293,8 @@
 @font-face {
   font-family: "UI";
   src:
-          local("Noto Sans TC"),
-          local("Noto Sans SC"),
-          local("Microsoft JhengHei UI"),
           local("Microsoft YaHei UI"),
+          local("Microsoft JhengHei UI"),
           local("PingFang TC"),
           local("PingFang SC"),
           local("Heiti TC"),
@@ -325,8 +323,6 @@ html[lang="ko"] * {
           "Spoqa Han Sans Neo",
           "Spoqa Han Sans",
           "Pretendard",
-          "Noto Sans SC",
-          "Noto Sans TC",
           "Microsoft YaHei UI",
           "Microsoft YaHei",
           "Microsoft JhengHei UI",
@@ -2055,10 +2051,10 @@ html[lang="ko"] * {
   background: rgba(255, 255, 255, 0.08);
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu {
-  position: absolute;
-  right: 0;
+  position: fixed;
+  right: auto;
   top: auto;
-  bottom: calc(100% + 8px);
+  bottom: auto;
   min-width: 260px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -2066,7 +2062,7 @@ html[lang="ko"] * {
   background: rgba(12, 22, 40, 0.95);
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
   display: none;
-  z-index: 5;
+  z-index: 1000;
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu.isOpen {
   display: block;
