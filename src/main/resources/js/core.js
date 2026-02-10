@@ -51,6 +51,7 @@ class DpsApp {
     ];
     this.supportQrImages = {
       afdian: "./assets/afdian.png",
+      kofi: "./assets/kofi.png",
       wechat: "./assets/wechat.png",
     };
 
@@ -340,6 +341,8 @@ class DpsApp {
       this.refreshConnectionInfo();
       this.refreshBossLabel();
       this.updateSupportVisibility(lang);
+      this.updateSupportPrimaryAction(lang);
+      this.updateSupportQrImage(this.supportPrimaryButton?.dataset.support || "afdian");
     });
     window.ReleaseChecker?.start?.();
     this.setupConsoleDebugging();
@@ -1256,6 +1259,7 @@ class DpsApp {
     this.supportModal = document.querySelector("#supportModal");
     this.supportModalClose = document.querySelector(".supportModalClose");
     this.supportQrImage = document.querySelector(".supportQrImage");
+    this.supportPrimaryButton = document.querySelector(".supportPrimaryButton");
     this.supportCopyStatus = document.querySelector(".supportCopyStatus");
     this.supportActionButtons = Array.from(document.querySelectorAll(".supportIconButton"));
     this.kofiButton = document.querySelector(".kofiButton");
@@ -1448,21 +1452,41 @@ class DpsApp {
 
     this.updateSettingsVersion();
     this.updateSupportVisibility(currentLanguage);
-    this.updateSupportQrImage("afdian");
+    this.updateSupportPrimaryAction(currentLanguage);
+    this.updateSupportQrImage(this.supportPrimaryButton?.dataset.support || "afdian");
   }
 
   isChineseLanguage(lang) {
     return String(lang || "").startsWith("zh");
   }
 
-  updateSupportVisibility(lang) {
-    const isChinese = this.isChineseLanguage(lang);
+  updateSupportVisibility() {
     if (this.supportWidget) {
-      this.supportWidget.style.display = isChinese ? "flex" : "none";
+      this.supportWidget.style.display = "flex";
     }
     if (this.kofiWidget) {
-      this.kofiWidget.style.display = isChinese ? "none" : "flex";
+      this.kofiWidget.style.display = "none";
     }
+  }
+
+  updateSupportPrimaryAction(lang) {
+    if (!this.supportPrimaryButton) return;
+    const isChinese = this.isChineseLanguage(lang);
+    const nextSupport = isChinese ? "afdian" : "kofi";
+    const nextUrl = isChinese
+      ? "https://afdian.com/a/hiddencube"
+      : "https://ko-fi.com/hiddencube";
+    const nextLabel = isChinese ? "爱发电" : "Ko-fi";
+    const nextIcon = isChinese ? "A" : "K";
+    this.supportPrimaryButton.dataset.support = nextSupport;
+    this.supportPrimaryButton.dataset.url = nextUrl;
+    const label = this.supportPrimaryButton.querySelector(".supportLabel");
+    const icon = this.supportPrimaryButton.querySelector(".supportIcon");
+    if (label) label.textContent = nextLabel;
+    if (icon) icon.textContent = nextIcon;
+    this.supportPrimaryButton.setAttribute("aria-label", nextLabel);
+    const i18nLabel = isChinese ? "support.aria.afdian" : "support.aria.kofi";
+    this.supportPrimaryButton.dataset.i18nAriaLabel = i18nLabel;
   }
 
   openSupportModal() {
@@ -1492,7 +1516,7 @@ class DpsApp {
     }
 
     if (url) {
-      const externalOnly = supportType === "paypal" || supportType === "afdian";
+      const externalOnly = supportType === "paypal" || supportType === "afdian" || supportType === "kofi";
       this.openExternalLink(url, { externalOnly });
     }
 

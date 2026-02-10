@@ -2655,6 +2655,10 @@ html[lang="ko"] * {
   background: rgba(0, 112, 186, 0.2);
   color: #8fc9ff;
 }
+.supportModal .supportIconButton[data-support="kofi"] {
+  background: rgba(255, 95, 95, 0.22);
+  color: #ffd1d1;
+}
 .supportModal .supportIconButton[data-support="btc"] {
   background: rgba(247, 147, 26, 0.22);
   color: #ffd0a1;
