@@ -1,7 +1,7 @@
 package com.tbread.packet
 
 import com.tbread.DataStorage
-import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.UnifiedLogger
 import com.tbread.windows.WindowTitleDetector
 import kotlinx.coroutines.channels.Channel
 import org.slf4j.LoggerFactory
@@ -67,7 +67,7 @@ class CaptureDispatcher(
                     CombatPortDetector.markPacketParsed()
                 }
             } catch (e: Exception) {
-                CrashLogWriter.log(
+                UnifiedLogger.crash(
                     "Parser stopped while processing ${cap.deviceName} ${cap.srcPort}-${cap.dstPort}",
                     e
                 )
