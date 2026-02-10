@@ -49,7 +49,6 @@ repositories {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation("org.pcap4j:pcap4j-core:1.8.2")
-    implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
     // Explicit JavaFX dependencies for Windows
@@ -58,7 +57,6 @@ dependencies {
     implementation("org.openjfx:javafx-graphics:$javafxVersion:win")
     implementation("org.openjfx:javafx-controls:$javafxVersion:win")
     implementation("org.openjfx:javafx-web:$javafxVersion:win")
-    implementation("org.openjfx:javafx-media:$javafxVersion:win")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("org.slf4j:slf4j-simple:1.7.26")
@@ -75,8 +73,7 @@ graalvmNative {
                 "javafx-base",
                 "javafx-graphics",
                 "javafx-controls",
-                "javafx-web",
-                "javafx-media"
+                "javafx-web"
             )
             val javafxModulePath = runtimeClasspath.files
                 .filter { file -> javafxModuleNames.any { name -> file.name.startsWith(name) } }
@@ -89,7 +86,7 @@ graalvmNative {
             buildArgs.add("-H:+AddAllCharsets")
             buildArgs.add("-Dprism.fontdir=C:\\Windows\\Fonts")
             buildArgs.add("--no-fallback")
-            buildArgs.add("--enable-native-access=ALL-UNNAMED,javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
+            buildArgs.add("--enable-native-access=ALL-UNNAMED,javafx.base,javafx.graphics,javafx.controls,javafx.web")
             // Critical for UI and async behavior
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,com.sun.javafx.tk.quantum.PrimaryTimer,com.sun.scenario.animation.SplineInterpolator,com.sun.scenario.animation.StepInterpolator,kotlinx.coroutines,kotlinx.coroutines.internal.ThreadContextKt\$countAll\$1,kotlinx.coroutines.internal.ThreadContextKt\$updateState\$1,kotlinx.coroutines.scheduling.DefaultScheduler,kotlin.coroutines.ContinuationInterceptor\$Key")
             buildArgs.add("--initialize-at-build-time=com.sun.scenario.effect.Offset")
@@ -136,7 +133,7 @@ graalvmNative {
             buildArgs.addAll(
                 listOf(
                     "--add-modules",
-                    "jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics,javafx.media"
+                    "jdk.jsobject,jdk.net,javafx.base,javafx.controls,javafx.web,javafx.graphics"
                 )
             )
         }
@@ -153,7 +150,6 @@ val javafxNativeLibPatterns = listOf(
     "**/glass.dll",
     "**/javafx_font.dll",
     "**/javafx_iio.dll",
-    "**/jfxmedia.dll"
 )
 
 tasks.named("nativeCompile").configure {
