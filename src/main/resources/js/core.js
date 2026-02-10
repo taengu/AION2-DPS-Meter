@@ -186,7 +186,7 @@ class DpsApp {
         });
       },
       onClickUserRow: (row) => {
-        if (!row || this.shouldSuppressRowInteractions()) return;
+        if (!row || this.isWindowDragging) return;
         const rowId = Number(row?.id);
         this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
         this.detailsUI.open(row, {
@@ -2734,8 +2734,7 @@ class DpsApp {
       }
       isDragging = true;
       hasDragMoved = false;
-      this.isWindowDragging = true;
-      this.elList?.classList?.add?.("dragInteracting");
+      this.isWindowDragging = false;
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
@@ -2753,6 +2752,8 @@ class DpsApp {
       const deltaY = e.screenY - startY;
       if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDragMoved = true;
+        this.isWindowDragging = true;
+        this.elList?.classList?.add?.("dragInteracting");
       }
       pendingStageX = initialStageX + deltaX;
       pendingStageY = initialStageY + deltaY;
@@ -2765,9 +2766,9 @@ class DpsApp {
       if (!isDragging) return;
       isDragging = false;
       this.isWindowDragging = false;
-      this.elList?.classList?.remove?.("dragInteracting");
       if (hasDragMoved) {
-        this.suppressRowInteractionUntilMs = this.nowMs() + 220;
+        this.elList?.classList?.remove?.("dragInteracting");
+        this.suppressRowInteractionUntilMs = this.nowMs() + 120;
       }
       if (dragRafId !== null) {
         cancelAnimationFrame(dragRafId);
