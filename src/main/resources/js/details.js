@@ -536,6 +536,10 @@ const createDetailsUI = ({
     if (!headerCells?.length) return;
     const compactColumns = new Set(["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"]);
 
+    const panelRect = detailsPanel?.getBoundingClientRect?.();
+    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
+    const compactColumnMaxWidth = Math.max(64, Math.floor(panelWidth * 0.14));
+
     headerCells.forEach((headerCell) => {
       const columnClass = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"]
         .find((klass) => headerCell.classList.contains(klass));
@@ -554,7 +558,7 @@ const createDetailsUI = ({
           if (row && row.style.display === "none") return;
           targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth));
         });
-        targetWidth = Math.ceil(targetWidth + 8);
+        targetWidth = Math.min(Math.ceil(targetWidth + 8), compactColumnMaxWidth);
       }
 
       columnCells?.forEach?.((cell) => {
@@ -579,9 +583,8 @@ const createDetailsUI = ({
     const requiredWidth = Math.ceil(headerEl.scrollWidth + 24);
     if (!Number.isFinite(requiredWidth) || requiredWidth <= 0) return;
 
-    const panelRect = detailsPanel.getBoundingClientRect();
-    const currentWidth = Math.ceil(panelRect.width || 0);
-    const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect.left) - 12));
+    const currentWidth = Math.ceil(panelRect?.width || 0);
+    const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
     const clampedRequiredWidth = Math.min(requiredWidth, maxAllowedWidth);
     if (currentWidth > maxAllowedWidth) {
       detailsPanel.style.width = `${maxAllowedWidth}px`;
@@ -608,7 +611,10 @@ const createDetailsUI = ({
       if (width > widest) widest = width;
     }
 
-    const nextWidth = Math.max(110, Math.ceil(widest + 24));
+    const panelRect = detailsPanel?.getBoundingClientRect?.();
+    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
+    const maxNameColumnWidth = Math.max(180, Math.floor(panelWidth * 0.34));
+    const nextWidth = Math.min(Math.max(110, Math.ceil(widest + 24)), maxNameColumnWidth);
     if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
     lastSkillNameColumnWidth = nextWidth;
     detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);

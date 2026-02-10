@@ -2311,6 +2311,11 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   white-space: nowrap;
   color: var(--isUser-fill);
 }
+.detailsPanel .detailsSkills .cell.name .skillNameText {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
   flex: 0 1 auto;
