@@ -916,7 +916,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(940px, max(280px, calc(100vw - 384px)));
+  width: min(1030px, max(280px, calc(100vw - 384px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
