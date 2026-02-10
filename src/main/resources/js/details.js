@@ -537,8 +537,17 @@ const createDetailsUI = ({
     const compactColumns = new Set(["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"]);
 
     const panelRect = detailsPanel?.getBoundingClientRect?.();
-    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
-    const compactColumnMaxWidth = Math.max(64, Math.floor(panelWidth * 0.14));
+    const compactColumnMaxWidths = {
+      hit: 70,
+      mhit: 82,
+      mdmg: 96,
+      crit: 78,
+      parry: 78,
+      perfect: 84,
+      double: 80,
+      back: 78,
+      heal: 90,
+    };
 
     headerCells.forEach((headerCell) => {
       const columnClass = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"]
@@ -558,7 +567,8 @@ const createDetailsUI = ({
           if (row && row.style.display === "none") return;
           targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth));
         });
-        targetWidth = Math.min(Math.ceil(targetWidth + 8), compactColumnMaxWidth);
+        const maxWidth = compactColumnMaxWidths[columnClass] || 84;
+        targetWidth = Math.min(Math.ceil(targetWidth + 8), maxWidth);
       }
 
       columnCells?.forEach?.((cell) => {
@@ -585,11 +595,8 @@ const createDetailsUI = ({
 
     const currentWidth = Math.ceil(panelRect?.width || 0);
     const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
-    const clampedRequiredWidth = Math.min(requiredWidth, maxAllowedWidth);
     if (currentWidth > maxAllowedWidth) {
       detailsPanel.style.width = `${maxAllowedWidth}px`;
-    } else if (currentWidth > 0 && currentWidth < clampedRequiredWidth) {
-      detailsPanel.style.width = `${clampedRequiredWidth}px`;
     }
   };
 
