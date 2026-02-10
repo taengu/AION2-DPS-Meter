@@ -72,19 +72,31 @@ const createMeterUI = ({
       currentRow: null,
       lastSeenAt: 0,
       hoverRipplePlayed: false,
+      hoverRippleTimer: null,
     };
 
     rowEl.addEventListener("mouseenter", () => {
       if (!view.hoverRipplePlayed) {
-        view.rowEl.classList.add("hoverRipple");
+        view.rowEl.classList.add("hoverRippleOnce");
         view.hoverRipplePlayed = true;
+        if (view.hoverRippleTimer) {
+          clearTimeout(view.hoverRippleTimer);
+        }
+        view.hoverRippleTimer = setTimeout(() => {
+          view.rowEl.classList.remove("hoverRippleOnce");
+          view.hoverRippleTimer = null;
+        }, 950);
       }
       onHoverUserRow?.(view.currentRow);
     });
 
     rowEl.addEventListener("mouseleave", () => {
       view.hoverRipplePlayed = false;
-      view.rowEl.classList.remove("hoverRipple");
+      if (view.hoverRippleTimer) {
+        clearTimeout(view.hoverRippleTimer);
+        view.hoverRippleTimer = null;
+      }
+      view.rowEl.classList.remove("hoverRippleOnce");
       onLeaveUserRow?.(view.currentRow);
     });
 

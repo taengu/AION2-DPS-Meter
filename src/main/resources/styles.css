@@ -775,7 +775,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     }
   }
 
-  .item.hoverRipple .fill::after {
+  .item.hoverRippleOnce .fill::after {
     opacity: 1;
     animation: meterBarHoverRipple 900ms ease-out;
   }
@@ -1843,7 +1843,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   pointer-events: none;
   background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
 }
-.list .item.hoverRipple .fill::after {
+.list .item.hoverRippleOnce .fill::after {
   opacity: 1;
   animation: meterBarHoverRipple 900ms ease-out;
 }
