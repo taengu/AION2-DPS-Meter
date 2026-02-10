@@ -560,7 +560,7 @@ class DpsApp {
       this.buildRowsFromPayload(raw);
     if (this.refreshPending) {
       const pendingAgeMs = Math.max(0, now - (Number(this.refreshPendingStartedAt) || 0));
-      const allowFallbackResume = rows.length > 0 && pendingAgeMs >= 2500;
+      const allowFallbackResume = rows.length > 0 && pendingAgeMs >= 1000;
 
       if (rows.length > 0 && !allowFallbackResume) {
         return;
