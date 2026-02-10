@@ -422,13 +422,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun skipGuildName(packet: ByteArray, startIndex: Int): Int {
         if (startIndex >= packet.size) return startIndex
-        val length = packet[startIndex].toInt() and 0xff
-        if (length !in 1..32) return startIndex
-        val nameStart = startIndex + 1
+
+        var offset = startIndex
+        if (packet[offset] == 0x00.toByte()) {
+            offset++
+            if (offset >= packet.size) return offset
+        }
+
+        val length = packet[offset].toInt() and 0xff
+        if (length !in 1..32) return offset
+        val nameStart = offset + 1
         val nameEnd = nameStart + length
-        if (nameEnd > packet.size) return startIndex
+        if (nameEnd > packet.size) return offset
         val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-        decodeUtf8Strict(nameBytes) ?: return startIndex
+        decodeUtf8Strict(nameBytes) ?: return offset
         return nameEnd
     }
 
