@@ -290,50 +290,43 @@
   unicode-range: U+0000-00FF, U+0100-024F;
 }
 
-@font-face {
-  font-family: "UI";
-  src:
-          local("Microsoft YaHei UI"),
-          local("Microsoft JhengHei UI"),
-          local("PingFang TC"),
-          local("PingFang SC"),
-          local("Heiti TC"),
-          local("Heiti SC"),
-          local("SimHei");
-  unicode-range: U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF;
+/* Default (EN / fallback): Pretendard first */
+html, body {
+  font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
 }
 
-* {
-  font-family:
-          "UI",
-          "Pretendard",
-          "Segoe UI",
-          "Arial Unicode MS",
-          sans-serif;
-  margin: 0;
-  padding: 0;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-
-:root:lang(ko) *,
-html[lang="ko"] * {
+/* Korean */
+html:lang(ko), html:lang(ko) body {
   font-family:
           "Spoqa Han Sans Neo",
           "Spoqa Han Sans",
           "Pretendard",
+          "Malgun Gothic",        /* common KR on Windows */
+          "Apple SD Gothic Neo",  /* macOS */
+          sans-serif;
+}
+
+/* Chinese - Simplified */
+html:lang(zh-CN), html:lang(zh-CN) body,
+html:lang(zh-Hans), html:lang(zh-Hans) body {
+  font-family:
           "Microsoft YaHei UI",
           "Microsoft YaHei",
-          "Microsoft JhengHei UI",
-          "Microsoft JhengHei",
           "PingFang SC",
-          "PingFang TC",
           "Heiti SC",
-          "Heiti TC",
           "SimHei",
+          "Pretendard",
           "Segoe UI",
-          "Arial Unicode MS",
+          sans-serif;
+}
+
+/* Chinese - Traditional */
+html:lang(zh-TW), html:lang(zh-TW) body,
+html:lang(zh-Hant), html:lang(zh-Hant) body {
+  font-family:
+          "PingFang TC",
+          "Microsoft JhengHei UI",
+          "Microsoft YaHei UI",
           sans-serif;
 }
 
