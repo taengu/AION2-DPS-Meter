@@ -90,6 +90,8 @@ class DpsApp {
     this._detailsFlashTimer = null;
     this._meterFlashTimer = null;
     this._recentLocalIdByName = new Map();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
 
     DpsApp.instance = this;
   }
@@ -165,21 +167,34 @@ class DpsApp {
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
+      onHoverUserRow: (row) => {
+        if (!row || this.pinnedDetailsRowId !== null) return;
+        const rowId = Number(row?.id);
+        if (!Number.isFinite(rowId) || rowId <= 0) return;
+        if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
+        this.hoveredDetailsRowId = rowId;
+        this.detailsUI?.open?.(row, {
+          pin: false,
+          restartOnSwitch: false,
+          ...this.getDefaultDetailsOpenOptions(),
+        });
+      },
+      onLeaveUserRow: () => {
+        this.hoveredDetailsRowId = null;
+        if (this.pinnedDetailsRowId !== null) return;
+        requestAnimationFrame(() => {
+          const hoveredRow = this.elList?.querySelector?.(".item:hover");
+          if (hoveredRow) return;
+          this.detailsUI?.close?.({ keepPinned: false });
+        });
+      },
       onClickUserRow: (row) => {
-        const fallbackAllTargets =
-          this.lastTargetMode === "lastHitByMe" &&
-          (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
-          !this.lastTargetName;
-        const isTrainTargets = this.lastTargetMode === "trainTargets";
-        const shouldDefaultAllTrainTargets = isTrainTargets && this.trainSelectionMode === "all";
-        const shouldDefaultTrainTarget = isTrainTargets && this.trainSelectionMode === "highestDamage";
-        const defaultTargetId = shouldDefaultTrainTarget && Number(this.lastTargetId) > 0
-          ? Number(this.lastTargetId)
-          : null;
+        if (!row) return;
+        const rowId = Number(row?.id);
+        this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
         this.detailsUI.open(row, {
-          defaultTargetAll:
-            this.lastTargetMode === "allTargets" || fallbackAllTargets || shouldDefaultAllTrainTargets,
-          defaultTargetId,
+          pin: true,
+          ...this.getDefaultDetailsOpenOptions(),
         });
       },
     });
@@ -251,6 +266,10 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getDetails: (row, options) => this.getDetails(row, options),
       getDetailsContext: () => this.getDetailsContext(),
+      onPinnedRowChange: (rowId) => {
+        const nextId = Number(rowId);
+        this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
+      },
     });
     this.detailsRefreshBtn?.addEventListener("click", () => {
       this.detailsUI?.refresh?.();
@@ -444,7 +463,9 @@ class DpsApp {
     this.battleTime?.reset?.();
     this.battleTime?.setVisible?.(false);
 
-    this.detailsUI?.close?.();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
+    this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
 
     if (this.elBossName) {
@@ -2128,7 +2149,9 @@ class DpsApp {
     if (!this.settingsPanel) return;
     const isOpen = this.settingsPanel.classList.toggle("isOpen");
     if (isOpen) {
-      this.detailsUI?.close?.();
+      this.pinnedDetailsRowId = null;
+      this.hoveredDetailsRowId = null;
+      this.detailsUI?.close?.({ keepPinned: false });
       this.refreshConnectionInfo();
     }
   }
@@ -2288,7 +2311,9 @@ class DpsApp {
     this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastRenderedRowsSummary = null;
-    this.detailsUI?.close?.();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
+    this.detailsUI?.close?.({ keepPinned: false });
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
     this._lastRenderedListSignature = "";
@@ -2349,6 +2374,23 @@ class DpsApp {
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.meterUI?.updateFromRows?.(rowsToRender);
+  }
+
+  getDefaultDetailsOpenOptions() {
+    const fallbackAllTargets =
+      this.lastTargetMode === "lastHitByMe" &&
+      (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
+      !this.lastTargetName;
+    const isTrainTargets = this.lastTargetMode === "trainTargets";
+    const shouldDefaultAllTrainTargets = isTrainTargets && this.trainSelectionMode === "all";
+    const shouldDefaultTrainTarget = isTrainTargets && this.trainSelectionMode === "highestDamage";
+    const defaultTargetId = shouldDefaultTrainTarget && Number(this.lastTargetId) > 0
+      ? Number(this.lastTargetId)
+      : null;
+    return {
+      defaultTargetAll: this.lastTargetMode === "allTargets" || fallbackAllTargets || shouldDefaultAllTrainTargets,
+      defaultTargetId,
+    };
   }
 
   refreshConnectionInfo({ skipSettingsRefresh = false } = {}) {

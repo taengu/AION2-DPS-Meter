@@ -3,6 +3,8 @@ const createMeterUI = ({
   dpsFormatter,
   getUserName,
   onClickUserRow,
+  onHoverUserRow,
+  onLeaveUserRow,
   getMetric,
   getSortDirection,
   getPinUserToTop,
@@ -69,7 +71,22 @@ const createMeterUI = ({
       fillEl,
       currentRow: null,
       lastSeenAt: 0,
+      hoverRipplePlayed: false,
     };
+
+    rowEl.addEventListener("mouseenter", () => {
+      if (!view.hoverRipplePlayed) {
+        view.rowEl.classList.add("hoverRipple");
+        view.hoverRipplePlayed = true;
+      }
+      onHoverUserRow?.(view.currentRow);
+    });
+
+    rowEl.addEventListener("mouseleave", () => {
+      view.hoverRipplePlayed = false;
+      view.rowEl.classList.remove("hoverRipple");
+      onLeaveUserRow?.(view.currentRow);
+    });
 
     rowEl.addEventListener("click", () => {
       // if (view.currentRow?.isUser)

@@ -12,8 +12,10 @@ const createDetailsUI = ({
   dpsFormatter,
   getDetails,
   getDetailsContext,
+  onPinnedRowChange,
 }) => {
   let openedRowId = null;
+  let pinnedRowId = null;
   let openSeq = 0;
   let lastRow = null;
   let lastDetails = null;
@@ -1034,7 +1036,7 @@ const createDetailsUI = ({
 
   const open = async (
     row,
-    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null } = {}
+    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null, pin = true } = {}
   ) => {
     const rowId = row?.id ?? null;
     // if (!rowId) return;
@@ -1048,12 +1050,16 @@ const createDetailsUI = ({
     if (isSwitch && restartOnSwitch) {
       close();
       requestAnimationFrame(() => {
-        open(row, { force: true, restartOnSwitch: false });
+        open(row, { force: true, restartOnSwitch: false, defaultTargetAll, defaultTargetId, pin });
       });
       return;
     }
 
     openedRowId = rowId;
+    if (pin) {
+      pinnedRowId = rowId;
+      onPinnedRowChange?.(pinnedRowId);
+    }
     lastRow = row;
 
     selectedAttackerLabel = resolveRowLabel(row);
@@ -1096,10 +1102,14 @@ const createDetailsUI = ({
       // uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
     }
   };
-  const close = () => {
+  const close = ({ keepPinned = false } = {}) => {
     openSeq++;
 
     openedRowId = null;
+    if (!keepPinned) {
+      pinnedRowId = null;
+      onPinnedRowChange?.(null);
+    }
     lastRow = null;
     lastDetails = null;
     detailsPanel.classList.remove("open");
@@ -1121,5 +1131,7 @@ const createDetailsUI = ({
     await refreshDetailsView(seq);
   };
 
-  return { open, close, isOpen, render, updateLabels, refresh };
+  const isPinned = () => pinnedRowId !== null;
+
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh };
 };
