@@ -94,6 +94,9 @@ class DpsApp {
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
     this.latestRowsById = new Map();
+    this.isWindowDragging = false;
+    this.deferFetchUntilDragEnd = false;
+    this.suppressRowInteractionUntilMs = 0;
 
     DpsApp.instance = this;
   }
@@ -170,6 +173,7 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       onHoverUserRow: (row) => {
+        if (this.shouldSuppressRowInteractions()) return;
         this.openHoverDetailsRow(row);
       },
       onLeaveUserRow: () => {
@@ -182,7 +186,7 @@ class DpsApp {
         });
       },
       onClickUserRow: (row) => {
-        if (!row) return;
+        if (!row || this.isWindowDragging) return;
         const rowId = Number(row?.id);
         this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
         this.detailsUI.open(row, {
@@ -373,6 +377,10 @@ class DpsApp {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 
+  shouldSuppressRowInteractions() {
+    return this.isWindowDragging || this.nowMs() < Number(this.suppressRowInteractionUntilMs || 0);
+  }
+
   formatBattleTime(ms) {
     const totalMs = Number(ms);
     if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
@@ -486,7 +494,7 @@ class DpsApp {
 
 
   openHoverDetailsRow(row) {
-    if (!row || this.pinnedDetailsRowId !== null) return;
+    if (!row || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
     const rowId = Number(row?.id);
     if (!Number.isFinite(rowId) || rowId <= 0) return;
     if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
@@ -501,17 +509,34 @@ class DpsApp {
   bindInstantDetailsHover() {
     if (!this.elList) return;
 
+    let hoverRafId = null;
+    let pendingHoverRow = null;
+
     this.elList.addEventListener("mousemove", (event) => {
-      if (this.pinnedDetailsRowId !== null) return;
+      if (this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
       const rowEl = event?.target?.closest?.(".item");
       const rowId = Number(rowEl?.dataset?.rowId);
       if (!Number.isFinite(rowId) || rowId <= 0) return;
       const row = this.latestRowsById?.get?.(String(rowId));
       if (!row) return;
-      this.openHoverDetailsRow(row);
+
+      pendingHoverRow = row;
+      if (hoverRafId !== null) return;
+      hoverRafId = requestAnimationFrame(() => {
+        hoverRafId = null;
+        const nextRow = pendingHoverRow;
+        pendingHoverRow = null;
+        if (!nextRow || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
+        this.openHoverDetailsRow(nextRow);
+      });
     });
 
     this.elList.addEventListener("mouseleave", () => {
+      if (hoverRafId !== null) {
+        cancelAnimationFrame(hoverRafId);
+        hoverRafId = null;
+      }
+      pendingHoverRow = null;
       if (this.pinnedDetailsRowId !== null) return;
       this.hoveredDetailsRowId = null;
       this.detailsUI?.close?.({ keepPinned: false });
@@ -523,6 +548,10 @@ class DpsApp {
 
   fetchDps() {
     if (this.isCollapse) return;
+    if (this.isWindowDragging) {
+      this.deferFetchUntilDragEnd = true;
+      return;
+    }
     const now = this.nowMs();
     if (this.settingsPanel?.classList.contains("isOpen")) {
       this.refreshConnectionInfo({ skipSettingsRefresh: true });
@@ -2668,12 +2697,28 @@ class DpsApp {
 
   bindDragToMoveWindow() {
     let isDragging = false;
-    let startX = 0,
-      startY = 0;
-    let initialStageX = 0,
-      initialStageY = 0;
+    let startX = 0;
+    let startY = 0;
+    let initialStageX = 0;
+    let initialStageY = 0;
+    let pendingStageX = 0;
+    let pendingStageY = 0;
+    let lastMovedX = Number.NaN;
+    let lastMovedY = Number.NaN;
+    let dragRafId = null;
+    let hasDragMoved = false;
+
+    const flushMove = (force = false) => {
+      dragRafId = null;
+      if ((!isDragging && !force) || !window.javaBridge) return;
+      if (pendingStageX === lastMovedX && pendingStageY === lastMovedY) return;
+      window.javaBridge.moveWindow(pendingStageX, pendingStageY);
+      lastMovedX = pendingStageX;
+      lastMovedY = pendingStageY;
+    };
 
     document.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       const targetEl = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
       if (targetEl?.closest?.(".resizeHandle")) {
         return;
@@ -2684,24 +2729,56 @@ class DpsApp {
       if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
+      if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
+        return;
+      }
       isDragging = true;
+      hasDragMoved = false;
+      this.isWindowDragging = false;
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
       initialStageY = window.screenY;
+      pendingStageX = initialStageX;
+      pendingStageY = initialStageY;
+      lastMovedX = Number.NaN;
+      lastMovedY = Number.NaN;
     });
 
     document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      if (!window.javaBridge) return;
+      if (!isDragging || !window.javaBridge) return;
 
       const deltaX = e.screenX - startX;
       const deltaY = e.screenY - startY;
-      window.javaBridge.moveWindow(initialStageX + deltaX, initialStageY + deltaY);
+      if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
+        hasDragMoved = true;
+        this.isWindowDragging = true;
+        this.elList?.classList?.add?.("dragInteracting");
+      }
+      pendingStageX = initialStageX + deltaX;
+      pendingStageY = initialStageY + deltaY;
+
+      if (dragRafId !== null) return;
+      dragRafId = requestAnimationFrame(flushMove);
     });
 
     document.addEventListener("mouseup", () => {
+      if (!isDragging) return;
       isDragging = false;
+      this.isWindowDragging = false;
+      if (hasDragMoved) {
+        this.elList?.classList?.remove?.("dragInteracting");
+        this.suppressRowInteractionUntilMs = this.nowMs() + 120;
+      }
+      if (dragRafId !== null) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = null;
+      }
+      flushMove(true);
+      if (this.deferFetchUntilDragEnd) {
+        this.deferFetchUntilDragEnd = false;
+        this.fetchDps();
+      }
     });
   }
 

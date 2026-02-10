@@ -73,6 +73,9 @@ class BrowserApp(
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
 
         fun moveWindow(x: Double, y: Double) {
+            if (stage.x == x && stage.y == y) {
+                return
+            }
             stage.x = x
             stage.y = y
         }
