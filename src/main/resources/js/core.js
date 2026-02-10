@@ -60,6 +60,7 @@ class DpsApp {
     // reset 직후 서버가 구 데이터 계속 주는 현상 방지
     this.resetPending = false;
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
 
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
@@ -558,16 +559,24 @@ class DpsApp {
     const { rows, targetName, targetMode, battleTimeMs, targetId, localPlayerId } =
       this.buildRowsFromPayload(raw);
     if (this.refreshPending) {
-      if (rows.length > 0) {
+      const pendingAgeMs = Math.max(0, now - (Number(this.refreshPendingStartedAt) || 0));
+      const allowFallbackResume = rows.length > 0 && pendingAgeMs >= 2500;
+
+      if (rows.length > 0 && !allowFallbackResume) {
         return;
       }
+
       this.refreshPending = false;
-      this.lastJson = raw;
-      this.lastSnapshot = [];
-      this._lastRenderedListSignature = "";
-      this._lastRenderedRowsSummary = null;
-      this.meterUI?.onResetMeterUi?.();
-      return;
+      this.refreshPendingStartedAt = 0;
+
+      if (rows.length === 0) {
+        this.lastJson = raw;
+        this.lastSnapshot = [];
+        this._lastRenderedListSignature = "";
+        this._lastRenderedRowsSummary = null;
+        this.meterUI?.onResetMeterUi?.();
+        return;
+      }
     }
 
     this.lastJson = raw;
@@ -892,6 +901,7 @@ class DpsApp {
     this.resetTargetTrackingState();
     window.javaBridge?.restartTargetSelection?.();
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
     this.resetPending = false;
     this.lastJson = null;
     this.lastSnapshot = null;
@@ -2348,6 +2358,7 @@ class DpsApp {
 
   refreshDamageData({ reason = "refresh" } = {}) {
     this.refreshPending = true;
+    this.refreshPendingStartedAt = this.nowMs();
     this.lastSnapshot = null;
     this.lastJson = null;
     this.lastTargetMode = "";

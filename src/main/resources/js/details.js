@@ -595,12 +595,12 @@ const createDetailsUI = ({
       let targetWidth = headerWidth + 4;
       if (columnClass === "name") {
         const currentNameWidth = parseFloat(
-          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "180"
+          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "144"
         );
         if (Number.isFinite(currentNameWidth) && currentNameWidth > 0) {
           targetWidth = Math.max(targetWidth, Math.ceil(currentNameWidth));
         }
-        targetWidth = Math.min(Math.max(120, targetWidth), 220);
+        targetWidth = Math.min(Math.max(96, targetWidth), 176);
       } else if (compactSet.has(columnClass)) {
         visibleCells.forEach((cell) => {
           targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
@@ -709,8 +709,8 @@ const createDetailsUI = ({
 
     const panelRect = detailsPanel?.getBoundingClientRect?.();
     const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
-    const maxNameColumnWidth = Math.max(140, Math.floor(panelWidth * 0.28));
-    const nextWidth = Math.min(Math.max(96, Math.ceil(widest + 20)), maxNameColumnWidth);
+    const maxNameColumnWidth = Math.max(112, Math.floor(panelWidth * 0.224));
+    const nextWidth = Math.min(Math.max(84, Math.ceil(widest + 16)), maxNameColumnWidth);
     if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
     lastSkillNameColumnWidth = nextWidth;
     detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);

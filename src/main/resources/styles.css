@@ -2306,8 +2306,8 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 var(--details-skill-name-width, 180px);
-  min-width: var(--details-skill-name-width, 180px);
+  flex: 0 0 var(--details-skill-name-width, 144px);
+  min-width: var(--details-skill-name-width, 144px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
