@@ -559,8 +559,12 @@ const createDetailsUI = ({
 
     const panelRect = detailsPanel.getBoundingClientRect();
     const currentWidth = Math.ceil(panelRect.width || 0);
-    if (currentWidth > 0 && currentWidth < requiredWidth) {
-      detailsPanel.style.width = `${requiredWidth}px`;
+    const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect.left) - 12));
+    const clampedRequiredWidth = Math.min(requiredWidth, maxAllowedWidth);
+    if (currentWidth > maxAllowedWidth) {
+      detailsPanel.style.width = `${maxAllowedWidth}px`;
+    } else if (currentWidth > 0 && currentWidth < clampedRequiredWidth) {
+      detailsPanel.style.width = `${clampedRequiredWidth}px`;
     }
   };
 

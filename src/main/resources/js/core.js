@@ -2718,8 +2718,11 @@ class DpsApp {
 
     const onMouseMove = (event) => {
       if (!isResizing) return;
-      const nextWidth = Math.max(minWidth, startWidth + (event.clientX - startX));
-      const nextHeight = Math.max(minHeight, startHeight + (event.clientY - startY));
+      const rect = this.detailsPanel.getBoundingClientRect();
+      const maxWidth = Math.max(minWidth, Math.floor(window.innerWidth - Math.max(0, rect.left) - 12));
+      const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight - Math.max(0, rect.top) - 12));
+      const nextWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + (event.clientX - startX)));
+      const nextHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + (event.clientY - startY)));
       this.detailsPanel.style.width = `${nextWidth}px`;
       this.detailsPanel.style.height = `${nextHeight}px`;
     };
