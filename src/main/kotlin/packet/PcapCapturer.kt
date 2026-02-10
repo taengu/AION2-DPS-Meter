@@ -121,37 +121,40 @@ class PcapCapturer(
                 logger.warn("No non-loopback adapters available to start ({})", reason)
                 return
             }
-            val candidate = targets.firstOrNull { it.addresses.isNotEmpty() } ?: targets.first()
-            if (started.add(candidate.name)) {
-                logger.info(
-                    "Starting capture on adapter {} ({})",
-                    candidate.description ?: candidate.name,
-                    reason
-                )
-                captureOnDevice(candidate)
-            }
+
             targets.forEach { target ->
-                if (target.name == candidate.name) return@forEach
                 val reasonDetail = when {
                     started.contains(target.name) -> "already started"
                     target.addresses.isEmpty() -> "no interface addresses"
-                    else -> "single-adapter mode to reduce background capture threads"
+                    else -> null
                 }
-                if (UnifiedLogger.isDebugEnabled()) {
-                    logger.debug(
-                        "PCAP device not started: {} ({}) reason={}",
-                        target.description ?: target.name,
-                        reason,
-                        reasonDetail
-                    )
-                    UnifiedLogger.debug(
-                        logger,
-                        "PCAP device not started: {} ({}) reason={}",
-                        target.description ?: target.name,
-                        reason,
-                        reasonDetail
-                    )
+
+                if (reasonDetail != null) {
+                    if (UnifiedLogger.isDebugEnabled()) {
+                        logger.debug(
+                            "PCAP device not started: {} ({}) reason={}",
+                            target.description ?: target.name,
+                            reason,
+                            reasonDetail
+                        )
+                        UnifiedLogger.debug(
+                            logger,
+                            "PCAP device not started: {} ({}) reason={}",
+                            target.description ?: target.name,
+                            reason,
+                            reasonDetail
+                        )
+                    }
+                    return@forEach
                 }
+
+                started.add(target.name)
+                logger.info(
+                    "Starting capture on adapter {} ({})",
+                    target.description ?: target.name,
+                    reason
+                )
+                captureOnDevice(target)
             }
         }
 

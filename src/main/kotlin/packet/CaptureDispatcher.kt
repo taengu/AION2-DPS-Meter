@@ -45,8 +45,26 @@ class CaptureDispatcher(
                     StreamAssembler(StreamProcessor(sharedDataStorage))
                 }
 
-                // "Lock" is informational for now; don't filter until parsing confirmed stable
-                if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(cap.data)) {
+                val unlocked = CombatPortDetector.currentPort() == null
+                val tlsPayload = looksLikeTlsPayload(cap.data)
+
+                if (unlocked && tlsPayload) {
+                    logUnlockedPacketSkip(cap, "TLS payload ignored while waiting for combat lock")
+                    continue
+                }
+
+                val hasCombatMagic = if (tlsPayload) false else contains(cap.data, MAGIC)
+                if (unlocked && !hasCombatMagic) {
+                    val reason = when {
+                        cap.data.isEmpty() -> "Empty payload while waiting for combat signature"
+                        cap.data.size < MAGIC.size -> "Payload too short for combat signature while waiting for lock"
+                        else -> "No combat signature (06 00 36) while waiting for combat lock"
+                    }
+                    logUnlockedPacketSkip(cap, reason)
+                    continue
+                }
+
+                if (unlocked && hasCombatMagic) {
                     // Choose srcPort for now (since magic typically comes from the sender)
                     CombatPortDetector.registerCandidate(cap.srcPort, key, cap.deviceName)
                     logger.info(
@@ -59,10 +77,6 @@ class CaptureDispatcher(
                     )
                 }
 
-                if (looksLikeTlsPayload(cap.data)) {
-                    logUnlockedPacketSkip(cap, "TLS payload ignored while waiting for combat lock")
-                    continue
-                }
                 val parsed = assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
@@ -70,7 +84,12 @@ class CaptureDispatcher(
                 if (parsed) {
                     CombatPortDetector.markPacketParsed()
                 } else {
-                    logUnlockedPacketSkip(cap, "Stream chunk rejected or incomplete by assembler")
+                    val reason = if (unlocked) {
+                        "Combat-signature candidate rejected or incomplete by assembler"
+                    } else {
+                        "Locked-flow chunk rejected or incomplete by assembler"
+                    }
+                    logUnlockedPacketSkip(cap, reason)
                 }
             } catch (e: Exception) {
                 UnifiedLogger.crash(
@@ -134,10 +153,6 @@ class CaptureDispatcher(
             isAionRunning = running
         }
         return isAionRunning
-    }
-
-    private fun isUnencryptedCandidate(data: ByteArray): Boolean {
-        return !looksLikeTlsPayload(data) && contains(data, MAGIC)
     }
 
     private fun looksLikeTlsPayload(data: ByteArray): Boolean {
