@@ -1499,7 +1499,7 @@ class DpsApp {
       ? "https://afdian.com/a/hiddencube"
       : "https://ko-fi.com/hiddencube";
     const nextLabel = isChinese ? "爱发电" : "Ko-fi";
-    const nextIcon = isChinese ? "A" : "K";
+    const nextIcon = isChinese ? "⚡" : "☕";
     this.supportPrimaryButton.dataset.support = nextSupport;
     this.supportPrimaryButton.dataset.url = nextUrl;
     const label = this.supportPrimaryButton.querySelector(".supportLabel");
