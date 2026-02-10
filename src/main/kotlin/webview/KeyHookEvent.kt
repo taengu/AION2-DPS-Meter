@@ -111,9 +111,6 @@ class KeyHookEvent(private val engine: WebEngine) {
                         if (msg.wParam.toInt() != hotkeyId || !matchesRegisteredHotkey(msg.lParam.toLong())) {
                             continue
                         }
-                        if (!isRegisteredComboStillPressed(registeredHotkeyMods, registeredHotkeyKey)) {
-                            continue
-                        }
                         val foreground = User32.INSTANCE.GetForegroundWindow()
                         if (foreground == null || !isAion2Window(foreground)) {
                             isAion2ForegroundCached = false
@@ -230,27 +227,10 @@ class KeyHookEvent(private val engine: WebEngine) {
     }
 
     private fun matchesRegisteredHotkey(lParam: Long): Boolean {
-        val messageMods = (lParam and 0xFFFF).toInt()
+        val messageMods = (lParam and 0xFFFF).toInt() and HOTKEY_MODIFIER_MASK
         val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
-        return messageMods == registeredHotkeyMods && messageKey == registeredHotkeyKey
-    }
-
-
-    private fun isRegisteredComboStillPressed(modifiers: Int, keyCode: Int): Boolean {
-        if (keyCode <= 0) {
-            return false
-        }
-
-        if ((modifiers and WinUser.MOD_CONTROL) != 0 && !isVirtualKeyDown(WinUser.VK_CONTROL)) return false
-        if ((modifiers and WinUser.MOD_ALT) != 0 && !isVirtualKeyDown(WinUser.VK_MENU)) return false
-        if ((modifiers and WinUser.MOD_SHIFT) != 0 && !isVirtualKeyDown(WinUser.VK_SHIFT)) return false
-        if ((modifiers and WinUser.MOD_WIN) != 0 && !isVirtualKeyDown(vkLWin) && !isVirtualKeyDown(vkRWin)) return false
-
-        return isVirtualKeyDown(keyCode)
-    }
-
-    private fun isVirtualKeyDown(vk: Int): Boolean {
-        return (User32.INSTANCE.GetAsyncKeyState(vk).toInt() and 0x8000) != 0
+        val expectedMods = registeredHotkeyMods and HOTKEY_MODIFIER_MASK
+        return messageMods == expectedMods && messageKey == registeredHotkeyKey
     }
 
     private fun isModifierVirtualKey(vk: Int): Boolean {
