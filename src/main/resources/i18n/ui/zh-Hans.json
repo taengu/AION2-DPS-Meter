@@ -73,6 +73,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "输入你的角色名称",
     "pinMeToTop": "将我置顶",
+    "bold": {
+      "label": "加粗",
+      "names": "名称",
+      "dps": "DPS"
+    },
     "debugLogging": "启用调试日志",
     "quit": "退出",
     "discord": "在 Discord 找到我们",
