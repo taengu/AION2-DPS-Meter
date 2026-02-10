@@ -2655,8 +2655,18 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
 }
 .supportModal .supportIcon {
-  font-size: 18px;
+  width: 18px;
+  height: 18px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.supportModal .supportIcon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .supportModal .supportLabel {
   font-size: 13px;

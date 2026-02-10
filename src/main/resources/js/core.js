@@ -1491,6 +1491,20 @@ class DpsApp {
     }
   }
 
+  getSupportIconSvg(type) {
+    const iconByType = {
+      afdian:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 2 5 13h5l-1.5 9L19 10h-5.5L13.5 2z" fill="currentColor"/></svg>',
+      kofi:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V7z" fill="currentColor"/><path d="M16 9h1.5a2.5 2.5 0 0 1 0 5H16V9z" fill="currentColor" opacity="0.75"/><path d="M6 5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+      wechat:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4c-3.87 0-7 2.69-7 6 0 1.9 1.03 3.59 2.62 4.69L4 19l3.66-1.85A8.4 8.4 0 0 0 9 17c3.87 0 7-2.69 7-6s-3.13-7-7-7z" fill="currentColor"/><path d="M16.5 10.5c3.04 0 5.5 2.01 5.5 4.5 0 1.42-.79 2.69-2.02 3.52L20.5 22l-2.79-1.41c-.39.08-.79.12-1.21.12-3.04 0-5.5-2.01-5.5-4.5s2.46-4.5 5.5-4.5z" fill="currentColor" opacity="0.78"/></svg>',
+      paypal:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 3h6.8c3.45 0 5.7 2.34 5.2 5.36-.43 2.67-2.67 4.38-5.75 4.38H10.8l-.73 4.26H5.9L8 3z" fill="currentColor"/><path d="M9.7 8.1h4.1c1.1 0 1.66.64 1.49 1.52-.17.91-.93 1.5-1.98 1.5H9.06l.64-3.02z" fill="#0b2f63" opacity="0.45"/></svg>',
+    };
+    return iconByType[type] || "";
+  }
+
   updateSupportPrimaryAction(lang) {
     if (!this.supportPrimaryButton) return;
     const isChinese = this.isChineseLanguage(lang);
@@ -1499,13 +1513,13 @@ class DpsApp {
       ? "https://afdian.com/a/hiddencube"
       : "https://ko-fi.com/hiddencube";
     const nextLabel = isChinese ? "爱发电" : "Ko-fi";
-    const nextIcon = isChinese ? "⚡" : "☕";
+    const nextIcon = this.getSupportIconSvg(isChinese ? "afdian" : "kofi");
     this.supportPrimaryButton.dataset.support = nextSupport;
     this.supportPrimaryButton.dataset.url = nextUrl;
     const label = this.supportPrimaryButton.querySelector(".supportLabel");
     const icon = this.supportPrimaryButton.querySelector(".supportIcon");
     if (label) label.textContent = nextLabel;
-    if (icon) icon.textContent = nextIcon;
+    if (icon) icon.innerHTML = nextIcon;
     this.supportPrimaryButton.setAttribute("aria-label", nextLabel);
     const i18nLabel = isChinese ? "support.aria.afdian" : "support.aria.kofi";
     this.supportPrimaryButton.dataset.i18nAriaLabel = i18nLabel;
