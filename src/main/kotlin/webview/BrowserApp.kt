@@ -49,7 +49,9 @@ class BrowserApp(
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
     private var webEngine: WebEngine? = null
+    private var jsBridge: JSBridge? = null
     override fun stop() {
+        jsBridge?.dispose()
         super.stop()
     }
 
@@ -68,9 +70,11 @@ class BrowserApp(
         private val dpsCalculator: DpsCalculator,
         private val hostServices: HostServices,
         private val windowTitleProvider: () -> String?,
-        private val uiReadyNotifier: () -> Unit
+        private val uiReadyNotifier: () -> Unit,
+        engine: WebEngine
     ) {
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
+        private val keyHookEvent = KeyHookEvent(engine)
 
         fun moveWindow(x: Double, y: Double) {
             if (stage.x == x && stage.y == y) {
@@ -214,6 +218,20 @@ class BrowserApp(
         fun exitApp() {
           Platform.exit()     
           exitProcess(0)       
+        }
+
+
+        fun setHotkey(modifiers: Int, keyCode: Int) {
+            logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
+            keyHookEvent.setHotkey(modifiers, keyCode)
+        }
+
+        fun getCurrentHotKey(): String {
+            return keyHookEvent.getCurrentHotKey()
+        }
+
+        fun dispose() {
+            keyHookEvent.stop()
         }
 
         fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
@@ -392,7 +410,8 @@ class BrowserApp(
         val engine = webView.engine
         webEngine = engine
 
-        val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier)
+        val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier, engine)
+        jsBridge = bridge
         @Suppress("DEPRECATION")
         val injectBridge = {
             runCatching {
