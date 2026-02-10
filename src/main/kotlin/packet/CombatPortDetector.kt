@@ -1,5 +1,6 @@
 package com.tbread.packet
 
+import com.tbread.logging.UnifiedLogger
 import org.slf4j.LoggerFactory
 
 object CombatPortDetector {
@@ -9,6 +10,12 @@ object CombatPortDetector {
     @Volatile private var lastParsedAtMs: Long = 0
     private val candidates = LinkedHashMap<Int, String?>()
     private val deviceFlows = mutableMapOf<String, MutableSet<Pair<Int, Int>>>()
+
+    private fun debugLockDecision(message: String, vararg args: Any?) {
+        if (!UnifiedLogger.isDebugEnabled()) return
+        logger.debug(message, *args)
+        UnifiedLogger.debug(logger, message, *args)
+    }
 
     private fun isLoopbackDevice(deviceName: String?): Boolean {
         if (deviceName.isNullOrBlank()) return false
@@ -41,6 +48,15 @@ object CombatPortDetector {
         val trimmedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
         if (lockedPort != null) {
             promoteLoopback(port, trimmedDevice)
+            debugLockDecision(
+                "Connection not considered for lock: port={} flow={}-{} device={} reason=already locked on {} ({})",
+                port,
+                flowKey.first,
+                flowKey.second,
+                trimmedDevice ?: "unknown",
+                lockedPort,
+                lockedDevice ?: "unknown"
+            )
             return
         }
         if (trimmedDevice != null) {
@@ -53,19 +69,56 @@ object CombatPortDetector {
         val existing = candidates[port]
         if (existing.isNullOrBlank() && !trimmedDevice.isNullOrBlank()) {
             candidates[port] = trimmedDevice
+            debugLockDecision(
+                "Connection registered as candidate: port={} flow={}-{} device={} reason=first device observed for this port",
+                port,
+                flowKey.first,
+                flowKey.second,
+                trimmedDevice
+            )
             return
         }
         candidates.putIfAbsent(port, trimmedDevice)
+        debugLockDecision(
+            "Connection candidate unchanged: port={} flow={}-{} device={} reason=existing candidate preserved ({})",
+            port,
+            flowKey.first,
+            flowKey.second,
+            trimmedDevice ?: "unknown",
+            existing ?: "unknown"
+        )
     }
 
     @Synchronized
     fun confirmCandidate(portA: Int, portB: Int, deviceName: String?) {
-        if (lockedPort != null) return
+        if (lockedPort != null) {
+            debugLockDecision(
+                "Connection not confirmed: flowPorts={}-{} device={} reason=already locked on {} ({})",
+                portA,
+                portB,
+                deviceName?.trim()?.takeIf { it.isNotBlank() } ?: "unknown",
+                lockedPort,
+                lockedDevice ?: "unknown"
+            )
+            return
+        }
+
         val port = when {
             candidates.containsKey(portA) -> portA
             candidates.containsKey(portB) -> portB
             else -> null
-        } ?: return
+        }
+
+        if (port == null) {
+            debugLockDecision(
+                "Connection not confirmed: flowPorts={}-{} device={} reason=no registered candidate for either port",
+                portA,
+                portB,
+                deviceName?.trim()?.takeIf { it.isNotBlank() } ?: "unknown"
+            )
+            return
+        }
+
         val trimmedDevice = deviceName?.trim()?.takeIf { it.isNotBlank() }
         val candidateDevice = candidates[port]
         val deviceForLock = trimmedDevice ?: candidateDevice
@@ -73,6 +126,12 @@ object CombatPortDetector {
         if (loopbackDevice != null && !isLoopbackDevice(deviceForLock)) {
             logger.info(
                 "Deferring combat port lock on {} because loopback ({}) is available.",
+                deviceForLock ?: "unknown",
+                loopbackDevice
+            )
+            debugLockDecision(
+                "Connection not locked yet: candidatePort={} device={} reason=loopback candidate exists ({})",
+                port,
                 deviceForLock ?: "unknown",
                 loopbackDevice
             )

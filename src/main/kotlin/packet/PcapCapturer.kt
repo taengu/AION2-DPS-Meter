@@ -84,6 +84,34 @@ class PcapCapturer(
             exitProcess(1)
         }
 
+        if (UnifiedLogger.isDebugEnabled()) {
+            devices.forEachIndexed { index, device ->
+                val label = device.description ?: device.name
+                val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
+                logger.debug(
+                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
+                    index,
+                    device.name,
+                    label,
+                    device.isLoopBack,
+                    device.isUp,
+                    device.isRunning,
+                    addresses
+                )
+                UnifiedLogger.debug(
+                    logger,
+                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
+                    index,
+                    device.name,
+                    label,
+                    device.isLoopBack,
+                    device.isUp,
+                    device.isRunning,
+                    addresses
+                )
+            }
+        }
+
         val loopback = getLoopbackDevice(devices)
         val started = mutableSetOf<String>()
         val nonLoopbacks = devices.filterNot { it == loopback || it.isLoopBack }
@@ -102,9 +130,28 @@ class PcapCapturer(
                 )
                 captureOnDevice(candidate)
             }
-            val skipped = (targets.size - 1).coerceAtLeast(0)
-            if (skipped > 0) {
-                logger.info("Skipped {} additional adapter(s) to reduce background capture threads", skipped)
+            targets.forEach { target ->
+                if (target.name == candidate.name) return@forEach
+                val reasonDetail = when {
+                    started.contains(target.name) -> "already started"
+                    target.addresses.isEmpty() -> "no interface addresses"
+                    else -> "single-adapter mode to reduce background capture threads"
+                }
+                if (UnifiedLogger.isDebugEnabled()) {
+                    logger.debug(
+                        "PCAP device not started: {} ({}) reason={}",
+                        target.description ?: target.name,
+                        reason,
+                        reasonDetail
+                    )
+                    UnifiedLogger.debug(
+                        logger,
+                        "PCAP device not started: {} ({}) reason={}",
+                        target.description ?: target.name,
+                        reason,
+                        reasonDetail
+                    )
+                }
             }
         }
 
