@@ -293,10 +293,8 @@
 @font-face {
   font-family: "UI";
   src:
-          local("Noto Sans TC"),
-          local("Noto Sans SC"),
-          local("Microsoft JhengHei UI"),
           local("Microsoft YaHei UI"),
+          local("Microsoft JhengHei UI"),
           local("PingFang TC"),
           local("PingFang SC"),
           local("Heiti TC"),
@@ -325,8 +323,6 @@ html[lang="ko"] * {
           "Spoqa Han Sans Neo",
           "Spoqa Han Sans",
           "Pretendard",
-          "Noto Sans SC",
-          "Noto Sans TC",
           "Microsoft YaHei UI",
           "Microsoft YaHei",
           "Microsoft JhengHei UI",
