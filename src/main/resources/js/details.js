@@ -541,27 +541,27 @@ const createDetailsUI = ({
     const columnOrder = ["name", ...compactColumns, "dmg"];
 
     const compactColumnMaxWidths = {
-      hit: 64,
-      mhit: 74,
-      mdmg: 86,
-      crit: 70,
-      parry: 70,
-      perfect: 74,
-      double: 72,
-      back: 68,
-      heal: 80,
+      hit: 56,
+      mhit: 66,
+      mdmg: 78,
+      crit: 64,
+      parry: 64,
+      perfect: 68,
+      double: 66,
+      back: 62,
+      heal: 72,
     };
 
     const compactColumnMinWidths = {
-      hit: 46,
-      mhit: 56,
-      mdmg: 64,
-      crit: 52,
-      parry: 52,
-      perfect: 58,
-      double: 56,
-      back: 52,
-      heal: 56,
+      hit: 40,
+      mhit: 48,
+      mdmg: 56,
+      crit: 46,
+      parry: 46,
+      perfect: 50,
+      double: 48,
+      back: 44,
+      heal: 50,
     };
 
     const isVisibleCell = (cell) => {
@@ -592,7 +592,7 @@ const createDetailsUI = ({
 
       headerMinWidths.set(columnClass, headerWidth + 4);
 
-      let targetWidth = headerWidth + 8;
+      let targetWidth = headerWidth + 4;
       if (columnClass === "name") {
         const currentNameWidth = parseFloat(
           detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "180"
@@ -603,12 +603,12 @@ const createDetailsUI = ({
         targetWidth = Math.min(Math.max(120, targetWidth), 220);
       } else if (compactSet.has(columnClass)) {
         visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 8);
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
         });
         targetWidth = Math.min(targetWidth, compactColumnMaxWidths[columnClass] || 74);
       } else if (columnClass === "dmg") {
         visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 8);
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
         });
         targetWidth = Math.min(Math.max(120, targetWidth), 170);
       }
@@ -619,7 +619,7 @@ const createDetailsUI = ({
     const visibleColumns = columnOrder.filter((columnClass) => measuredWidths.has(columnClass));
     if (!visibleColumns.length) return;
 
-    const gap = 8;
+    const gap = 6;
     const totalGap = Math.max(0, visibleColumns.length - 1) * gap;
     const availableWidth = Math.max(300, Math.floor(headerEl.clientWidth - 4));
     const getTotalWidth = () => visibleColumns.reduce((sum, key) => sum + (measuredWidths.get(key) || 0), 0) + totalGap;
@@ -646,15 +646,20 @@ const createDetailsUI = ({
 
     if (overflow > 0) {
       const shrinkable = compactColumns.filter((columnClass) => measuredWidths.has(columnClass));
-      for (let round = 0; round < 4 && overflow > 0; round++) {
+      let safety = 2000;
+      while (overflow > 0 && safety > 0) {
+        safety -= 1;
+        let changed = false;
         for (let i = 0; i < shrinkable.length && overflow > 0; i++) {
           const key = shrinkable[i];
           const current = measuredWidths.get(key) || 0;
-          const minWidth = Math.max(compactColumnMinWidths[key] || 48, headerMinWidths.get(key) || 48);
+          const minWidth = Math.max(compactColumnMinWidths[key] || 40, headerMinWidths.get(key) || 40);
           if (current <= minWidth) continue;
           measuredWidths.set(key, current - 1);
           overflow -= 1;
+          changed = true;
         }
+        if (!changed) break;
       }
     }
 
