@@ -447,6 +447,11 @@
               </button>
               <button class="quitButton" data-i18n="settings.quit">Quit</button>
             </div>
+            <div class="supportWidget">
+              <button class="supportButton" type="button" data-i18n="support.button">
+                支持我一下 ☕
+              </button>
+            </div>
             <div class="kofiWidget">
               <button class="kofiButton" type="button">
                 <img
@@ -505,6 +510,93 @@
         <div class="updateModalActions">
           <button class="updateModalBtn primary" data-i18n="update.ok">OK</button>
         </div>
+      </div>
+    </div>
+    <div class="supportModal" id="supportModal" aria-hidden="true">
+      <div
+        class="supportModalCard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supportModalTitle">
+        <button
+          class="supportModalClose"
+          type="button"
+          data-i18n-aria-label="support.aria.close"
+          aria-label="Close">
+          ×
+        </button>
+        <div class="supportModalTitle" id="supportModalTitle" data-i18n="support.title">
+          在爱发电支持作者
+        </div>
+        <div class="supportQrContainer">
+          <img
+            class="supportQrImage"
+            src="./assets/afdian.png"
+            alt="Afdian QR code" />
+        </div>
+        <div class="supportActions">
+          <button
+            class="supportIconButton supportPrimaryButton"
+            type="button"
+            data-support="afdian"
+            data-url="https://afdian.com/a/hiddencube"
+            data-i18n-aria-label="support.aria.afdian"
+            aria-label="Afdian">
+            <span class="supportIcon">A</span>
+            <span class="supportLabel">爱发电</span>
+          </button>
+          <button
+            class="supportIconButton"
+            type="button"
+            data-support="wechat"
+            data-qr="wechat"
+            data-i18n-aria-label="support.aria.wechat"
+            aria-label="WeChat">
+            <span class="supportIcon">W</span>
+            <span class="supportLabel" data-i18n="support.label.wechat">微信</span>
+          </button>
+          <button
+            class="supportIconButton"
+            type="button"
+            data-support="paypal"
+            data-url="https://www.paypal.me/taengoo"
+            data-i18n-aria-label="support.aria.paypal"
+            aria-label="PayPal">
+            <span class="supportIcon">P</span>
+            <span class="supportLabel">PayPal</span>
+          </button>
+          <button
+            class="supportIconButton"
+            type="button"
+            data-support="btc"
+            data-copy="1GexKhgVZPYRqpfCKydXLoNUXRRRUoAUwT"
+            data-i18n-aria-label="support.aria.btc"
+            aria-label="BTC">
+            <span class="supportIcon">₿</span>
+            <span class="supportLabel">BTC</span>
+          </button>
+          <button
+            class="supportIconButton"
+            type="button"
+            data-support="eth"
+            data-copy="0x38F0bc371A563A24eCa6034cFf77eB6173c7e3e7"
+            data-i18n-aria-label="support.aria.eth"
+            aria-label="ETH">
+            <span class="supportIcon">Ξ</span>
+            <span class="supportLabel">ETH</span>
+          </button>
+          <button
+            class="supportIconButton"
+            type="button"
+            data-support="usdc"
+            data-copy="0xA9571Fc95666350f6DFFB8Fb80ee27eE7db46b56"
+            data-i18n-aria-label="support.aria.usdc"
+            aria-label="USDC">
+            <span class="supportIcon">＄</span>
+            <span class="supportLabel">USDC</span>
+          </button>
+        </div>
+        <div class="supportCopyStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
     <script src="./js/battleTime.js"></script>

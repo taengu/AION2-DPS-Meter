@@ -136,6 +136,29 @@
       }
     }
   },
+  "support": {
+    "button": "支持我一下 ☕",
+    "title": "在愛發電支持作者",
+    "titleWechat": "在微信支持作者",
+    "label": {
+      "wechat": "微信"
+    },
+    "copy": {
+      "btc": "已複製 BTC 地址",
+      "eth": "已複製 ETH 地址",
+      "usdc": "已複製 USDC 地址"
+    },
+    "aria": {
+      "afdian": "開啟愛發電",
+      "kofi": "開啟 Ko-fi",
+      "close": "關閉支持視窗",
+      "wechat": "顯示微信 QR 碼",
+      "paypal": "開啟 PayPal",
+      "btc": "複製 BTC 地址",
+      "eth": "複製 ETH 地址",
+      "usdc": "複製 USDC 地址"
+    }
+  },
   "battleTime": {
     "analysing": "正在監控資料...",
     "idle": "閒置",

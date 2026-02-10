@@ -136,6 +136,29 @@
       }
     }
   },
+  "support": {
+    "button": "지원하기 ☕",
+    "title": "Support the author on Ko-fi",
+    "titleWechat": "Support the author on WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
+    "copy": {
+      "btc": "BTC 주소가 복사되었습니다",
+      "eth": "ETH 주소가 복사되었습니다",
+      "usdc": "USDC 주소가 복사되었습니다"
+    },
+    "aria": {
+      "afdian": "爱发电 열기",
+      "kofi": "Ko-fi 열기",
+      "close": "후원 모달 닫기",
+      "wechat": "WeChat QR 코드 보기",
+      "paypal": "PayPal 열기",
+      "btc": "BTC 주소 복사",
+      "eth": "ETH 주소 복사",
+      "usdc": "USDC 주소 복사"
+    }
+  },
   "battleTime": {
     "analysing": "데이터 모니터링 중...",
     "idle": "대기 중",
