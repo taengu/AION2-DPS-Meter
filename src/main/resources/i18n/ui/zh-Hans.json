@@ -136,6 +136,24 @@
       }
     }
   },
+  "support": {
+    "button": "支持我一下 ☕",
+    "title": "在爱发电支持作者",
+    "copy": {
+      "btc": "已复制 BTC 地址",
+      "eth": "已复制 ETH 地址",
+      "usdc": "已复制 USDC 地址"
+    },
+    "aria": {
+      "afdian": "打开爱发电",
+      "close": "关闭支持弹窗",
+      "wechat": "显示微信二维码",
+      "paypal": "打开 PayPal",
+      "btc": "复制 BTC 地址",
+      "eth": "复制 ETH 地址",
+      "usdc": "复制 USDC 地址"
+    }
+  },
   "battleTime": {
     "analysing": "正在监控数据...",
     "idle": "空闲",

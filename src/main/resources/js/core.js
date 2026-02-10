@@ -49,6 +49,10 @@ class DpsApp {
       "obsidian",
       "varian",
     ];
+    this.supportQrImages = {
+      afdian: "./assets/afdian.png",
+      wechat: "./assets/wechat.png",
+    };
 
     // 빈데이터 덮어쓰기 방지 스냅샷
     this.lastSnapshot = null;
@@ -335,6 +339,7 @@ class DpsApp {
       }
       this.refreshConnectionInfo();
       this.refreshBossLabel();
+      this.updateSupportVisibility(lang);
     });
     window.ReleaseChecker?.start?.();
     this.setupConsoleDebugging();
@@ -1246,7 +1251,15 @@ class DpsApp {
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
+    this.supportWidget = document.querySelector(".supportWidget");
+    this.supportButton = document.querySelector(".supportButton");
+    this.supportModal = document.querySelector("#supportModal");
+    this.supportModalClose = document.querySelector(".supportModalClose");
+    this.supportQrImage = document.querySelector(".supportQrImage");
+    this.supportCopyStatus = document.querySelector(".supportCopyStatus");
+    this.supportActionButtons = Array.from(document.querySelectorAll(".supportIconButton"));
     this.kofiButton = document.querySelector(".kofiButton");
+    this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
     this.settingsVersionValue = document.querySelector(".settingsVersionValue");
     this.settingsVersionLink = document.querySelector(".settingsVersionLink");
@@ -1402,6 +1415,25 @@ class DpsApp {
       window.javaBridge?.openBrowser?.("https://discord.gg/Aion2Global");
     });
 
+    this.supportButton?.addEventListener("click", () => {
+      this.openSupportModal();
+    });
+    this.supportModalClose?.addEventListener("click", () => this.closeSupportModal());
+    this.supportModal?.addEventListener("click", (event) => {
+      if (event.target === this.supportModal) {
+        this.closeSupportModal();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (this.supportModal?.classList.contains("isOpen")) {
+        this.closeSupportModal();
+      }
+    });
+    this.supportActionButtons?.forEach((button) => {
+      button.addEventListener("click", () => this.handleSupportAction(button));
+    });
+
     this.kofiButton?.addEventListener("click", () => {
       window.javaBridge?.openBrowser?.("https://ko-fi.com/W7W51T1YW9");
     });
@@ -1415,6 +1447,111 @@ class DpsApp {
     });
 
     this.updateSettingsVersion();
+    this.updateSupportVisibility(currentLanguage);
+    this.updateSupportQrImage("afdian");
+  }
+
+  isChineseLanguage(lang) {
+    return String(lang || "").startsWith("zh");
+  }
+
+  updateSupportVisibility(lang) {
+    const isChinese = this.isChineseLanguage(lang);
+    if (this.supportWidget) {
+      this.supportWidget.style.display = isChinese ? "flex" : "none";
+    }
+    if (this.kofiWidget) {
+      this.kofiWidget.style.display = isChinese ? "none" : "flex";
+    }
+  }
+
+  openSupportModal() {
+    if (!this.supportModal) return;
+    this.supportModal.classList.add("isOpen");
+    this.supportModal.setAttribute("aria-hidden", "false");
+    if (this.supportCopyStatus) {
+      this.supportCopyStatus.textContent = "";
+    }
+  }
+
+  closeSupportModal() {
+    if (!this.supportModal) return;
+    this.supportModal.classList.remove("isOpen");
+    this.supportModal.setAttribute("aria-hidden", "true");
+  }
+
+  handleSupportAction(button) {
+    if (!button) return;
+    const supportType = button.dataset.support;
+    const url = button.dataset.url;
+    const copyValue = button.dataset.copy;
+    const qrType = button.dataset.qr || supportType;
+
+    if (qrType && this.supportQrImages?.[qrType]) {
+      this.updateSupportQrImage(qrType);
+    }
+
+    if (url) {
+      this.openExternalLink(url);
+    }
+
+    if (copyValue) {
+      const messageKey = `support.copy.${supportType}`;
+      const fallback = `Copied ${supportType?.toUpperCase?.() || "address"}`;
+      this.copySupportValue(copyValue, this.i18n?.t?.(messageKey, fallback) || fallback);
+    }
+  }
+
+  openExternalLink(url) {
+    if (!url) return;
+    window.javaBridge?.openBrowser?.(url);
+    try {
+      window.open(url, "_blank", "noopener");
+    } catch {
+      // ignore
+    }
+  }
+
+  copySupportValue(value, message) {
+    if (!value) return;
+    const showStatus = (text) => {
+      if (!this.supportCopyStatus) return;
+      this.supportCopyStatus.textContent = text;
+    };
+    const attemptLegacyCopy = () => {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (success) showStatus(message);
+      } catch {
+        // ignore
+      }
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(value)
+        .then(() => showStatus(message))
+        .catch(() => attemptLegacyCopy());
+      return;
+    }
+    attemptLegacyCopy();
+  }
+
+  updateSupportQrImage(type) {
+    if (!this.supportQrImage) return;
+    const src = this.supportQrImages?.[type];
+    if (!src) return;
+    this.supportQrImage.src = src;
+    this.supportActionButtons?.forEach((button) => {
+      const match = button.dataset.support === type || button.dataset.qr === type;
+      button.classList.toggle("isActive", match);
+    });
   }
 
   initializeSettingsDropdowns() {

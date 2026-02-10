@@ -138,6 +138,24 @@
       }
     }
   },
+  "support": {
+    "button": "Support me ☕",
+    "title": "Support the author on Afdian",
+    "copy": {
+      "btc": "BTC address copied",
+      "eth": "ETH address copied",
+      "usdc": "USDC address copied"
+    },
+    "aria": {
+      "afdian": "Open Afdian",
+      "close": "Close support modal",
+      "wechat": "Show WeChat QR code",
+      "paypal": "Open PayPal",
+      "btc": "Copy BTC address",
+      "eth": "Copy ETH address",
+      "usdc": "Copy USDC address"
+    }
+  },
   "battleTime": {
     "analysing": "Monitoring data...",
     "idle": "Idle",

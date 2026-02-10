@@ -1673,6 +1673,37 @@ html[lang="ko"] * {
   align-items: center;
   gap: 12px;
 }
+.settingsPanel .supportWidget {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: -12px;
+}
+.settingsPanel .supportButton {
+  border: none;
+  padding: 8px 18px;
+  cursor: pointer;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #8f6af3, #7f58e8);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.settingsPanel .supportButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.05);
+}
+.settingsPanel .supportButton:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  filter: brightness(0.98);
+}
 .settingsPanel .kofiWidget {
   display: flex;
   justify-content: center;
@@ -2511,4 +2542,105 @@ html[lang="ko"] * {
   cursor: pointer;
   color: white;
   text-shadow: var(--text-shadow);
+}
+
+.supportModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 8;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.supportModal.isOpen {
+  display: flex;
+}
+.supportModal .supportModalCard {
+  width: min(360px, 95vw);
+  border-radius: 18px;
+  background: rgb(12, 22, 40);
+  padding: 20px;
+  color: white;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.supportModal .supportModalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.supportModal .supportModalClose {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.supportModal .supportQrContainer {
+  background: white;
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.supportModal .supportQrImage {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: white;
+}
+.supportModal .supportActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.supportModal .supportIconButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.supportModal .supportIconButton:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.16);
+}
+.supportModal .supportIconButton.isActive {
+  background: rgba(143, 106, 243, 0.35);
+  box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
+}
+.supportModal .supportIconText {
+  font-size: 12px;
+  font-weight: 700;
+}
+.supportModal .supportCopyStatus {
+  min-height: 18px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
 }
