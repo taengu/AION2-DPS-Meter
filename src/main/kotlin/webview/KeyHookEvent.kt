@@ -103,9 +103,6 @@ class KeyHookEvent(private val engine: WebEngine) {
                         if (msg.wParam.toInt() != hotkeyId || !matchesRegisteredHotkey(msg.lParam.toLong())) {
                             continue
                         }
-                        if (!isHotkeyComboCurrentlyPressed(registeredHotkeyMods, registeredHotkeyKey)) {
-                            continue
-                        }
                         val foreground = User32.INSTANCE.GetForegroundWindow()
                         if (foreground == null || !isAion2Window(foreground)) {
                             isAion2ForegroundCached = false
@@ -225,34 +222,6 @@ class KeyHookEvent(private val engine: WebEngine) {
         val messageMods = (lParam and 0xFFFF).toInt()
         val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
         return messageMods == registeredHotkeyMods && messageKey == registeredHotkeyKey
-    }
-
-    private fun isHotkeyComboCurrentlyPressed(modifiers: Int, keyCode: Int): Boolean {
-        if (keyCode <= 0 || isModifierVirtualKey(keyCode)) {
-            return false
-        }
-
-        if ((modifiers and WinUser.MOD_CONTROL) != 0 && !isVirtualKeyDown(WinUser.VK_CONTROL)) return false
-        if ((modifiers and WinUser.MOD_ALT) != 0 && !isVirtualKeyDown(WinUser.VK_MENU)) return false
-        if ((modifiers and WinUser.MOD_SHIFT) != 0 && !isVirtualKeyDown(WinUser.VK_SHIFT)) return false
-        if ((modifiers and WinUser.MOD_WIN) != 0 &&
-            !isVirtualKeyDown(vkLWin) &&
-            !isVirtualKeyDown(vkRWin)
-        ) return false
-
-        return isVirtualKeyDown(keyCode)
-    }
-
-    private fun isVirtualKeyDown(vk: Int): Boolean {
-        return (User32.INSTANCE.GetAsyncKeyState(vk).toInt() and 0x8000) != 0
-    }
-
-    private fun isModifierVirtualKey(vk: Int): Boolean {
-        return vk == WinUser.VK_CONTROL ||
-            vk == WinUser.VK_MENU ||
-            vk == WinUser.VK_SHIFT ||
-            vk == vkLWin ||
-            vk == vkRWin
     }
 
     companion object {
