@@ -1492,7 +1492,8 @@ class DpsApp {
     }
 
     if (url) {
-      this.openExternalLink(url);
+      const externalOnly = supportType === "paypal";
+      this.openExternalLink(url, { externalOnly });
     }
 
     if (copyValue) {
@@ -1502,9 +1503,10 @@ class DpsApp {
     }
   }
 
-  openExternalLink(url) {
+  openExternalLink(url, { externalOnly = false } = {}) {
     if (!url) return;
     window.javaBridge?.openBrowser?.(url);
+    if (externalOnly) return;
     try {
       window.open(url, "_blank", "noopener");
     } catch {
