@@ -7,6 +7,10 @@ import com.tbread.logging.UnifiedLogger
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
+    companion object {
+        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
+    }
+
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
 
     data class VarIntOutput(val value: Int, val length: Int)
@@ -549,10 +553,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val damageInfo = readVarInt(packet,offset)
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
-        pdp.setHexPayload(toHex(packet))
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
 
-        logger.debug("{}", toHex(packet))
-        UnifiedLogger.debug(logger, "{}", toHex(packet))
+        if (logger.isDebugEnabled) {
+            logger.debug("{}", toHex(packet))
+        }
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(logger, "{}", toHex(packet))
+        }
         logger.debug(
             "Dot damage actor {}, target {}, skill {}, damage {}",
             pdp.getActorId(),
@@ -875,15 +885,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setHealAmount(healAmount)
         pdp.setUnknown(unknownInfo)
         pdp.setDamage(VarIntOutput(finalDamage, 1))
-        pdp.setHexPayload(toHex(packet))
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
 
-        logger.trace("{}", toHex(packet))
-        logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
-        logger.trace(
-            "Type packet bits {}",
-            String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
-        )
-        logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        if (logger.isTraceEnabled) {
+            logger.trace("{}", toHex(packet))
+            logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
+            logger.trace(
+                "Type packet bits {}",
+                Integer.toBinaryString(damageType.toInt() and 0xFF).padStart(8, '0')
+            )
+            logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        }
         logger.debug(
             "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
             pdp.getTargetId(),
@@ -893,17 +907,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage(),
             pdp.getSpecials()
         )
-        UnifiedLogger.debug(
-            logger,
-            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
-            pdp.getTargetId(),
-            pdp.getActorId(),
-            pdp.getSkillCode1(),
-            pdp.getType(),
-            pdp.getDamage(),
-            pdp.getSpecials(),
-            toHex(packet)
-        )
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(
+                logger,
+                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getSkillCode1(),
+                pdp.getType(),
+                pdp.getDamage(),
+                pdp.getSpecials(),
+                toHex(packet)
+            )
+        }
 
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
@@ -915,8 +931,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun toHex(bytes: ByteArray): String {
-        //출력테스트용
-        return bytes.joinToString(" ") { "%02X".format(it) }
+        if (bytes.isEmpty()) return ""
+        val hex = CharArray(bytes.size * 3 - 1)
+        var pos = 0
+        bytes.forEachIndexed { index, b ->
+            val value = b.toInt() and 0xFF
+            val high = value ushr 4
+            val low = value and 0x0F
+            hex[pos++] = HEX_DIGITS[high]
+            hex[pos++] = HEX_DIGITS[low]
+            if (index != bytes.lastIndex) {
+                hex[pos++] = ' '
+            }
+        }
+        return String(hex)
     }
 
     private fun normalizeSkillId(raw: Int): Int {
