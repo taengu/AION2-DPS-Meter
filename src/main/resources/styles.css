@@ -2635,17 +2635,17 @@ html[lang="ko"] * {
   box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
 }
 .supportModal .supportIcon {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
 }
 .supportModal .supportLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 .supportModal .supportIconButton[data-support="afdian"] {
-  background: rgba(255, 112, 148, 0.18);
-  color: #ff9cb9;
+  background: linear-gradient(90deg, #8f6af3, #7f58e8);
+  color: #ffffff;
 }
 .supportModal .supportIconButton[data-support="wechat"] {
   background: rgba(16, 187, 89, 0.2);
