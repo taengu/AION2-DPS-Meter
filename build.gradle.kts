@@ -46,7 +46,9 @@ dependencies {
     implementation("net.java.dev.jna:jna-platform:5.16.0")
 
     // Windows WebView2 backend via SWT Browser (Edge)
-    implementation("org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.129.0")
+    implementation("org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.129.0") {
+        isTransitive = false
+    }
 }
 
 graalvmNative {
