@@ -2,7 +2,9 @@ package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.UnifiedLogger
-import com.tbread.packet.*
+import com.tbread.packet.CaptureDispatcher
+import com.tbread.packet.CapturedPayload
+import com.tbread.packet.PcapCapturer
 import com.tbread.profiling.MemoryProfiler
 import com.tbread.webview.BrowserApp
 import com.tbread.windows.WindowTitleDetector
@@ -12,11 +14,8 @@ import com.sun.jna.platform.win32.Shell32
 import com.sun.jna.platform.win32.WinNT
 import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
-import javafx.application.Application
-import javafx.application.Platform
-import javafx.stage.Stage
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
@@ -25,111 +24,58 @@ import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
 
-// This class handles the JavaFX lifecycle properly for Native Images
 private val logger = LoggerFactory.getLogger("Main")
 
-class AionMeterApp : Application() {
-    private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
-    companion object {
-        var memoryProfilerConfig: MemoryProfiler.Config = MemoryProfiler.Config()
-    }
-
-    override fun start(primaryStage: Stage) {
-        // We initialize the logic inside start() to ensure the toolkit is ready
-        val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
-        val config = PcapCapturerConfig.loadFromProperties()
-        val dataStorage = DataStorage()
-        val calculator = DpsCalculator(dataStorage)
-        val capturer = PcapCapturer(config, channel)
-        val dispatcher = CaptureDispatcher(channel, dataStorage)
-        val uiReady = CompletableDeferred<Unit>()
-        val markUiReady = {
-            if (!uiReady.isCompleted) {
-                uiReady.complete(Unit)
-            }
-        }
-        val iconStream = javaClass.getResourceAsStream("/resources/icon.ico")
-        if (iconStream != null) {
-            primaryStage.icons.add(javafx.scene.image.Image(iconStream))
-        }
-
-        // Initialize and show the browser
-        val browserApp = BrowserApp(calculator, dispatcher) { markUiReady() }
-        try {
-            browserApp.start(primaryStage)
-        } catch (e: Exception) {
-            UnifiedLogger.crash("Failed to start JavaFX browser window", e)
-            throw e
-        }
-
-        MemoryProfiler.start(appScope, memoryProfilerConfig)
-
-        // Launch background tasks after UI initialization
-        appScope.launch {
-            try {
-                dispatcher.run()
-            } catch (e: Exception) {
-                UnifiedLogger.crash("Capture dispatcher stopped unexpectedly", e)
-                throw e
-            }
-        }
-
-        appScope.launch(Dispatchers.IO) {
-            uiReady.await()
-            var running = false
-            while (true) {
-                val detected = WindowTitleDetector.findAion2WindowTitle() != null
-                if (detected != running) {
-                    running = detected
-                    if (running) {
-                        capturer.start()
-                    } else {
-                        capturer.stop()
-                    }
-                }
-                val delayMs = if (running) 60_000L else 10_000L
-                delay(delayMs)
-            }
-        }
-    }
-
-    override fun stop() {
-        // Cleanup when the window is closed
-        exitProcess(0)
-    }
-}
-
 fun main(args: Array<String>) {
-    AionMeterApp.memoryProfilerConfig = MemoryProfiler.fromArgs(args)
-    configureJavaFxPipeline()
+    val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    val memoryProfilerConfig = MemoryProfiler.fromArgs(args)
 
-    // 1. Check Admin
     ensureAdminOnWindows()
 
-    // 2. Setup Logging/Errors
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         logger.error("Critical Error in thread {}: {}", t.name, e.message, e)
-        e.printStackTrace()
         UnifiedLogger.crash("Uncaught exception in thread ${t.name}", e)
     }
 
-    logger.info("Starting Native Aion2 Meter...")
-    logger.info("Java: {} | Path: {}", System.getProperty("java.version"), System.getProperty("java.home"))
+    val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
+    val config = PcapCapturerConfig.loadFromProperties()
+    val dataStorage = DataStorage()
+    val calculator = DpsCalculator(dataStorage)
+    val capturer = PcapCapturer(config, channel)
+    val dispatcher = CaptureDispatcher(channel, dataStorage)
 
-    // 3. Launch the Application
-    // This blocks the main thread until the window is closed
-    Application.launch(AionMeterApp::class.java, *args)
-}
+    val uiReady = CompletableDeferred<Unit>()
+    val browserApp = BrowserApp(calculator, dispatcher) {
+        if (!uiReady.isCompleted) {
+            uiReady.complete(Unit)
+        }
+    }
 
-private fun configureJavaFxPipeline() {
-    val osName = System.getProperty("os.name") ?: return
-    val isWindows = osName.startsWith("Windows", ignoreCase = true)
-    val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
-    if (!isWindows || !isNativeImage) return
-    if (!System.getProperty("prism.order").isNullOrBlank()) return
+    MemoryProfiler.start(appScope, memoryProfilerConfig)
 
-    System.setProperty("prism.order", "sw")
+    appScope.launch {
+        try {
+            dispatcher.run()
+        } catch (e: Exception) {
+            UnifiedLogger.crash("Capture dispatcher stopped unexpectedly", e)
+            throw e
+        }
+    }
+
+    appScope.launch(Dispatchers.IO) {
+        uiReady.await()
+        var running = false
+        while (true) {
+            val detected = WindowTitleDetector.findAion2WindowTitle() != null
+            if (detected != running) {
+                running = detected
+                if (running) capturer.start() else capturer.stop()
+            }
+            delay(if (running) 60_000L else 10_000L)
+        }
+    }
+
+    browserApp.start()
 }
 
 private fun ensureAdminOnWindows() {

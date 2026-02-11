@@ -8,11 +8,11 @@ import com.sun.jna.platform.win32.WinNT
 import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
 import com.tbread.packet.PropertyHandler
-import javafx.application.Platform
-import javafx.scene.web.WebEngine
 import org.slf4j.LoggerFactory
 
-class KeyHookEvent(private val engine: WebEngine) {
+class KeyHookEvent(
+    private val onResetHotkey: () -> Unit
+) {
     private val logger = LoggerFactory.getLogger(KeyHookEvent::class.java)
 
     private val hotkeyId = 1
@@ -27,9 +27,6 @@ class KeyHookEvent(private val engine: WebEngine) {
 
     @Volatile
     private var lastHotkeyKey = 0
-
-    @Volatile
-    private var isAion2ForegroundCached = false
 
     @Volatile
     private var registeredHotkeyMods = 0
@@ -97,8 +94,6 @@ class KeyHookEvent(private val engine: WebEngine) {
             if (!registered) {
                 val err = Kernel32.INSTANCE.GetLastError()
                 logger.warn("RegisterHotKey failed mods={} vk={} err={}", registeredMods, keyCode, err)
-            } else {
-                logger.info("RegisterHotKey registered mods={} vk={}", registeredMods, keyCode)
             }
 
             val msg = WinUser.MSG()
@@ -113,11 +108,10 @@ class KeyHookEvent(private val engine: WebEngine) {
                         }
                         val foreground = User32.INSTANCE.GetForegroundWindow()
                         if (foreground == null || !isAion2Window(foreground)) {
-                            isAion2ForegroundCached = false
                             continue
                         }
-                        isAion2ForegroundCached = true
-                        dispatchResetHotKey()
+                        runCatching { onResetHotkey() }
+                            .onFailure { logger.debug("Failed to dispatch nativeResetHotKey", it) }
                     }
                     Thread.sleep(25)
                 } catch (_: InterruptedException) {
@@ -192,7 +186,6 @@ class KeyHookEvent(private val engine: WebEngine) {
     @Synchronized
     private fun updateHotkeyRegistration(shouldRegister: Boolean) {
         if (!System.getProperty("os.name").lowercase().contains("windows")) {
-            logger.info("Global hotkeys are only supported on Windows.")
             stopHotkeyThread()
             return
         }
@@ -214,16 +207,6 @@ class KeyHookEvent(private val engine: WebEngine) {
         startHotkeyThread(lastHotkeyMods, lastHotkeyKey)
         registeredHotkeyMods = lastHotkeyMods
         registeredHotkeyKey = lastHotkeyKey
-    }
-
-    private fun dispatchResetHotKey() {
-        Platform.runLater {
-            runCatching {
-                engine.executeScript("window.dispatchEvent(new CustomEvent('nativeResetHotKey'));")
-            }.onFailure { error ->
-                logger.debug("Failed to dispatch nativeResetHotKey", error)
-            }
-        }
     }
 
     private fun matchesRegisteredHotkey(lParam: Long): Boolean {
