@@ -70,7 +70,7 @@ class BrowserApp(
         val display = Display()
         val shell = Shell(display, SWT.NO_TRIM)
         shell.layout = FillLayout()
-        shell.isAlwaysOnTop = true
+        shell.setAlwaysOnTop(true)
         shell.setSize(1600, 1000)
         shell.text = "Aion2 Dps Overlay"
 
