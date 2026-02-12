@@ -4,11 +4,23 @@ import com.tbread.DataStorage
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.logging.UnifiedLogger
+import java.nio.charset.StandardCharsets
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
     companion object {
         private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
+        private val KNOWN_SKILL_IDS: Set<Int> by lazy {
+            runCatching {
+                val stream = StreamProcessor::class.java.classLoader
+                    .getResourceAsStream("i18n/skills/en.json") ?: return@runCatching emptySet<Int>()
+                val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val entryRegex = Regex("\"(\\d+)\"\\s*:")
+                entryRegex.findAll(text)
+                    .mapNotNull { it.groupValues.getOrNull(1)?.toIntOrNull() }
+                    .toSet()
+            }.getOrDefault(emptySet())
+        }
     }
 
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
@@ -71,6 +83,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val normalized = normalizeSkillId(raw)
                 val nextOffset = start + i + 5
                 if (normalized <= 0 || nextOffset >= data.size) continue
+                if (normalized !in KNOWN_SKILL_IDS) continue
                 if (!canReadVarInt(data, nextOffset)) continue
                 val typeInfo = readVarInt(data, nextOffset)
                 if (typeInfo.length <= 0 || typeInfo.value !in 0..64) continue
