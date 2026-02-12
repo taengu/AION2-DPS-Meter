@@ -301,7 +301,7 @@ class KeyHookEvent(
         private const val DEFAULT_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
         private const val DEFAULT_KEY_CODE = 82 // R
         private const val TOGGLE_WINDOW_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
-        private const val TOGGLE_WINDOW_KEY_CODE = WinUser.VK_NUMPAD0
+        private const val TOGGLE_WINDOW_KEY_CODE = WinUser.VK_UP
         private const val HOTKEY_MODIFIER_MASK = WinUser.MOD_ALT or WinUser.MOD_CONTROL or WinUser.MOD_SHIFT or WinUser.MOD_WIN
     }
 }
