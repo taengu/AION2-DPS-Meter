@@ -62,6 +62,22 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
 
+            for (i in 0..5) {
+                if (start + i + 4 > data.size) break
+                val raw = (data[start + i].toInt() and 0xFF) or
+                    ((data[start + i + 1].toInt() and 0xFF) shl 8) or
+                    ((data[start + i + 2].toInt() and 0xFF) shl 16) or
+                    ((data[start + i + 3].toInt() and 0xFF) shl 24)
+                val normalized = normalizeSkillId(raw)
+                val nextOffset = start + i + 5
+                if (normalized <= 0 || nextOffset >= data.size) continue
+                if (!canReadVarInt(data, nextOffset)) continue
+                val typeInfo = readVarInt(data, nextOffset)
+                if (typeInfo.length <= 0 || typeInfo.value !in 0..64) continue
+                offset = nextOffset
+                return normalized
+            }
+
             throw IllegalStateException("skill not found")
         }
 
