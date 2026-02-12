@@ -2799,7 +2799,12 @@ class DpsApp {
       }
       isDragging = true;
       hasDragMoved = false;
-      this.isWindowDragging = false;
+      this.isWindowDragging = true;
+      this.deferFetchUntilDragEnd = true;
+      if (this.pinnedDetailsRowId === null) {
+        this.hoveredDetailsRowId = null;
+        this.detailsUI?.close?.({ keepPinned: false });
+      }
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
@@ -2817,12 +2822,7 @@ class DpsApp {
       const deltaY = e.screenY - startY;
       if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDragMoved = true;
-        this.isWindowDragging = true;
         this.elList?.classList?.add?.("dragInteracting");
-        if (this.pinnedDetailsRowId === null) {
-          this.hoveredDetailsRowId = null;
-          this.detailsUI?.close?.({ keepPinned: false });
-        }
       }
       pendingStageX = initialStageX + deltaX;
       pendingStageY = initialStageY + deltaY;
