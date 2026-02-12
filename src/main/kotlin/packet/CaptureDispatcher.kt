@@ -45,25 +45,19 @@ class CaptureDispatcher(
                     StreamAssembler(StreamProcessor(sharedDataStorage))
                 }
 
-                val payload = extractGamePayload(cap.data)
-                if (payload.isEmpty()) {
-                    logUnlockedPacketSkip(cap, "Empty payload after loopback/IP normalization")
-                    continue
-                }
-
                 val unlocked = CombatPortDetector.currentPort() == null
-                val tlsPayload = looksLikeTlsPayload(payload)
+                val tlsPayload = looksLikeTlsPayload(cap.data)
 
                 if (unlocked && tlsPayload) {
                     logUnlockedPacketSkip(cap, "TLS payload ignored while waiting for combat lock")
                     continue
                 }
 
-                val hasCombatMagic = if (tlsPayload) false else contains(payload, MAGIC)
+                val hasCombatMagic = if (tlsPayload) false else contains(cap.data, MAGIC)
                 if (unlocked && !hasCombatMagic) {
                     val reason = when {
-                        payload.isEmpty() -> "Empty payload while waiting for combat signature"
-                        payload.size < MAGIC.size -> "Payload too short for combat signature while waiting for lock"
+                        cap.data.isEmpty() -> "Empty payload while waiting for combat signature"
+                        cap.data.size < MAGIC.size -> "Payload too short for combat signature while waiting for lock"
                         else -> "No combat signature (06 00 36) while waiting for combat lock"
                     }
                     logUnlockedPacketSkip(cap, reason)
@@ -83,7 +77,7 @@ class CaptureDispatcher(
                     )
                 }
 
-                val parsed = assembler.processChunk(payload)
+                val parsed = assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
                 }
@@ -144,56 +138,6 @@ class CaptureDispatcher(
             chars[idx++] = HEX_DIGITS[v and 0x0F]
         }
         return String(chars)
-    }
-
-    private fun extractGamePayload(data: ByteArray): ByteArray {
-        if (data.isEmpty()) return data
-
-        var candidate = data
-        if (looksLikeNullLoopbackHeader(candidate) && candidate.size > 4) {
-            candidate = candidate.copyOfRange(4, candidate.size)
-        }
-
-        val ipv4Payload = extractIpv4TcpPayload(candidate)
-        return ipv4Payload ?: candidate
-    }
-
-    private fun looksLikeNullLoopbackHeader(data: ByteArray): Boolean {
-        if (data.size < 5) return false
-        val littleEndianAfInet =
-            data[0] == 0x02.toByte() && data[1] == 0x00.toByte() && data[2] == 0x00.toByte() && data[3] == 0x00.toByte()
-        val bigEndianAfInet =
-            data[0] == 0x00.toByte() && data[1] == 0x00.toByte() && data[2] == 0x00.toByte() && data[3] == 0x02.toByte()
-        if (!littleEndianAfInet && !bigEndianAfInet) return false
-
-        val version = (data[4].toInt() ushr 4) and 0x0F
-        return version == 4
-    }
-
-    private fun extractIpv4TcpPayload(data: ByteArray): ByteArray? {
-        if (data.size < 20) return null
-        val version = (data[0].toInt() ushr 4) and 0x0F
-        if (version != 4) return null
-
-        val ihl = data[0].toInt() and 0x0F
-        val ipHeaderLength = ihl * 4
-        if (ihl < 5 || data.size < ipHeaderLength + 20) return null
-
-        val protocol = data[9].toInt() and 0xFF
-        if (protocol != 0x06) return null
-
-        val totalLength = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
-        val ipPacketLength = if (totalLength in (ipHeaderLength + 20)..data.size) totalLength else data.size
-
-        val tcpOffset = ipHeaderLength
-        val tcpHeaderLength = ((data[tcpOffset + 12].toInt() ushr 4) and 0x0F) * 4
-        if (tcpHeaderLength < 20) return null
-
-        val payloadStart = tcpOffset + tcpHeaderLength
-        if (payloadStart > ipPacketLength) return null
-        if (payloadStart == ipPacketLength) return ByteArray(0)
-
-        return data.copyOfRange(payloadStart, ipPacketLength)
     }
 
     private fun ensureAionRunning(): Boolean {
