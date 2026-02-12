@@ -2816,7 +2816,7 @@ class DpsApp {
       if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
-      if (targetEl?.closest?.(".settingsPanel, .detailsPanel")) {
+      if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .list .item")) {
         return;
       }
       if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
