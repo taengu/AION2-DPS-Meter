@@ -179,7 +179,8 @@
   "update": {
     "title": "有新更新",
     "ok": "確定",
-    "text": "有新更新可用！\n\n目前版本：v.{current}\n最新版本：v.{latest}\n\n請在繼續前更新。"
+    "later": "稍後更新",
+    "text": "有新更新可用！\n\n目前版本：v.{current}\n最新版本：v.{latest}\n\n請在繼續前更新。\n\n新版本帶來更好的資料準確性、效能改善與修正。建議盡快更新。"
   },
   "connection": {
     "auto": "自動",

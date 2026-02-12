@@ -181,7 +181,8 @@
   "update": {
     "title": "New update available",
     "ok": "OK",
-    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing."
+    "later": "Update Later",
+    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing.\n\nThe new version brings better data accuracy, performance improvements, and fixes. It's important you update soon."
   },
   "connection": {
     "auto": "Auto",
