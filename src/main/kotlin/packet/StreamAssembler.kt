@@ -21,7 +21,11 @@ class StreamAssembler(private val processor: StreamProcessor) {
                 continue
             }
 
-            val frameLength = lengthInfo.length + lengthInfo.value
+            val frameLength = calculateFrameLength(lengthInfo)
+            if (frameLength <= 0) {
+                buffer.discardBytes(1)
+                continue
+            }
             if (frameLength > snapshot.size) {
                 break
             }
@@ -35,6 +39,12 @@ class StreamAssembler(private val processor: StreamProcessor) {
             buffer.discardBytes(frameLength)
         }
         return parsed
+    }
+
+    private fun calculateFrameLength(lengthInfo: VarIntInfo): Int {
+        if (lengthInfo.length <= 0 || lengthInfo.value <= 0) return -1
+        // Game frames are prefixed with a varint header. We must consume header+payload.
+        return lengthInfo.length + lengthInfo.value
     }
 
     private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntInfo {

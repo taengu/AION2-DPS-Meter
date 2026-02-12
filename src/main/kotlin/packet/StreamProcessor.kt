@@ -120,7 +120,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0 || packetLengthInfo.value <= 0) {
             return false
         }
-        val frameLength = packetLengthInfo.length + packetLengthInfo.value
+        val frameLength = calculateFrameLength(packetLengthInfo)
+        if (frameLength <= 0) {
+            return false
+        }
         if (packet.size < frameLength) {
             logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
             return parseBrokenLengthPacket(packet)
@@ -129,6 +132,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val fullPacket = packet.copyOfRange(0, frameLength)
         logger.trace("Packet frame parsed: {}", toHex(fullPacket))
         return parsePerfectPacket(fullPacket)
+    }
+
+    private fun calculateFrameLength(lengthInfo: VarIntOutput): Int {
+        if (lengthInfo.length <= 0 || lengthInfo.value <= 0) return -1
+        // Frame size must include the varint-length header + payload bytes.
+        return lengthInfo.length + lengthInfo.value
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
