@@ -29,7 +29,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private val mask = 0x0f
     private val actorIdFilterKey = "dpsMeter.actorIdFilter"
-    private val lastKnownSkillByActor = java.util.concurrent.ConcurrentHashMap<Int, Int>()
 
     private fun isActorAllowed(actorId: Int): Boolean {
         val rawFilter = PropertyHandler.getProperty(actorIdFilterKey)?.trim().orEmpty()
@@ -117,48 +116,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     fun onPacketReceived(packet: ByteArray): Boolean {
-        var parsed = false
         val packetLengthInfo = readVarInt(packet)
-        if (packet.size == packetLengthInfo.value) {
-            logger.trace(
-                "Current byte length matches expected length: {}",
-                toHex(packet.copyOfRange(0, packet.size - 3))
-            )
-            parsed = parsePerfectPacket(packet.copyOfRange(0, packet.size - 3)) || parsed
-            //더이상 자를필요가 없는 최종 패킷뭉치
-            return parsed
+        if (packetLengthInfo.length < 0 || packetLengthInfo.value <= 0) {
+            return false
         }
-        if (packet.size <= 3) return parsed
-        // 매직패킷 단일로 올때 무시
-        if (packetLengthInfo.value > packet.size) {
+        val frameLength = packetLengthInfo.length + packetLengthInfo.value
+        if (packet.size < frameLength) {
             logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
-            parsed = parseBrokenLengthPacket(packet) || parsed
-            //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
-            return parsed
-        }
-        if (packetLengthInfo.value <= 3) {
-            return onPacketReceived(packet.copyOfRange(1, packet.size)) || parsed
+            return parseBrokenLengthPacket(packet)
         }
 
-        try {
-            if (packet.copyOfRange(0, packetLengthInfo.value - 3).size != 3) {
-                if (packet.copyOfRange(0, packetLengthInfo.value - 3).isNotEmpty()) {
-                    logger.trace(
-                        "Packet split succeeded: {}",
-                        toHex(packet.copyOfRange(0, packetLengthInfo.value - 3))
-                    )
-                    parsed = parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3)) || parsed
-                    //매직패킷이 빠져있는 패킷뭉치
-                }
-            }
-
-            parsed = onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size)) || parsed
-            //남은패킷 재처리
-        } catch (e: IndexOutOfBoundsException) {
-            logger.debug("Truncated tail packet skipped: {}", toHex(packet))
-            return parsed
-        }
-        return parsed
+        val fullPacket = packet.copyOfRange(0, frameLength)
+        logger.trace("Packet frame parsed: {}", toHex(fullPacket))
+        return parsePerfectPacket(fullPacket)
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
@@ -808,6 +778,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet[0] == 0x1e.toByte()) return false
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
+        if (parseCompactTickDamage(packet, packetLengthInfo.length)) return true
         val reader = DamagePacketReader(packet, packetLengthInfo.length)
 
         if (reader.offset >= packet.size) return false
@@ -857,10 +828,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             )
             if (fallbackParsed) return true
             return logUnparsedDamage()
-        }
-
-        if (skillCode > 0) {
-            lastKnownSkillByActor[actorInfo.value] = skillCode
         }
 
         val typeValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
@@ -1037,7 +1004,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (compactDamageInfo.length <= 0) return false
         if (compactDamageInfo.value <= 0 || compactDamageInfo.value > 1_000_000) return false
 
-        val inferredSkillCode = lastKnownSkillByActor[actorInfo.value] ?: 0
+        val inferredSkillCode = 0
 
         val pdp = ParsedDamagePacket()
         pdp.setTargetId(targetInfo)
@@ -1064,6 +1031,77 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getTargetId(),
             pdp.getActorId(),
             pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            toHex(packet)
+        )
+        return true
+    }
+
+    private fun parseCompactTickDamage(packet: ByteArray, initialOffset: Int): Boolean {
+        if (packet.isEmpty() || packet[0] != 0x22.toByte()) return false
+
+        var offset = initialOffset
+        if (offset + 1 >= packet.size) return false
+        if (packet[offset] != 0x04.toByte() || packet[offset + 1] != 0x38.toByte()) return false
+        offset += 2
+
+        val targetInfo = readVarInt(packet, offset)
+        if (targetInfo.length <= 0) return false
+        offset += targetInfo.length
+
+        if (offset + 1 >= packet.size) return false
+        if (packet[offset] != 0x04.toByte() || packet[offset + 1] != 0x00.toByte()) return false
+        val switchInfo = VarIntOutput(4, 1)
+        val flagInfo = VarIntOutput(0, 1)
+        offset += 2
+
+        val actorInfo = readVarInt(packet, offset)
+        if (actorInfo.length <= 0) return false
+        if (actorInfo.value == targetInfo.value) return true
+        if (!isActorAllowed(actorInfo.value)) return true
+        offset += actorInfo.length
+
+        if (offset + 3 >= packet.size) return false
+        if (
+            packet[offset] != 0xFA.toByte() ||
+            packet[offset + 1] != 0x37.toByte() ||
+            packet[offset + 2] != 0x1E.toByte() ||
+            packet[offset + 3] != 0x00.toByte()
+        ) return false
+        offset += 4
+
+        val damageInfo = readVarInt(packet, offset)
+        if (damageInfo.length <= 0 || damageInfo.value <= 0 || damageInfo.value > 1_000_000) return false
+        offset += damageInfo.length
+
+        val type = if (offset < packet.size) packet[offset].toInt() and 0xFF else 2
+
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(targetInfo)
+        pdp.setSwitchVariable(switchInfo)
+        pdp.setFlag(flagInfo)
+        pdp.setActorId(actorInfo)
+        pdp.setSkillCode(0)
+        pdp.setType(VarIntOutput(type, 1))
+        pdp.setSpecials(emptyList())
+        pdp.setMultiHitCount(0)
+        pdp.setMultiHitDamage(0)
+        pdp.setHealAmount(0)
+        pdp.setUnknown(VarIntOutput(0, 0))
+        pdp.setDamage(damageInfo)
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
+
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            dataStorage.appendDamage(pdp)
+        }
+        UnifiedLogger.debug(
+            logger,
+            "Parsed compact tick damage target={}, attacker={}, inferredSkill=0, type={}, damage={}, hex={}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
             pdp.getType(),
             pdp.getDamage(),
             toHex(packet)
