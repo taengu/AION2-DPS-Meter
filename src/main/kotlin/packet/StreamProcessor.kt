@@ -1025,6 +1025,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
+        logger.debug(
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials()
+        )
         UnifiedLogger.debug(
             logger,
             "Parsed compact tick damage target={}, attacker={}, inferredSkill={}, type={}, damage={}, hex={}",
@@ -1097,6 +1106,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
+        logger.debug(
+            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            pdp.getSpecials()
+        )
         UnifiedLogger.debug(
             logger,
             "Parsed compact tick damage target={}, attacker={}, inferredSkill=0, type={}, damage={}, hex={}",
