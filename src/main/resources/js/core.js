@@ -97,6 +97,7 @@ class DpsApp {
     this._recentLocalIdByName = new Map();
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.latestRowsById = new Map();
     this.isWindowDragging = false;
     this.deferFetchUntilDragEnd = false;
@@ -395,6 +396,20 @@ class DpsApp {
     return this.isWindowDragging || this.nowMs() < Number(this.suppressRowInteractionUntilMs || 0);
   }
 
+  setWindowDragFreeze(active) {
+    const enabled = !!active;
+    document.documentElement?.classList?.toggle?.("windowDragFreeze", enabled);
+    document.body?.classList?.toggle?.("windowDragFreeze", enabled);
+    if (enabled) {
+      try {
+        const selection = window.getSelection?.();
+        selection?.removeAllRanges?.();
+      } catch {
+        // noop
+      }
+    }
+  }
+
   formatBattleTime(ms) {
     const totalMs = Number(ms);
     if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
@@ -482,6 +497,7 @@ class DpsApp {
 
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
 
@@ -2463,6 +2479,7 @@ class DpsApp {
     this._lastRenderedRowsSummary = null;
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
@@ -2806,6 +2823,7 @@ class DpsApp {
       hasDragMoved = false;
       this.isWindowDragging = true;
       this.deferFetchUntilDragEnd = true;
+      this.setWindowDragFreeze(true);
       if (this.pinnedDetailsRowId === null) {
         this.hoveredDetailsRowId = null;
         this.detailsUI?.close?.({ keepPinned: false });
@@ -2840,6 +2858,7 @@ class DpsApp {
       if (!isDragging) return;
       isDragging = false;
       this.isWindowDragging = false;
+      this.setWindowDragFreeze(false);
       if (hasDragMoved) {
         this.elList?.classList?.remove?.("dragInteracting");
         this.suppressRowInteractionUntilMs = this.nowMs() + 120;
