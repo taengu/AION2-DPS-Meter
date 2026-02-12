@@ -57,6 +57,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         fun readSkillCode(): Int {
             val start = offset
+
+            fun findAlignedTypeOffset(skillStart: Int): Int? {
+                val offsetPlusFive = skillStart + 5
+                if (offsetPlusFive < data.size && canReadVarInt(data, offsetPlusFive)) {
+                    val typeInfo = readVarInt(data, offsetPlusFive)
+                    if (typeInfo.length > 0 && typeInfo.value in 0..64) {
+                        return offsetPlusFive
+                    }
+                }
+
+                val offsetPlusFour = skillStart + 4
+                if (offsetPlusFour < data.size && canReadVarInt(data, offsetPlusFour)) {
+                    val typeInfo = readVarInt(data, offsetPlusFour)
+                    if (typeInfo.length > 0 && typeInfo.value in 0..64) {
+                        return offsetPlusFour
+                    }
+                }
+
+                return null
+            }
+
             for (i in 0..5) {
                 if (start + i + 4 > data.size) break
                 val raw = (data[start + i].toInt() and 0xFF) or
@@ -69,7 +90,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     normalized in 3_000_000..3_999_999 ||
                     normalized in 100_000..199_999
                 ) {
-                    offset = start + i + 5
+                    val typeOffset = findAlignedTypeOffset(start + i) ?: continue
+                    offset = typeOffset
                     return normalized
                 }
             }
@@ -81,13 +103,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     ((data[start + i + 2].toInt() and 0xFF) shl 16) or
                     ((data[start + i + 3].toInt() and 0xFF) shl 24)
                 val normalized = normalizeSkillId(raw)
-                val nextOffset = start + i + 5
-                if (normalized <= 0 || nextOffset >= data.size) continue
+                if (normalized <= 0) continue
                 if (normalized !in KNOWN_SKILL_IDS) continue
-                if (!canReadVarInt(data, nextOffset)) continue
-                val typeInfo = readVarInt(data, nextOffset)
-                if (typeInfo.length <= 0 || typeInfo.value !in 0..64) continue
-                offset = nextOffset
+                val typeOffset = findAlignedTypeOffset(start + i) ?: continue
+                offset = typeOffset
                 return normalized
             }
 
