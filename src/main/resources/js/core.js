@@ -2776,6 +2776,11 @@ class DpsApp {
     const flushMove = (force = false) => {
       dragRafId = null;
       if ((!isDragging && !force) || !window.javaBridge) return;
+      const deltaSinceLastX = Math.abs(pendingStageX - lastMovedX);
+      const deltaSinceLastY = Math.abs(pendingStageY - lastMovedY);
+      if (!force && Number.isFinite(deltaSinceLastX) && Number.isFinite(deltaSinceLastY)) {
+        if (deltaSinceLastX < 2 && deltaSinceLastY < 2) return;
+      }
       if (pendingStageX === lastMovedX && pendingStageY === lastMovedY) return;
       window.javaBridge.moveWindow(pendingStageX, pendingStageY);
       lastMovedX = pendingStageX;
