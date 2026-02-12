@@ -2782,3 +2782,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .list.dragInteracting .item {
   pointer-events: none;
 }
+
+
+.windowDragFreeze,
+.windowDragFreeze * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  cursor: grabbing !important;
+}

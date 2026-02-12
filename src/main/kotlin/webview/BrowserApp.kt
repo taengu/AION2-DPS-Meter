@@ -74,7 +74,8 @@ class BrowserApp(
         engine: WebEngine
     ) {
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
-        private val keyHookEvent = KeyHookEvent(engine)
+        private val keyHookEvent = KeyHookEvent(engine) { toggleMainWindowVisibility() }
+        private var windowHiddenByHotkey = false
 
         fun moveWindow(x: Double, y: Double) {
             if (stage.x == x && stage.y == y) {
@@ -83,6 +84,29 @@ class BrowserApp(
             stage.x = x
             stage.y = y
         }
+
+        private fun toggleMainWindowVisibility() {
+            if (!windowHiddenByHotkey) {
+                windowHiddenByHotkey = true
+                stage.opacity = 0.0
+                stage.isAlwaysOnTop = false
+                stage.scene?.root?.isMouseTransparent = true
+                return
+            }
+            windowHiddenByHotkey = false
+            if (!stage.isShowing) {
+                stage.show()
+            }
+            stage.opacity = 1.0
+            stage.scene?.root?.isMouseTransparent = false
+            stage.isAlwaysOnTop = true
+            if (stage.isIconified) {
+                stage.isIconified = false
+            }
+            stage.toFront()
+            stage.requestFocus()
+        }
+
 
         fun resetDps(){
             dpsCalculator.resetDataStorage()

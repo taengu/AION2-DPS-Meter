@@ -97,6 +97,7 @@ class DpsApp {
     this._recentLocalIdByName = new Map();
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.latestRowsById = new Map();
     this.isWindowDragging = false;
     this.deferFetchUntilDragEnd = false;
@@ -395,6 +396,20 @@ class DpsApp {
     return this.isWindowDragging || this.nowMs() < Number(this.suppressRowInteractionUntilMs || 0);
   }
 
+  setWindowDragFreeze(active) {
+    const enabled = !!active;
+    document.documentElement?.classList?.toggle?.("windowDragFreeze", enabled);
+    document.body?.classList?.toggle?.("windowDragFreeze", enabled);
+    if (enabled) {
+      try {
+        const selection = window.getSelection?.();
+        selection?.removeAllRanges?.();
+      } catch {
+        // noop
+      }
+    }
+  }
+
   formatBattleTime(ms) {
     const totalMs = Number(ms);
     if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
@@ -482,6 +497,7 @@ class DpsApp {
 
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
 
@@ -515,6 +531,7 @@ class DpsApp {
     this.hoveredDetailsRowId = rowId;
     this.detailsUI?.open?.(row, {
       pin: false,
+      compact: true,
       restartOnSwitch: false,
       ...this.getDefaultDetailsOpenOptions(),
     });
@@ -1027,7 +1044,10 @@ class DpsApp {
     return raw;
   }
 
-  async getDetails(row, { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false } = {}) {
+  async getDetails(
+    row,
+    { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false, maxSkills = null } = {}
+  ) {
     let raw = null;
     if (targetId && window.dpsData?.getTargetDetails) {
       const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
@@ -1187,6 +1207,11 @@ class DpsApp {
       }
     }
 
+
+    if (Number.isFinite(Number(maxSkills)) && Number(maxSkills) > 0 && skills.length > Number(maxSkills)) {
+      skills.sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
+      skills.length = Number(maxSkills);
+    }
     const pct = (num, den) => {
       if (den <= 0) return 0;
       return Math.round((num / den) * 1000) / 10;
@@ -2454,6 +2479,7 @@ class DpsApp {
     this._lastRenderedRowsSummary = null;
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
@@ -2767,6 +2793,11 @@ class DpsApp {
     const flushMove = (force = false) => {
       dragRafId = null;
       if ((!isDragging && !force) || !window.javaBridge) return;
+      const deltaSinceLastX = Math.abs(pendingStageX - lastMovedX);
+      const deltaSinceLastY = Math.abs(pendingStageY - lastMovedY);
+      if (!force && Number.isFinite(deltaSinceLastX) && Number.isFinite(deltaSinceLastY)) {
+        if (deltaSinceLastX < 2 && deltaSinceLastY < 2) return;
+      }
       if (pendingStageX === lastMovedX && pendingStageY === lastMovedY) return;
       window.javaBridge.moveWindow(pendingStageX, pendingStageY);
       lastMovedX = pendingStageX;
@@ -2790,7 +2821,13 @@ class DpsApp {
       }
       isDragging = true;
       hasDragMoved = false;
-      this.isWindowDragging = false;
+      this.isWindowDragging = true;
+      this.deferFetchUntilDragEnd = true;
+      this.setWindowDragFreeze(true);
+      if (this.pinnedDetailsRowId === null) {
+        this.hoveredDetailsRowId = null;
+        this.detailsUI?.close?.({ keepPinned: false });
+      }
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
@@ -2808,7 +2845,6 @@ class DpsApp {
       const deltaY = e.screenY - startY;
       if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDragMoved = true;
-        this.isWindowDragging = true;
         this.elList?.classList?.add?.("dragInteracting");
       }
       pendingStageX = initialStageX + deltaX;
@@ -2822,6 +2858,7 @@ class DpsApp {
       if (!isDragging) return;
       isDragging = false;
       this.isWindowDragging = false;
+      this.setWindowDragFreeze(false);
       if (hasDragMoved) {
         this.elList?.classList?.remove?.("dragInteracting");
         this.suppressRowInteractionUntilMs = this.nowMs() + 120;

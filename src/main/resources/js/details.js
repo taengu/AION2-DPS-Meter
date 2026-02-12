@@ -30,6 +30,8 @@ const createDetailsUI = ({
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
   let lastSkillNameColumnWidth = 0;
+  let activeCompactMode = false;
+  const COMPACT_MAX_SKILLS = 5;
   const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
@@ -326,11 +328,22 @@ const createDetailsUI = ({
     }
   };
 
-  const renderStats = (details) => {
-    const showCombinedTotals = details?.showCombinedTotals && Array.isArray(details?.perActorStats);
+  const COMPACT_STAT_KEYS = new Set([
+    "details.stats.totalDamage",
+    "details.stats.contribution",
+    "details.stats.combatTime",
+    "details.skills.hits",
+    "details.stats.critRate",
+  ]);
+
+  const renderStats = (details, { compact = false } = {}) => {
+    const showCombinedTotals = !compact && details?.showCombinedTotals && Array.isArray(details?.perActorStats);
     for (let i = 0; i < STATUS.length; i++) {
       const slot = statSlots[i];
       const statKey = STATUS[i].key;
+      const shouldShow = !compact || COMPACT_STAT_KEYS.has(statKey);
+      slot.statEl.style.display = shouldShow ? "" : "none";
+      if (!shouldShow) continue;
       if (!showCombinedTotals) {
         slot.valueEl.style.display = "";
         slot.valueEl.style.flexWrap = "";
@@ -731,7 +744,7 @@ const createDetailsUI = ({
         }
         updateSkillHeaderSortState();
         if (lastDetails) {
-          renderSkills(lastDetails);
+          renderSkills(lastDetails, { compact: activeCompactMode });
         }
       });
     });
@@ -741,7 +754,7 @@ const createDetailsUI = ({
   bindSkillHeaderSorting();
   syncSkillColumnMinWidths();
 
-  const renderSkills = (details) => {
+  const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
     const groupedSkills = new Map();
     skills.forEach((skill) => {
@@ -775,8 +788,8 @@ const createDetailsUI = ({
         multiHitDamage: (Number(existing.multiHitDamage) || 0) + (Number(skill.multiHitDamage) || 0),
       });
     });
-    const topSkills = [...groupedSkills.values()].sort(compareSkillSort);
-    // .slice(0, 12);
+    const sortedSkills = [...groupedSkills.values()].sort(compareSkillSort);
+    const topSkills = compact ? sortedSkills.slice(0, COMPACT_MAX_SKILLS) : sortedSkills;
 
     const totalDamage = Number(details?.totalDmg);
     const aggregatedDamage = topSkills.reduce((sum, skill) => sum + (Number(skill?.dmg) || 0), 0);
@@ -1139,6 +1152,18 @@ const createDetailsUI = ({
 
   const refreshDetailsView = async (seq) => {
     if (!lastRow) return;
+    if (activeCompactMode) {
+      const details = await getDetails(lastRow, {
+        targetId: null,
+        attackerIds: null,
+        totalTargetDamage: null,
+        showSkillIcons: false,
+        maxSkills: COMPACT_MAX_SKILLS,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(details, lastRow);
+      return;
+    }
     if (!detailsContext) {
       const details = await getDetails(lastRow);
       if (typeof seq === "number" && seq !== openSeq) return;
@@ -1248,8 +1273,8 @@ const createDetailsUI = ({
     rememberJobsFromDetails(details);
     selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
     updateHeaderText();
-    renderStats(details);
-    renderSkills(details);
+    renderStats(details, { compact: activeCompactMode });
+    renderSkills(details, { compact: activeCompactMode });
     lastRow = row;
     lastDetails = details;
   };
@@ -1258,7 +1283,7 @@ const createDetailsUI = ({
 
   const open = async (
     row,
-    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null, pin = true } = {}
+    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null, pin = true, compact = false } = {}
   ) => {
     const rowId = row?.id ?? null;
     // if (!rowId) return;
@@ -1272,7 +1297,7 @@ const createDetailsUI = ({
     if (isSwitch && restartOnSwitch) {
       close();
       requestAnimationFrame(() => {
-        open(row, { force: true, restartOnSwitch: false, defaultTargetAll, defaultTargetId, pin });
+        open(row, { force: true, restartOnSwitch: false, defaultTargetAll, defaultTargetId, pin, compact });
       });
       return;
     }
@@ -1284,12 +1309,21 @@ const createDetailsUI = ({
     }
     lastRow = row;
 
+    activeCompactMode = !!compact;
     selectedAttackerLabel = resolveRowLabel(row);
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
-    loadDetailsContext();
+    if (activeCompactMode) {
+      detailsContext = null;
+      detailsActors = new Map();
+      detailsTargets = [];
+    } else {
+      loadDetailsContext();
+    }
     syncSelectedAttackersFromLabel();
-    if (defaultTargetAll) {
+    if (activeCompactMode) {
+      selectedTargetId = null;
+    } else if (defaultTargetAll) {
       selectedTargetId = null;
     } else if (Number.isFinite(Number(defaultTargetId)) && Number(defaultTargetId) > 0) {
       selectedTargetId = Number(defaultTargetId);
@@ -1335,6 +1369,10 @@ const createDetailsUI = ({
     }
     lastRow = null;
     lastDetails = null;
+    activeCompactMode = false;
+    for (let i = 0; i < statSlots.length; i++) {
+      statSlots[i].statEl.style.display = "";
+    }
     detailsPanel.classList.remove("open");
   };
   detailsClose?.addEventListener("click", close);
@@ -1343,9 +1381,13 @@ const createDetailsUI = ({
     if (!detailsPanel.classList.contains("open") || !lastRow) return;
     const previousTargetId = selectedTargetId;
     const previousAttackerIds = Array.isArray(selectedAttackerIds) ? [...selectedAttackerIds] : null;
+    const wasCompact = activeCompactMode;
     const seq = ++openSeq;
-    loadDetailsContext();
+    if (!wasCompact) {
+      loadDetailsContext();
+    }
     selectedTargetId = previousTargetId;
+    activeCompactMode = wasCompact;
     selectedAttackerIds = previousAttackerIds;
     syncSelectedAttackersFromLabel();
     renderNicknameMenu();

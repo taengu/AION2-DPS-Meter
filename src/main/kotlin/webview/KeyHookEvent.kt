@@ -12,10 +12,14 @@ import javafx.application.Platform
 import javafx.scene.web.WebEngine
 import org.slf4j.LoggerFactory
 
-class KeyHookEvent(private val engine: WebEngine) {
+class KeyHookEvent(
+    private val engine: WebEngine,
+    private val onToggleWindowHotkey: () -> Unit
+) {
     private val logger = LoggerFactory.getLogger(KeyHookEvent::class.java)
 
-    private val hotkeyId = 1
+    private val resetHotkeyId = 1
+    private val toggleWindowHotkeyId = 2
     private val hotkeyTargetProcess = "Aion2.exe"
     private val hotkeyTargetTitle = "Aion2"
     private val pmRemoveFlag = 0x0001
@@ -93,12 +97,26 @@ class KeyHookEvent(private val engine: WebEngine) {
         hotkeyRunning = true
         hotkeyThread = Thread {
             val registeredMods = modifiers or WinUser.MOD_NOREPEAT
-            val registered = User32.INSTANCE.RegisterHotKey(null, hotkeyId, registeredMods, keyCode)
-            if (!registered) {
+            val resetRegistered = User32.INSTANCE.RegisterHotKey(null, resetHotkeyId, registeredMods, keyCode)
+            if (!resetRegistered) {
                 val err = Kernel32.INSTANCE.GetLastError()
-                logger.warn("RegisterHotKey failed mods={} vk={} err={}", registeredMods, keyCode, err)
+                logger.warn("Register reset hotkey failed mods={} vk={} err={}", registeredMods, keyCode, err)
             } else {
-                logger.info("RegisterHotKey registered mods={} vk={}", registeredMods, keyCode)
+                logger.info("Register reset hotkey registered mods={} vk={}", registeredMods, keyCode)
+            }
+
+            val toggleMods = (TOGGLE_WINDOW_MODS or WinUser.MOD_NOREPEAT)
+            val toggleRegistered = User32.INSTANCE.RegisterHotKey(
+                null,
+                toggleWindowHotkeyId,
+                toggleMods,
+                TOGGLE_WINDOW_KEY_CODE
+            )
+            if (!toggleRegistered) {
+                val err = Kernel32.INSTANCE.GetLastError()
+                logger.warn("Register toggle hotkey failed mods={} vk={} err={}", toggleMods, TOGGLE_WINDOW_KEY_CODE, err)
+            } else {
+                logger.info("Register toggle hotkey registered mods={} vk={}", toggleMods, TOGGLE_WINDOW_KEY_CODE)
             }
 
             val msg = WinUser.MSG()
@@ -108,16 +126,26 @@ class KeyHookEvent(private val engine: WebEngine) {
                         if (msg.message != WinUser.WM_HOTKEY) {
                             continue
                         }
-                        if (msg.wParam.toInt() != hotkeyId || !matchesRegisteredHotkey(msg.lParam.toLong())) {
+                        val hotkeyId = msg.wParam.toInt()
+                        if (hotkeyId == resetHotkeyId) {
+                            if (!matchesRegisteredHotkey(msg.lParam.toLong())) {
+                                continue
+                            }
+                            val foreground = User32.INSTANCE.GetForegroundWindow()
+                            if (foreground == null || !isAion2Window(foreground)) {
+                                isAion2ForegroundCached = false
+                                continue
+                            }
+                            isAion2ForegroundCached = true
+                            dispatchResetHotKey()
                             continue
                         }
-                        val foreground = User32.INSTANCE.GetForegroundWindow()
-                        if (foreground == null || !isAion2Window(foreground)) {
-                            isAion2ForegroundCached = false
-                            continue
+                        if (hotkeyId == toggleWindowHotkeyId) {
+                            if (!matchesToggleWindowHotkey(msg.lParam.toLong())) {
+                                continue
+                            }
+                            dispatchToggleWindowHotKey()
                         }
-                        isAion2ForegroundCached = true
-                        dispatchResetHotKey()
                     }
                     Thread.sleep(25)
                 } catch (_: InterruptedException) {
@@ -128,7 +156,8 @@ class KeyHookEvent(private val engine: WebEngine) {
                 }
             }
 
-            User32.INSTANCE.UnregisterHotKey(null, hotkeyId)
+            User32.INSTANCE.UnregisterHotKey(null, resetHotkeyId)
+            User32.INSTANCE.UnregisterHotKey(null, toggleWindowHotkeyId)
         }.apply {
             isDaemon = true
             name = "hotkey-thread"
@@ -226,11 +255,28 @@ class KeyHookEvent(private val engine: WebEngine) {
         }
     }
 
+    private fun dispatchToggleWindowHotKey() {
+        Platform.runLater {
+            runCatching {
+                onToggleWindowHotkey()
+            }.onFailure { error ->
+                logger.debug("Failed to handle nativeToggleWindowHotKey", error)
+            }
+        }
+    }
+
     private fun matchesRegisteredHotkey(lParam: Long): Boolean {
         val messageMods = (lParam and 0xFFFF).toInt() and HOTKEY_MODIFIER_MASK
         val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
         val expectedMods = registeredHotkeyMods and HOTKEY_MODIFIER_MASK
         return messageMods == expectedMods && messageKey == registeredHotkeyKey
+    }
+
+    private fun matchesToggleWindowHotkey(lParam: Long): Boolean {
+        val messageMods = (lParam and 0xFFFF).toInt() and HOTKEY_MODIFIER_MASK
+        val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
+        val expectedMods = TOGGLE_WINDOW_MODS and HOTKEY_MODIFIER_MASK
+        return messageMods == expectedMods && messageKey == TOGGLE_WINDOW_KEY_CODE
     }
 
     private fun isModifierVirtualKey(vk: Int): Boolean {
@@ -254,6 +300,8 @@ class KeyHookEvent(private val engine: WebEngine) {
         private const val HOTKEY_KEY_KEY = "dpsMeter.hotkey.keyCode"
         private const val DEFAULT_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
         private const val DEFAULT_KEY_CODE = 82 // R
+        private const val TOGGLE_WINDOW_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
+        private const val TOGGLE_WINDOW_KEY_CODE = 0x26 // VK_UP (Up Arrow)
         private const val HOTKEY_MODIFIER_MASK = WinUser.MOD_ALT or WinUser.MOD_CONTROL or WinUser.MOD_SHIFT or WinUser.MOD_WIN
     }
 }
