@@ -117,46 +117,25 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     fun onPacketReceived(packet: ByteArray): Boolean {
-        var parsed = false
+        if (packet.isEmpty()) return false
         val packetLengthInfo = readVarInt(packet)
-        if (packet.size == packetLengthInfo.value) {
-            logger.trace(
-                "Current byte length matches expected length: {}",
-                toHex(packet.copyOfRange(0, packet.size - 3))
-            )
-            parsed = parsePerfectPacket(packet.copyOfRange(0, packet.size - 3)) || parsed
-            //더이상 자를필요가 없는 최종 패킷뭉치
-            return parsed
-        }
-        if (packet.size <= 3) return parsed
-        // 매직패킷 단일로 올때 무시
-        if (packetLengthInfo.value > packet.size) {
-            logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
-            parsed = parseBrokenLengthPacket(packet) || parsed
-            //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
-            return parsed
-        }
-        if (packetLengthInfo.value <= 3) {
-            return onPacketReceived(packet.copyOfRange(1, packet.size)) || parsed
+        if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
+            logger.debug("Invalid framed packet header: {}", toHex(packet))
+            return false
         }
 
-        try {
-            if (packet.copyOfRange(0, packetLengthInfo.value - 3).size != 3) {
-                if (packet.copyOfRange(0, packetLengthInfo.value - 3).isNotEmpty()) {
-                    logger.trace(
-                        "Packet split succeeded: {}",
-                        toHex(packet.copyOfRange(0, packetLengthInfo.value - 3))
-                    )
-                    parsed = parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3)) || parsed
-                    //매직패킷이 빠져있는 패킷뭉치
-                }
-            }
+        val frameLength = packetLengthInfo.length + packetLengthInfo.value
+        if (packet.size < frameLength) {
+            logger.debug("Truncated framed packet skipped: {}", toHex(packet))
+            return false
+        }
 
-            parsed = onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size)) || parsed
-            //남은패킷 재처리
-        } catch (e: IndexOutOfBoundsException) {
-            logger.debug("Truncated tail packet skipped: {}", toHex(packet))
-            return parsed
+        var parsed = false
+        val frame = packet.copyOfRange(0, frameLength)
+        parsed = parsePerfectPacket(frame) || parsed
+
+        if (packet.size > frameLength) {
+            parsed = onPacketReceived(packet.copyOfRange(frameLength, packet.size)) || parsed
         }
         return parsed
     }
@@ -1037,7 +1016,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (compactDamageInfo.length <= 0) return false
         if (compactDamageInfo.value <= 0 || compactDamageInfo.value > 1_000_000) return false
 
-        val inferredSkillCode = lastKnownSkillByActor[actorInfo.value] ?: normalizeSkillId(parseUInt32le(packet, start))
+        val inferredSkillCode = lastKnownSkillByActor[actorInfo.value] ?: 0
 
         val pdp = ParsedDamagePacket()
         pdp.setTargetId(targetInfo)

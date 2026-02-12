@@ -854,7 +854,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 DetailSkillEntry(
                     actorId = uid,
                     code = inferredCode,
-                    name = SKILL_MAP[inferredCode] ?: "",
+                    name = if (inferredCode == 0) "Effect Damage" else (SKILL_MAP[inferredCode] ?: ""),
                     time = 0,
                     dmg = 0,
                     multiHitCount = 0,
@@ -1178,6 +1178,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         damage: Int,
         payloadHex: String?
     ): Int? {
+        if (skillCode <= 0) {
+            return 0
+        }
+        if (skillCode in 1..999_999) {
+            return 0
+        }
         // Check if skill code is in a valid range (even if not in our SKILL_CODES list)
         val isValidRange = skillCode in 11_000_000..19_999_999 ||
                           skillCode in 3_000_000..3_999_999 ||

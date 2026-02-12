@@ -20,5 +20,5 @@ data class AnalyzedSkill(
     var parryTimes: Int = 0,
     var healAmount: Int = 0
 ) {
-    constructor(pdp:ParsedDamagePacket) : this(pdp.getSkillCode1(),0,0,0,0,0,DpsCalculator.SKILL_MAP[pdp.getSkillCode1()] ?: "",0,0,0,0)
+    constructor(pdp:ParsedDamagePacket) : this(pdp.getSkillCode1(),0,0,0,0,0,if (pdp.getSkillCode1() == 0) "Effect Damage" else (DpsCalculator.SKILL_MAP[pdp.getSkillCode1()] ?: ""),0,0,0,0)
 }
