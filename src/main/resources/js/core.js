@@ -515,6 +515,7 @@ class DpsApp {
     this.hoveredDetailsRowId = rowId;
     this.detailsUI?.open?.(row, {
       pin: false,
+      compact: true,
       restartOnSwitch: false,
       ...this.getDefaultDetailsOpenOptions(),
     });
@@ -1027,7 +1028,10 @@ class DpsApp {
     return raw;
   }
 
-  async getDetails(row, { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false } = {}) {
+  async getDetails(
+    row,
+    { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false, maxSkills = null } = {}
+  ) {
     let raw = null;
     if (targetId && window.dpsData?.getTargetDetails) {
       const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
@@ -1187,6 +1191,11 @@ class DpsApp {
       }
     }
 
+
+    if (Number.isFinite(Number(maxSkills)) && Number(maxSkills) > 0 && skills.length > Number(maxSkills)) {
+      skills.sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
+      skills.length = Number(maxSkills);
+    }
     const pct = (num, den) => {
       if (den <= 0) return 0;
       return Math.round((num / den) * 1000) / 10;
@@ -2810,6 +2819,10 @@ class DpsApp {
         hasDragMoved = true;
         this.isWindowDragging = true;
         this.elList?.classList?.add?.("dragInteracting");
+        if (this.pinnedDetailsRowId === null) {
+          this.hoveredDetailsRowId = null;
+          this.detailsUI?.close?.({ keepPinned: false });
+        }
       }
       pendingStageX = initialStageX + deltaX;
       pendingStageY = initialStageY + deltaY;
