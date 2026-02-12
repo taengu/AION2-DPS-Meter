@@ -29,6 +29,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private val mask = 0x0f
     private val actorIdFilterKey = "dpsMeter.actorIdFilter"
+    private val lastKnownSkillByActor = java.util.concurrent.ConcurrentHashMap<Int, Int>()
 
     private fun isActorAllowed(actorId: Int): Boolean {
         val rawFilter = PropertyHandler.getProperty(actorIdFilterKey)?.trim().orEmpty()
@@ -845,7 +846,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val skillCode = try {
             reader.readSkillCode()
         } catch (e: IllegalStateException) {
+            val fallbackParsed = tryParseCompactTickDamage(
+                packet = packet,
+                reader = reader,
+                targetInfo = targetInfo,
+                switchInfo = switchInfo,
+                flagInfo = flagInfo,
+                actorInfo = actorInfo,
+                damageType = 2
+            )
+            if (fallbackParsed) return true
             return logUnparsedDamage()
+        }
+
+        if (skillCode > 0) {
+            lastKnownSkillByActor[actorInfo.value] = skillCode
         }
 
         val typeValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
@@ -983,6 +998,77 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         return true
 
+    }
+
+    private fun tryParseCompactTickDamage(
+        packet: ByteArray,
+        reader: DamagePacketReader,
+        targetInfo: VarIntOutput,
+        switchInfo: VarIntOutput,
+        flagInfo: VarIntOutput,
+        actorInfo: VarIntOutput,
+        damageType: Int
+    ): Boolean {
+        if (switchInfo.value != 4 || flagInfo.value != 0) return false
+        val start = reader.offset
+        if (start + 20 > packet.size) return false
+        if (
+            packet[start] != 0xFA.toByte() ||
+            packet[start + 1] != 0x37.toByte() ||
+            packet[start + 2] != 0x1E.toByte() ||
+            packet[start + 3] != 0x00.toByte()
+        ) {
+            return false
+        }
+
+        val tailAnchor = byteArrayOf(
+            0xB5.toByte(), 0xDD.toByte(), 0xCD.toByte(), 0x0B.toByte(),
+            0x01.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(),
+            0x90.toByte(), 0x4E.toByte(), 0xBC.toByte(), 0x0C.toByte(),
+            0x01.toByte(), 0x00.toByte()
+        )
+        val tailStart = start + 6
+        if (tailStart + tailAnchor.size > packet.size) return false
+        if (!packet.copyOfRange(tailStart, tailStart + tailAnchor.size).contentEquals(tailAnchor)) {
+            return false
+        }
+
+        val compactDamageInfo = readVarInt(packet, start + 4)
+        if (compactDamageInfo.length <= 0) return false
+        if (compactDamageInfo.value <= 0 || compactDamageInfo.value > 1_000_000) return false
+
+        val inferredSkillCode = lastKnownSkillByActor[actorInfo.value] ?: normalizeSkillId(parseUInt32le(packet, start))
+
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(targetInfo)
+        pdp.setSwitchVariable(switchInfo)
+        pdp.setFlag(flagInfo)
+        pdp.setActorId(actorInfo)
+        pdp.setSkillCode(inferredSkillCode)
+        pdp.setType(VarIntOutput(damageType, 1))
+        pdp.setSpecials(emptyList())
+        pdp.setMultiHitCount(0)
+        pdp.setMultiHitDamage(0)
+        pdp.setHealAmount(0)
+        pdp.setUnknown(VarIntOutput(0, 0))
+        pdp.setDamage(VarIntOutput(compactDamageInfo.value, compactDamageInfo.length))
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            dataStorage.appendDamage(pdp)
+        }
+        UnifiedLogger.debug(
+            logger,
+            "Parsed compact tick damage target={}, attacker={}, inferredSkill={}, type={}, damage={}, hex={}",
+            pdp.getTargetId(),
+            pdp.getActorId(),
+            pdp.getSkillCode1(),
+            pdp.getType(),
+            pdp.getDamage(),
+            toHex(packet)
+        )
+        return true
     }
 
     private fun toHex(bytes: ByteArray): String {
