@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 class StreamAssembler(private val processor: StreamProcessor) {
     private val logger = LoggerFactory.getLogger(StreamAssembler::class.java)
     private val buffer = PacketAccumulator()
+    private data class VarIntInfo(val value: Int, val length: Int)
 
     suspend fun processChunk(chunk: ByteArray): Boolean {
         var parsed = false
@@ -36,14 +37,14 @@ class StreamAssembler(private val processor: StreamProcessor) {
         return parsed
     }
 
-    private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
+    private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntInfo {
         var value = 0
         var shift = 0
         var count = 0
 
         while (true) {
             if (offset + count >= bytes.size) {
-                return VarIntOutput(-1, -1)
+                return VarIntInfo(-1, -1)
             }
 
             val byteVal = bytes[offset + count].toInt() and 0xff
@@ -51,12 +52,12 @@ class StreamAssembler(private val processor: StreamProcessor) {
             value = value or ((byteVal and 0x7F) shl shift)
 
             if ((byteVal and 0x80) == 0) {
-                return VarIntOutput(value, count)
+                return VarIntInfo(value, count)
             }
 
             shift += 7
             if (shift >= 32) {
-                return VarIntOutput(-1, -1)
+                return VarIntInfo(-1, -1)
             }
         }
     }
