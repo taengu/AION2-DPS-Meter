@@ -651,13 +651,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 
-
+        if (offset + 1 >= packet.size) return false
         if (packet[offset] != 0x40.toByte()) return false
         if (packet[offset + 1] != 0x36.toByte()) return false
         offset += 2
 
         val summonInfo = readVarInt(packet, offset)
         if (summonInfo.length < 0) return false
+        var summonId = summonInfo.value.takeIf { it > 0 }
+
         offset += summonInfo.length + 28
         if (packet.size > offset) {
             val mobInfo = readVarInt(packet, offset)
@@ -666,35 +668,90 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (packet.size > offset) {
                 val mobInfo2 = readVarInt(packet, offset)
                 if (mobInfo2.length < 0) return false
-                if (mobInfo.value == mobInfo2.value) {
-                    logger.trace("mid: {}, code: {}", summonInfo.value, mobInfo.value)
-                    dataStorage.appendMob(summonInfo.value, mobInfo.value)
+                if (mobInfo.value == mobInfo2.value && summonId != null) {
+                    logger.trace("mid: {}, code: {}", summonId, mobInfo.value)
+                    dataStorage.appendMob(summonId, mobInfo.value)
                 }
             }
         }
 
-
+        var realActorId: Int? = null
         val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-        if (keyIdx == -1) return false
-        val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+        if (keyIdx != -1) {
+            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+            if (opcodeIdx != -1) {
+                val summonFromOpcode = readVarInt(afterPacket, opcodeIdx + 3)
+                if (summonFromOpcode.length > 0 && summonFromOpcode.value > 0) {
+                    summonId = summonFromOpcode.value
+                }
 
-        val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
-        if (opcodeIdx == -1) return false
-        offset = keyIdx + opcodeIdx + 11
+                realActorId = parseActorNearOpcode(afterPacket, opcodeIdx)
 
-        if (offset >= packet.size) return false
-        val actorInfo = readVarInt(packet, offset)
-        val realActorId = if (actorInfo.length > 0 && actorInfo.value > 0) {
-            actorInfo.value
-        } else {
-            if (offset + 2 > packet.size) return false
-            parseUInt16le(packet, offset)
+                if (realActorId == null) {
+                    val legacyOffset = keyIdx + opcodeIdx + 11
+                    if (legacyOffset < packet.size) {
+                        val actorInfo = readVarInt(packet, legacyOffset)
+                        realActorId = if (actorInfo.length > 0 && actorInfo.value > 0) {
+                            actorInfo.value
+                        } else if (legacyOffset + 2 <= packet.size) {
+                            parseUInt16le(packet, legacyOffset)
+                        } else {
+                            null
+                        }
+                    }
+                }
+            }
         }
 
-        logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-        UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-        dataStorage.appendSummon(realActorId, summonInfo.value)
+        if (realActorId == null) {
+            realActorId = parseActorFromLegacyAnchor(packet)
+        }
+
+        val ownerId = realActorId?.takeIf { it > 0 } ?: return false
+        val resolvedSummonId = summonId?.takeIf { it > 0 } ?: return false
+
+        logger.debug("Summon mob mapping succeeded {},{}", ownerId, resolvedSummonId)
+        UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", ownerId, resolvedSummonId)
+        dataStorage.appendSummon(ownerId, resolvedSummonId)
         return true
+    }
+
+    private fun parseActorNearOpcode(afterPacket: ByteArray, opcodeIdx: Int): Int? {
+        val searchStart = (opcodeIdx - 20).coerceAtLeast(0)
+        var fallback: Int? = null
+
+        for (index in (opcodeIdx - 1) downTo searchStart) {
+            val actorInfo = readVarInt(afterPacket, index)
+            if (actorInfo.length <= 0) continue
+            if (index + actorInfo.length > opcodeIdx) continue
+            val candidate = actorInfo.value
+            if (candidate <= 0) continue
+
+            if (actorExists(candidate) || actorAppearsInCombat(candidate)) {
+                return candidate
+            }
+            if (fallback == null) {
+                fallback = candidate
+            }
+        }
+
+        return fallback
+    }
+
+    private fun parseActorFromLegacyAnchor(packet: ByteArray): Int? {
+        val anchorIdx = findArrayIndex(packet, 0x0e, 0x06, 0x38)
+        if (anchorIdx == -1) return null
+        val actorOffset = anchorIdx + 3
+        if (actorOffset >= packet.size) return null
+
+        val actorInfo = readVarInt(packet, actorOffset)
+        if (actorInfo.length > 0 && actorInfo.value > 0) {
+            return actorInfo.value
+        }
+
+        if (actorOffset + 2 > packet.size) return null
+        return parseUInt16le(packet, actorOffset)
     }
 
     private fun parseUInt16le(packet: ByteArray, offset: Int = 0): Int {
