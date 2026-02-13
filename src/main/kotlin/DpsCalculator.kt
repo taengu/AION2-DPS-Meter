@@ -725,14 +725,51 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     private fun resolveActorId(actorId: Int, summonData: ConcurrentMap<Int, Int>): Int {
+        if (actorId <= 0) return actorId
         var current = actorId
         val visited = mutableSetOf<Int>()
         while (current > 0 && visited.add(current)) {
-            val owner = summonData[current] ?: break
+            val owner = findSummonOwner(current, summonData) ?: break
             if (owner <= 0) break
             current = owner
         }
         return current
+    }
+
+    private fun findSummonOwner(actorId: Int, summonData: ConcurrentMap<Int, Int>): Int? {
+        summonData[actorId]?.takeIf { it > 0 }?.let { return it }
+
+        for (offset in POSSIBLE_OFFSETS) {
+            val lowered = actorId - offset
+            if (lowered > 0) {
+                summonData[lowered]?.takeIf { it > 0 }?.let { return it }
+            }
+            if (offset != 0) {
+                val raised = actorId + offset
+                if (raised > 0) {
+                    summonData[raised]?.takeIf { it > 0 }?.let { return it }
+                }
+            }
+        }
+
+        summonData.entries.firstOrNull { (_, summonId) -> summonId == actorId }?.key?.takeIf { it > 0 }?.let { return it }
+
+        for (offset in POSSIBLE_OFFSETS) {
+            val lowered = actorId - offset
+            if (lowered > 0) {
+                summonData.entries.firstOrNull { (_, summonId) -> summonId == lowered }?.key?.takeIf { it > 0 }
+                    ?.let { return it }
+            }
+            if (offset != 0) {
+                val raised = actorId + offset
+                if (raised > 0) {
+                    summonData.entries.firstOrNull { (_, summonId) -> summonId == raised }?.key?.takeIf { it > 0 }
+                        ?.let { return it }
+                }
+            }
+        }
+
+        return null
     }
 
     private fun cachedJobForNickname(nickname: String): String? {
