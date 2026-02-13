@@ -1187,8 +1187,18 @@ const createDetailsUI = ({
         return;
       }
 
-      const detailsList = await Promise.all(
-        targetList.map((target) =>
+      const [firstTarget, ...restTargets] = targetList;
+      const firstDetails = await getDetails(lastRow, {
+        targetId: firstTarget.targetId,
+        attackerIds: selectedAttackerIds,
+        totalTargetDamage: firstTarget.totalDamage,
+        showSkillIcons,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(firstDetails, lastRow);
+
+      const restDetails = await Promise.all(
+        restTargets.map((target) =>
           getDetails(lastRow, {
             targetId: target.targetId,
             attackerIds: selectedAttackerIds,
@@ -1197,6 +1207,7 @@ const createDetailsUI = ({
           })
         )
       );
+      const detailsList = [firstDetails, ...restDetails];
       const totalTargetDamage = targetList.reduce(
         (sum, target) => sum + (Number(target?.totalDamage) || 0),
         0
