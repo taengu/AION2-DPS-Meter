@@ -682,8 +682,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (opcodeIdx == -1) return false
         offset = keyIdx + opcodeIdx + 11
 
-        if (offset + 2 > packet.size) return false
-        val realActorId = parseUInt16le(packet, offset)
+        if (offset >= packet.size) return false
+        val actorInfo = readVarInt(packet, offset)
+        val realActorId = if (actorInfo.length > 0 && actorInfo.value > 0) {
+            actorInfo.value
+        } else {
+            if (offset + 2 > packet.size) return false
+            parseUInt16le(packet, offset)
+        }
 
         logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
         UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
