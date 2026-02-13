@@ -6,41 +6,32 @@ import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 
 class DataStorage {
     private val logger = LoggerFactory.getLogger(DataStorage::class.java)
-    private val byTargetStorage = ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>>()
-    private val byActorStorage = ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>>()
+    private val byTargetStorage = HashMap<Int, ArrayList<ParsedDamagePacket>>()
+    private val byActorStorage = HashMap<Int, ArrayList<ParsedDamagePacket>>()
     private val nicknameStorage = ConcurrentHashMap<Int, String>()
     private val pendingNicknameStorage = ConcurrentHashMap<Int, String>()
     private val summonStorage = ConcurrentHashMap<Int, Int>()
-    private val skillCodeData = ConcurrentHashMap<Int, String>()
     private val mobCodeData = ConcurrentHashMap<Int, String>()
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val currentTarget = AtomicInteger(0)
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
-        byActorStorage.getOrPut(pdp.getActorId()) { ConcurrentSkipListSet(compareBy<ParsedDamagePacket> { it.getTimeStamp() }.thenBy { it.getUuid() }) }
-            .add(pdp)
-        byTargetStorage.getOrPut(pdp.getTargetId()) { ConcurrentSkipListSet(compareBy<ParsedDamagePacket> { it.getTimeStamp() }.thenBy { it.getUuid() }) }
-            .add(pdp)
+        byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
+        byTargetStorage.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
         applyPendingNickname(pdp.getActorId())
     }
 
-    fun setCurrentTarget(targetId:Int){
+    fun setCurrentTarget(targetId: Int){
         currentTarget.set(targetId)
     }
 
-    fun getCurrentTarget():Int{
+    fun getCurrentTarget(): Int{
         return currentTarget.get()
-    }
-
-    fun appendMobCode(code: Int, name: String) {
-        //이건나중에 파일이나 서버에서 불러오는걸로
-        mobCodeData[code] = name
     }
 
     fun appendMob(mid: Int, code: Int) {
@@ -118,20 +109,22 @@ class DataStorage {
         logger.info("Damage packets reset")
     }
 
-    private fun flushNicknameStorage() {
-        resetNicknameStorage()
+    @Synchronized
+    fun getBossModeDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
+        val snapshot = HashMap<Int, List<ParsedDamagePacket>>()
+        byTargetStorage.forEach { (k, v) ->
+            snapshot[k] = ArrayList(v)
+        }
+        return snapshot
     }
 
-    fun getSkillName(skillCode: Int): String {
-        return skillCodeData[skillCode] ?: skillCode.toString()
-    }
-
-    fun getBossModeData(): ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>> {
-        return byTargetStorage
-    }
-
-    fun getActorData(): ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>> {
-        return byActorStorage
+    @Synchronized
+    fun getActorDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
+        val snapshot = HashMap<Int, List<ParsedDamagePacket>>()
+        byActorStorage.forEach { (k, v) ->
+            snapshot[k] = ArrayList(v)
+        }
+        return snapshot
     }
 
     fun getNickname(): ConcurrentHashMap<Int, String> {

@@ -14,8 +14,6 @@ import com.tbread.entity.TargetInfo
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
-import kotlin.math.roundToInt
-import java.util.UUID
 import java.nio.charset.StandardCharsets
 
 class DpsCalculator(private val dataStorage: DataStorage) {
@@ -161,7 +159,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             lastKnownLocalPlayerId = currentLocalId
             restartTargetSelection()
         }
-        val pdpMap = dataStorage.getBossModeData()
+        val pdpMap = dataStorage.getBossModeDataSnapshot()
 
         pdpMap.forEach { (target, data) ->
             data.forEach { pdp ->
@@ -215,7 +213,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
                 collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
-            else -> pdpMap[currentTarget]?.toList() ?: return dpsData
+            else -> pdpMap[currentTarget] ?: return dpsData
         }
 
         val summonData = dataStorage.getSummonData()
@@ -223,8 +221,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
 
-            // MAP SUMMON TO OWNER:
-            // Use owner UID if it exists in summonData, otherwise use actor's own ID.
             val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
             if (uid <= 0) return@forEach
 
@@ -259,12 +255,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 ) ?: pdp.getSkillCode1()
             )
 
-            // Attribute the data to the owner (uid)
             dpsData.map[uid]!!.processPdp(pdp)
 
-            // JOB IDENTIFICATION:
-            // Only update Job status if this actor is unknown.
-            // Crucially, JobClass.convertFromSkill now returns NULL for generic NPC skills.
             if (dpsData.map[uid]!!.job == "") {
                 val origSkillCode = inferOriginalSkillCode(
                     pdp.getSkillCode1(),
@@ -286,11 +278,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         while (iterator.hasNext()) {
             val (uid, data) = iterator.next()
 
-            // FINAL CLEANUP:
-            // If an actor is in the meter but we haven't identified their job,
-            // we remove them unless they are the local player.
-            // Since we attributed summon damage to the owner 'uid', the owner
-            // will likely have a Job already.
             val keep = if (data.job == "") {
                 if (localActorIds != null && localActorIds.contains(uid)) {
                     data.job = "Unknown"
@@ -344,7 +331,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun getDetailsContext(): DetailsContext {
-        val pdpMap = dataStorage.getBossModeData()
+        val pdpMap = dataStorage.getBossModeDataSnapshot()
         val nicknameData = dataStorage.getNickname()
         val summonData = dataStorage.getSummonData()
 
@@ -398,7 +385,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun getTargetDetails(targetId: Int, actorIds: Set<Int>?): TargetDetailsResponse {
-        val pdps = dataStorage.getBossModeData()[targetId] ?: return TargetDetailsResponse(
+        val pdps = dataStorage.getBossModeDataSnapshot()[targetId] ?: return TargetDetailsResponse(
             targetId = targetId,
             totalTargetDamage = 0,
             battleTime = 0L,
@@ -570,7 +557,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun selectRecentTargetsByLocalActors(localActorIds: Set<Int>, windowMs: Long): Set<Int> {
         if (localActorIds.isEmpty()) return emptySet()
         val cutoff = System.currentTimeMillis() - windowMs
-        val actorData = dataStorage.getActorData()
+        val actorData = dataStorage.getActorDataSnapshot()
         val targets = mutableSetOf<Int>()
         localActorIds.forEach { actorId ->
             val pdps = actorData[actorId] ?: return@forEach
@@ -631,7 +618,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun parseActorBattleTimeForTarget(localActorIds: Set<Int>, targetId: Int): Long {
         if (targetId == 0 || localActorIds.isEmpty()) return 0
-        val actorData = dataStorage.getActorData()
+        val actorData = dataStorage.getActorDataSnapshot()
         var startTime: Long? = null
         var endTime: Long? = null
         localActorIds.forEach { actorId ->
@@ -655,7 +642,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     private fun selectTargetLastHitByMe(localActorIds: Set<Int>, fallbackTarget: Int): Int {
-        val actorData = dataStorage.getActorData()
+        val actorData = dataStorage.getActorDataSnapshot()
         val now = System.currentTimeMillis()
         val cutoff = now - targetSelectionWindowMs
         val wasIdle = lastLocalHitTime < 0 || now - lastLocalHitTime > 5_000L
@@ -717,13 +704,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
         val cutoff = System.currentTimeMillis() - windowMs
         val combined = mutableListOf<ParsedDamagePacket>()
-        val seen = mutableSetOf<UUID>()
         targetIds.forEach { targetId ->
-            dataStorage.getBossModeData()[targetId]?.forEach { pdp ->
-                if (pdp.getTimeStamp() < cutoff) return@forEach
-                if (seen.add(pdp.getUuid())) {
-                    combined.add(pdp)
-                }
+            dataStorage.getBossModeDataSnapshot()[targetId]?.forEach { pdp ->
+                if (pdp.getTimeStamp() >= cutoff) combined.add(pdp)
             }
         }
         return combined

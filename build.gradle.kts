@@ -7,7 +7,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
     id("org.graalvm.buildtools.native") version "0.10.3"
-    // REMOVED the failing JavaFX plugin - we handle it via jvmArgs/dependencies
 }
 
 java {
@@ -52,7 +51,6 @@ dependencies {
     implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
-    // Explicit JavaFX dependencies for Windows
     val javafxVersion = "25"
     implementation("org.openjfx:javafx-base:$javafxVersion:win")
     implementation("org.openjfx:javafx-graphics:$javafxVersion:win")
@@ -90,7 +88,10 @@ graalvmNative {
             buildArgs.add("-Dprism.fontdir=C:\\Windows\\Fonts")
             buildArgs.add("--no-fallback")
             buildArgs.add("--enable-native-access=ALL-UNNAMED,javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
-            // Critical for UI and async behavior
+
+            // GraalVM Native Image Memory Limits
+            buildArgs.add("-R:MaxHeapSize=256m")
+
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,com.sun.javafx.tk.quantum.PrimaryTimer,com.sun.scenario.animation.SplineInterpolator,com.sun.scenario.animation.StepInterpolator,kotlinx.coroutines,kotlinx.coroutines.internal.ThreadContextKt\$countAll\$1,kotlinx.coroutines.internal.ThreadContextKt\$updateState\$1,kotlinx.coroutines.scheduling.DefaultScheduler,kotlin.coroutines.ContinuationInterceptor\$Key")
             buildArgs.add("--initialize-at-build-time=com.sun.scenario.effect.Offset")
             buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.AbstractPrimaryTimer\$MainLoop")
@@ -124,13 +125,11 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.PaintCollector")
             buildArgs.add("--initialize-at-run-time=com.sun.glass.utils.NativeLibLoader")
 
-            // Ensure JavaFX native libraries (DLLs) are bundled for Prism/Glass on Windows
             buildArgs.add("-H:IncludeResources=^prism_sw\\\\.dll$")
             buildArgs.add(
                 "-H:ReflectionConfigurationFiles=${project.file("src/main/resources/native-image/reflect-config.json")}"
             )
 
-            // Module support for the native compiler
             buildArgs.addAll(listOf("--class-path", appClassPath))
             buildArgs.addAll(listOf("--module-path", javafxModulePath))
             buildArgs.addAll(
@@ -156,8 +155,6 @@ val javafxNativeLibPatterns = listOf(
     "**/jfxmedia.dll"
 )
 
-
-
 tasks.named("nativeCompile").configure {
     doLast {
         val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile
@@ -181,20 +178,27 @@ compose.desktop {
             "-XX:+UnlockExperimentalVMOptions",
             "-XX:+UseCompactObjectHeaders",
             "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED",
+            "--add-exports=javafx.web/com.sun.webkit.dom=ALL-UNNAMED",
+            "--add-opens=jdk.jsobject/netscape.javascript=ALL-UNNAMED",
             "-Dprism.order=sw",
             "-DdpsMeter.memProfileEnabled=true",
             "-DdpsMeter.memProfileInterval=30",
             "-DdpsMeter.memProfileTop=50",
             "-DdpsMeter.memProfileOutput=build/memory-profile",
-            // We removed the --add-modules here.
-            // JavaFX will load from the classpath as 'unnamed' modules.
-            "-Dapple.laf.useScreenMenuBar=true"
+            "-Dapple.laf.useScreenMenuBar=true",
+
+            // JVM Memory Shrinking Flags for UI Runtime / MSI Package
+            "-Xmx256m",
+            "-XX:+UseG1GC",
+            "-XX:MaxHeapFreeRatio=30",
+            "-XX:MinHeapFreeRatio=10",
+            "-XX:+ShrinkHeapInSteps"
         )
 
         nativeDistributions {
             windows {
                 includeAllModules = true
-                // Note: If you don't have an icon yet, comment out the line below
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 shortcut = true
                 menuGroup = "AION2 DPS Meter"

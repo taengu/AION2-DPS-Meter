@@ -48,9 +48,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             for (i in 0..5) {
                 if (start + i + 4 > data.size) break
                 val raw = (data[start + i].toInt() and 0xFF) or
-                    ((data[start + i + 1].toInt() and 0xFF) shl 8) or
-                    ((data[start + i + 2].toInt() and 0xFF) shl 16) or
-                    ((data[start + i + 3].toInt() and 0xFF) shl 24)
+                        ((data[start + i + 1].toInt() and 0xFF) shl 8) or
+                        ((data[start + i + 2].toInt() and 0xFF) shl 16) or
+                        ((data[start + i + 3].toInt() and 0xFF) shl 24)
                 val normalized = normalizeSkillId(raw)
                 if (
                     normalized in 11_000_000..19_999_999 ||
@@ -75,20 +75,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 "Current byte length matches expected length: {}",
                 toHex(packet.copyOfRange(0, packet.size - 3))
             )
-            parsed = parsePerfectPacket(packet.copyOfRange(0, packet.size - 3)) || parsed
-            //더이상 자를필요가 없는 최종 패킷뭉치
+            if (parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))) parsed = true
             return parsed
         }
         if (packet.size <= 3) return parsed
-        // 매직패킷 단일로 올때 무시
+
         if (packetLengthInfo.value > packet.size) {
             logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
-            parsed = parseBrokenLengthPacket(packet) || parsed
-            //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
+            if (parseBrokenLengthPacket(packet)) parsed = true
             return parsed
         }
         if (packetLengthInfo.value <= 3) {
-            return onPacketReceived(packet.copyOfRange(1, packet.size)) || parsed
+            if (onPacketReceived(packet.copyOfRange(1, packet.size))) parsed = true
+            return parsed
         }
 
         try {
@@ -98,14 +97,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         "Packet split succeeded: {}",
                         toHex(packet.copyOfRange(0, packetLengthInfo.value - 3))
                     )
-                    parsed = parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3)) || parsed
-                    //매직패킷이 빠져있는 패킷뭉치
+                    if (parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3))) parsed = true
                 }
             }
 
-            parsed = onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size)) || parsed
-            //남은패킷 재처리
-        } catch (e: IndexOutOfBoundsException) {
+            if (onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size))) parsed = true
+        } catch (_: IndexOutOfBoundsException) {
             logger.debug("Truncated tail packet skipped: {}", toHex(packet))
             return parsed
         }
@@ -147,14 +144,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         if (startIdx in 0..<endIdx && endIdx <= packet.size) {
                             val extractedPacket = packet.copyOfRange(startIdx, endIdx)
                             if (isDamage) {
-                                parsed = parsingDamage(extractedPacket) || parsed
+                                if (parsingDamage(extractedPacket)) parsed = true
                             } else {
                                 parseDoTPacket(extractedPacket)
                             }
                             processed = true
                             if (endIdx < packet.size) {
                                 val remainingPacket = packet.copyOfRange(endIdx, packet.size)
-                                parsed = parseBrokenLengthPacket(remainingPacket, false) || parsed
+                                if (parseBrokenLengthPacket(remainingPacket, false)) parsed = true
                             }
                         }
                     }
@@ -162,9 +159,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             if (flag && !processed) {
                 logger.trace("Remaining packet {}", toHex(packet))
-                parsed = parseActorNameBindingRules(packet) || parsed
-                parsed = parseLootAttributionActorName(packet) || parsed
-                parsed = castNicknameNet(packet) || parsed
+                if (parseActorNameBindingRules(packet)) parsed = true
+                if (parseLootAttributionActorName(packet)) parsed = true
+                if (castNicknameNet(packet)) parsed = true
             }
             return parsed
         }
@@ -173,7 +170,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return parsed
         }
         val newPacket = packet.copyOfRange(10, packet.size)
-        return onPacketReceived(newPacket) || parsed
+        if (onPacketReceived(newPacket)) parsed = true
+        return parsed
     }
 
     private fun sanitizeNickname(nickname: String): String? {
@@ -242,8 +240,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             packet,
                             lastAnchor.actorId,
                             nameInfo.first,
-                            nameInfo.second,
-                            allowPrepopulate = true
+                            nameInfo.second
                         )
                         if (canBind) {
                             namedActors.add(lastAnchor.actorId)
@@ -272,7 +269,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     if (!canReadVarInt(packet, actorOffset)) continue
                     val candidateInfo = readVarInt(packet, actorOffset)
                     if (candidateInfo.length <= 0 || actorOffset + candidateInfo.length != idx) continue
-                    if (candidateInfo.value !in 100..99999 || candidateInfo.value == 0) continue
+                    if (candidateInfo.value !in 100..99999) continue
                     actorInfo = candidateInfo
                     break
                 }
@@ -312,6 +309,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (existingCandidate == null || candidate.nameBytes.size > existingCandidate.nameBytes.size) {
                     candidates[candidate.actorId] = candidate
                 }
+                @Suppress("UNUSED_VALUE")
                 idx = skipGuildName(packet, nameEnd)
                 continue
             }
@@ -326,8 +324,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val isLocalNameMatch = localName.isNotBlank() && candidate.name == localName
             val existingNickname = dataStorage.getNickname()[candidate.actorId]
             val canUpdateExisting = existingNickname != null &&
-                candidate.name.length > existingNickname.length &&
-                candidate.name.startsWith(existingNickname)
+                    candidate.name.length > existingNickname.length &&
+                    candidate.name.startsWith(existingNickname)
             if (!allowPrepopulate && !isLocalNameMatch && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting) {
                 if (existingNickname == null) {
                     dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
@@ -398,15 +396,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun actorExists(actorId: Int): Boolean {
         return dataStorage.getNickname().containsKey(actorId) ||
-            dataStorage.getActorData().containsKey(actorId) ||
-            dataStorage.getBossModeData().containsKey(actorId) ||
-            dataStorage.getSummonData().containsKey(actorId)
+                dataStorage.getActorDataSnapshot().containsKey(actorId) ||
+                dataStorage.getBossModeDataSnapshot().containsKey(actorId) ||
+                dataStorage.getSummonData().containsKey(actorId)
     }
 
     private fun actorAppearsInCombat(actorId: Int): Boolean {
-        return dataStorage.getActorData().containsKey(actorId) ||
-            dataStorage.getBossModeData().containsKey(actorId) ||
-            dataStorage.getSummonData().containsKey(actorId)
+        return dataStorage.getActorDataSnapshot().containsKey(actorId) ||
+                dataStorage.getBossModeDataSnapshot().containsKey(actorId) ||
+                dataStorage.getSummonData().containsKey(actorId)
     }
 
     private fun decodeUtf8Strict(bytes: ByteArray): String? {
@@ -415,7 +413,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         decoder.onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
         return try {
             decoder.decode(java.nio.ByteBuffer.wrap(bytes)).toString()
-        } catch (ex: java.nio.charset.CharacterCodingException) {
+        } catch (_: java.nio.charset.CharacterCodingException) {
             null
         }
     }
@@ -439,7 +437,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return nameEnd
     }
 
-    private data class ActorNameCandidate(
+    private class ActorNameCandidate(
         val actorId: Int,
         val name: String,
         val nameBytes: ByteArray
@@ -466,8 +464,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         packet: ByteArray,
         actorId: Int,
         nameStart: Int,
-        nameLength: Int,
-        allowPrepopulate: Boolean = false
+        nameLength: Int
     ): Boolean {
         if (dataStorage.getNickname()[actorId] != null) return false
         if (nameLength <= 0 || nameLength > 16) return false
@@ -477,11 +474,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val possibleName = decodeUtf8Strict(possibleNameBytes) ?: return false
         val sanitizedName = sanitizeNickname(possibleName) ?: return false
         if (!actorExists(actorId)) {
-            if (allowPrepopulate) {
-                dataStorage.appendNickname(actorId, sanitizedName)
-            } else {
-                dataStorage.cachePendingNickname(actorId, sanitizedName)
-            }
+            dataStorage.appendNickname(actorId, sanitizedName)
             return true
         }
         val existingNickname = dataStorage.getNickname()[actorId]
@@ -508,8 +501,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size < 3) return false
         val parsedDamage = parsingDamage(packet)
         val parsedName = parseActorNameBindingRules(packet) ||
-            parseLootAttributionActorName(packet) ||
-            parsingNickname(packet)
+                parseLootAttributionActorName(packet) ||
+                parsingNickname(packet)
         val parsedSummon = parseSummonPacket(packet)
         if (!parsedDamage && !parsedName && !parsedSummon) {
             parseDoTPacket(packet)
@@ -723,8 +716,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
-//        if (packetLengthInfo.value < 32) return
-        //좀더 검증필요 대부분이 0x20,0x23 정도였음
 
         if (packet[offset] != 0x04.toByte()) return false
         if (packet[offset + 1] != 0x8d.toByte()) return false
@@ -775,15 +766,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
         val switchValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-        val switchInfo = VarIntOutput(switchValue, 1)
+
         if (reader.offset >= packet.size) return logUnparsedDamage()
-        val andResult = switchInfo.value and mask
+        val andResult = switchValue and mask
         if (andResult !in 4..7) {
             return true
         }
 
         val flagValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-        val flagInfo = VarIntOutput(flagValue, 1)
+        @Suppress("UNUSED_VARIABLE")
+        val flagInfo = VarIntOutput(flagValue, 1) // Required advancement but unused mapping
+
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
         val actorValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
@@ -796,7 +789,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val skillCode = try {
             reader.readSkillCode()
-        } catch (e: IllegalStateException) {
+        } catch (_: IllegalStateException) {
             return logUnparsedDamage()
         }
 
@@ -830,9 +823,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
-        val unknownInfo: VarIntOutput?
-        val unknownValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-        unknownInfo = VarIntOutput(unknownValue, 1)
+        reader.tryReadVarInt() ?: return logUnparsedDamage() // Consume Unused Unknown value
+
         val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage()
         var multiHitCount = 0
         var multiHitDamage = 0
@@ -868,21 +860,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             healAmount = reader.tryReadVarInt() ?: 0
         }
 
-//        if (loopInfo.value != 0 && offset >= packet.size) return false
-//
-//        if (loopInfo.value != 0) {
-//            for (i in 0 until loopInfo.length) {
-//                var skipValueInfo = readVarInt(packet, offset)
-//                if (skipValueInfo.length < 0) return false
-//                pdp.addSkipData(skipValueInfo)
-//                offset += skipValueInfo.length
-//            }
-//        }
-
         val pdp = ParsedDamagePacket()
         pdp.setTargetId(targetInfo)
-        pdp.setSwitchVariable(switchInfo)
-        pdp.setFlag(flagInfo)
         pdp.setActorId(actorInfo)
         pdp.setSkillCode(skillCode)
         pdp.setType(typeInfo)
@@ -890,7 +869,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setMultiHitCount(multiHitCount)
         pdp.setMultiHitDamage(multiHitDamage)
         pdp.setHealAmount(healAmount)
-        pdp.setUnknown(unknownInfo)
         pdp.setDamage(VarIntOutput(finalDamage, 1))
         if (UnifiedLogger.isDebugEnabled()) {
             pdp.setHexPayload(toHex(packet))
@@ -929,8 +907,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         if (pdp.getActorId() != pdp.getTargetId()) {
-            //추후 hps 를 넣는다면 수정하기
-            //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
             dataStorage.appendDamage(pdp)
         }
         return true
@@ -960,7 +936,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
 
     private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
-        //구글 Protocol Buffers 라이브러리에 이미 있나? 코드 효율성에 차이있어보이면 나중에 바꾸는게 나을듯?
         var value = 0
         var shift = 0
         var count = 0
@@ -1022,6 +997,4 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         return flags
     }
-
-
 }

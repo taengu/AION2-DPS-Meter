@@ -27,9 +27,7 @@ import javafx.stage.DirectoryChooser
 import javafx.scene.image.WritablePixelFormat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.awt.image.BufferedImage
@@ -77,6 +75,7 @@ class BrowserApp(
         private val keyHookEvent = KeyHookEvent(engine) { toggleMainWindowVisibility() }
         private var windowHiddenByHotkey = false
 
+        @Suppress("unused")
         fun moveWindow(x: Double, y: Double) {
             if (stage.x == x && stage.y == y) {
                 return
@@ -107,15 +106,17 @@ class BrowserApp(
             stage.requestFocus()
         }
 
-
+        @Suppress("unused")
         fun resetDps(){
             dpsCalculator.resetDataStorage()
         }
 
+        @Suppress("unused")
         fun resetAutoDetection() {
             CombatPortDetector.reset()
         }
 
+        @Suppress("unused")
         fun setCharacterName(name: String?) {
             val trimmed = name?.trim().orEmpty()
             val normalized = if (trimmed.isBlank()) null else trimmed
@@ -126,43 +127,52 @@ class BrowserApp(
             }
         }
 
+        @Suppress("unused")
         fun setLocalPlayerId(actorId: String?) {
             val parsed = actorId?.trim()?.toLongOrNull()
             LocalPlayer.playerId = parsed?.takeIf { it > 0 }
         }
 
+        @Suppress("unused")
         fun setTargetSelection(mode: String?) {
             dpsCalculator.setTargetSelectionModeById(mode)
         }
 
+        @Suppress("unused")
         fun restartTargetSelection() {
             dpsCalculator.restartTargetSelection()
         }
 
+        @Suppress("unused")
         fun setAllTargetsWindowMs(value: String?) {
             val parsed = value?.trim()?.toLongOrNull() ?: return
             dpsCalculator.setAllTargetsWindowMs(parsed)
         }
 
+        @Suppress("unused")
         fun setTrainSelectionMode(mode: String?) {
             dpsCalculator.setTrainSelectionModeById(mode)
         }
 
+        @Suppress("unused")
         fun setTargetSelectionWindowMs(value: String?) {
             val parsed = value?.trim()?.toLongOrNull() ?: return
             dpsCalculator.setTargetSelectionWindowMs(parsed)
         }
 
+        @Suppress("unused")
         fun bindLocalActorId(actorId: String?) {
             val parsed = actorId?.trim()?.toLongOrNull() ?: return
             dpsCalculator.bindLocalActorId(parsed)
         }
 
+        @Suppress("unused")
         fun bindLocalNickname(actorId: String?, nickname: String?) {
             val parsed = actorId?.trim()?.toLongOrNull() ?: return
             dpsCalculator.bindLocalNickname(parsed, nickname)
         }
 
+        @Suppress("unused")
         fun getConnectionInfo(): String {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()
@@ -178,14 +188,17 @@ class BrowserApp(
             return Json.encodeToString(info)
         }
 
+        @Suppress("unused")
         fun getLastParsedAtMs(): Long {
             return CombatPortDetector.lastParsedAtMs()
         }
 
+        @Suppress("unused")
         fun getAion2WindowTitle(): String? {
             return windowTitleProvider()
         }
 
+        @Suppress("unused")
         fun openBrowser(url: String) {
             try {
                 hostServices.showDocument(url)
@@ -194,62 +207,72 @@ class BrowserApp(
             }
         }
 
+        @Suppress("unused")
         fun readResource(path: String): String? {
             val normalized = if (path.startsWith("/")) path else "/$path"
             return try {
                 javaClass.getResourceAsStream(normalized)?.bufferedReader(StandardCharsets.UTF_8)?.use {
                     it.readText()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
 
+        @Suppress("unused")
         fun getSetting(key: String): String? {
             return PropertyHandler.getProperty(key)
         }
 
+        @Suppress("unused")
         fun setSetting(key: String, value: String) {
             PropertyHandler.setProperty(key, value)
         }
 
+        @Suppress("unused")
         fun setDebugLoggingEnabled(enabled: Boolean) {
             UnifiedLogger.setDebugEnabled(enabled)
             PropertyHandler.setProperty(UnifiedLogger.DEBUG_SETTING_KEY, enabled.toString())
         }
 
+        @Suppress("unused")
         fun logDebug(message: String?) {
             if (message.isNullOrBlank()) return
             UnifiedLogger.debug(logger, "UI {}", message.trim())
         }
 
+        @Suppress("unused")
         fun isRunningViaGradle(): Boolean {
             val gradleAppName = System.getProperty("org.gradle.appname")
             val javaCommand = System.getProperty("sun.java.command").orEmpty()
             return gradleAppName != null || javaCommand.contains("org.gradle", ignoreCase = true)
         }
 
+        @Suppress("unused")
         fun isRunningFromIde(): Boolean {
             return System.getProperty("idea.version") != null ||
-                System.getProperty("idea.active") != null ||
-                System.getProperty("idea.platform.prefix") != null
+                    System.getProperty("idea.active") != null ||
+                    System.getProperty("idea.platform.prefix") != null
         }
 
+        @Suppress("unused")
         fun getParsingBacklog(): Int {
             return captureDispatcher.getParsingBacklog()
         }
 
+        @Suppress("unused")
         fun exitApp() {
-          Platform.exit()     
-          exitProcess(0)       
+            Platform.exit()
+            exitProcess(0)
         }
 
-
+        @Suppress("unused")
         fun setHotkey(modifiers: Int, keyCode: Int) {
             logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
             keyHookEvent.setHotkey(modifiers, keyCode)
         }
 
+        @Suppress("unused")
         fun getCurrentHotKey(): String {
             return keyHookEvent.getCurrentHotKey()
         }
@@ -258,6 +281,7 @@ class BrowserApp(
             keyHookEvent.stop()
         }
 
+        @Suppress("unused")
         fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
             val scene = stage.scene ?: return false
             val latch = CountDownLatch(1)
@@ -295,6 +319,7 @@ class BrowserApp(
             return success
         }
 
+        @Suppress("unused")
         fun captureScreenshotToFile(
             x: Double,
             y: Double,
@@ -347,11 +372,13 @@ class BrowserApp(
             return success
         }
 
+        @Suppress("unused")
         fun getDefaultScreenshotFolder(): String {
             val userHome = System.getProperty("user.home") ?: "."
             return Paths.get(userHome, "Pictures", "AION2 DPS Meter").toString()
         }
 
+        @Suppress("unused")
         fun chooseScreenshotFolder(currentPath: String?): String? {
             val chooser = DirectoryChooser()
             chooser.title = "Select screenshot folder"
@@ -382,6 +409,7 @@ class BrowserApp(
             return selectedPath
         }
 
+        @Suppress("unused")
         fun notifyUiReady() {
             uiReadyNotifier()
         }
@@ -432,27 +460,26 @@ class BrowserApp(
         }
         val webView = WebView()
         val engine = webView.engine
+
+        engine.history.maxSize = 0
+
         webEngine = engine
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier, engine)
         jsBridge = bridge
-        @Suppress("DEPRECATION")
+
         val injectBridge = {
             runCatching {
                 val window = engine.executeScript("window")
-                when (window) {
-                    is JSObject -> {
-                        window.setMember("javaBridge", bridge)
-                        window.setMember("dpsData", this)
-                    }
-                    else -> {
-                        val setMember = window.javaClass.methods.firstOrNull {
-                            it.name == "setMember" && it.parameterCount == 2
-                        } ?: error("setMember(String, Object) not found on window object")
-                        setMember.invoke(window, "javaBridge", bridge)
-                        setMember.invoke(window, "dpsData", this)
-                    }
-                }
+                // Use getMethod instead of firstOrNull to be more explicit,
+                // and ensure we are looking at the correct interface
+                val setMember = window.javaClass.getMethod("setMember", String::class.java, Any::class.java)
+
+                // This is the critical line that works with the --add-opens above
+                setMember.isAccessible = true
+
+                setMember.invoke(window, "javaBridge", bridge)
+                setMember.invoke(window, "dpsData", this)
             }.onFailure { error ->
                 logger.warn("Failed to inject Java bridge into WebView", error)
             }
@@ -522,22 +549,27 @@ class BrowserApp(
         }
     }
 
+    @Suppress("unused")
     fun getDpsData(): String {
         return Json.encodeToString(dpsData)
     }
 
+    @Suppress("unused")
     fun isDebuggingMode(): Boolean {
         return debugMode
     }
 
+    @Suppress("unused")
     fun getBattleDetail(uid:Int):String{
         return Json.encodeToString(dpsData.map[uid]?.analyzedData)
     }
 
+    @Suppress("unused")
     fun getDetailsContext(): String {
         return Json.encodeToString(dpsCalculator.getDetailsContext())
     }
 
+    @Suppress("unused")
     fun getTargetDetails(targetId: Int, actorIdsJson: String?): String {
         val actorIds = actorIdsJson
             ?.takeIf { it.isNotBlank() }
@@ -546,6 +578,7 @@ class BrowserApp(
         return Json.encodeToString(dpsCalculator.getTargetDetails(targetId, actorIds))
     }
 
+    @Suppress("unused")
     fun getVersion():String{
         return version
     }

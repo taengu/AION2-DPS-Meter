@@ -1,47 +1,37 @@
 package com.tbread.entity
 
-import java.util.UUID
-
 data class TargetInfo(
     private val targetId: Int,
     private var damagedAmount: Int = 0,
-    private var targetDamageStarted: Long,
-    private var targetDamageEnded: Long,
-    private val processedUuid: MutableSet<UUID> = mutableSetOf(),
+    private var targetDamageStarted: Long = Long.MAX_VALUE,
+    private var targetDamageEnded: Long = Long.MIN_VALUE,
+    private var lastProcessedId: Long = -1L
 ) {
-    fun processedUuid(): MutableSet<UUID> {
-        return processedUuid
-    }
-
     fun damagedAmount(): Int {
         return damagedAmount
-    }
-
-    fun targetId(): Int {
-        return targetId
-    }
-
-    fun firstDamageTime(): Long {
-        return targetDamageStarted
     }
 
     fun lastDamageTime(): Long {
         return targetDamageEnded
     }
 
-    fun processPdp(pdp:ParsedDamagePacket){
-        if (processedUuid.contains(pdp.getUuid())) return
+    fun processPdp(pdp: ParsedDamagePacket) {
+        if (pdp.getId() <= lastProcessedId) return
+
         damagedAmount += pdp.getDamage()
         val ts = pdp.getTimeStamp()
         if (ts < targetDamageStarted){
             targetDamageStarted = ts
-        } else if (ts > targetDamageEnded){
+        }
+        if (ts > targetDamageEnded){
             targetDamageEnded = ts
         }
-        processedUuid.add(pdp.getUuid())
+
+        lastProcessedId = pdp.getId()
     }
 
-    fun parseBattleTime():Long{
+    fun parseBattleTime(): Long {
+        if (targetDamageStarted == Long.MAX_VALUE) return 0
         return targetDamageEnded - targetDamageStarted
     }
 }

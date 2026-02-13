@@ -1,22 +1,21 @@
 package com.tbread.entity
 
 import com.tbread.packet.StreamProcessor
-import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 class ParsedDamagePacket {
+        companion object {
+                private val ID_GEN = AtomicLong(0)
+        }
+
         private var actorId = 0
         private var targetId = 0
-        private var flag = 0
         private var damage = 0
         private var skillCode = 0
         private var type = 0
-        private var unknown = 0
-        private var switchVariable = 0
-        private var loop = 0
-        private var skipValues = mutableListOf<Int>()
         private val timestamp = System.currentTimeMillis()
-        private val id = UUID.randomUUID()
-        private var specials:List<SpecialDamage> = arrayListOf()
+        private val id = ID_GEN.incrementAndGet()
+        private var specials: List<SpecialDamage> = emptyList()
         private var dot = false
         private var multiHitCount = 0
         private var multiHitDamage = 0
@@ -32,26 +31,11 @@ class ParsedDamagePacket {
         fun setTargetId(targetInfo: StreamProcessor.VarIntOutput){
                 this.targetId = targetInfo.value
         }
-        fun setFlag(flagInfo: StreamProcessor.VarIntOutput){
-                this.flag = flagInfo.value
-        }
         fun setDamage(damageInfo: StreamProcessor.VarIntOutput){
                 this.damage = damageInfo.value
         }
         fun setSkillCode(skillCode:Int){
                 this.skillCode = skillCode
-        }
-        fun setUnknown(unknownInfo: StreamProcessor.VarIntOutput){
-                this.unknown = unknownInfo.value
-        }
-        fun setSwitchVariable(switchVariableInfo: StreamProcessor.VarIntOutput){
-                this.switchVariable = switchVariableInfo.value
-        }
-        fun setLoop(loopInfo: StreamProcessor.VarIntOutput){
-                this.loop = loopInfo.value
-        }
-        fun addSkipData(skipValueInfo: StreamProcessor.VarIntOutput){
-                this.skipValues.add(skipValueInfo.value)
         }
         fun setType(typeInfo: StreamProcessor.VarIntOutput){
                 this.type = typeInfo.value
@@ -72,32 +56,14 @@ class ParsedDamagePacket {
         fun getActorId(): Int {
                 return this.actorId
         }
-
         fun getDamage():Int{
                 return this.damage
         }
-
-        fun getFlag():Int{
-                return this.flag
-        }
-
         fun getSkillCode1():Int{
                 return this.skillCode
         }
-
-
         fun getTargetId():Int{
                 return this.targetId
-        }
-
-        fun getUnknown():Int{
-                return this.unknown
-        }
-        fun getSwitchVariable():Int{
-                return this.switchVariable
-        }
-        fun getLoop():Int{
-                return this.loop
         }
         fun getType():Int{
                 return this.type
@@ -117,13 +83,12 @@ class ParsedDamagePacket {
         fun getTimeStamp(): Long {
                 return this.timestamp
         }
-        fun getUuid():UUID{
+        fun getId(): Long {
                 return this.id
         }
         fun getSpecials():List<SpecialDamage>{
                 return this.specials
         }
-
         fun isCrit(): Boolean {
                 return this.specials.contains(SpecialDamage.CRITICAL)
         }
@@ -133,7 +98,4 @@ class ParsedDamagePacket {
         fun setDot(dot: Boolean) {
                 this.dot = dot
         }
-
-
-
 }
