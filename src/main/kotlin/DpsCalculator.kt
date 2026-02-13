@@ -619,6 +619,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
         val nicknameData = dataStorage.getNickname()
+        val summonData = dataStorage.getSummonData()
         var totalDamage = 0.0
         if (battleTime == 0L) {
             val snapshot = lastDpsSnapshot
@@ -641,7 +642,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
-            val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveMeterActorId(pdp.getActorId(), summonData)
             if (uid <= 0) return@forEach
             val nickname = resolveNickname(uid, nicknameData)
             val cachedJob = cachedJobForNickname(nickname)
@@ -718,9 +719,26 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun resolveNickname(uid: Int, nicknameData: Map<Int, String>): String {
         val summonData = dataStorage.getSummonData()
+        val linkedSummonId = resolveLinkedSummonId(uid, summonData)
+        val linkedSummonerId = summonData[uid]
         return nicknameData[uid]
-            ?: nicknameData[summonData[uid] ?: uid]
+            ?: linkedSummonId?.let { nicknameData[it] }
+            ?: linkedSummonerId?.let { nicknameData[it] }
             ?: uid.toString()
+    }
+
+    private fun resolveLinkedSummonId(actorId: Int, summonData: Map<Int, Int>): Int? {
+        var linkedSummonId: Int? = null
+        summonData.forEach { (summonId, summonerId) ->
+            if (summonerId == actorId && (linkedSummonId == null || summonId < linkedSummonId!!)) {
+                linkedSummonId = summonId
+            }
+        }
+        return linkedSummonId
+    }
+
+    private fun resolveMeterActorId(actorId: Int, summonData: Map<Int, Int>): Int {
+        return resolveLinkedSummonId(actorId, summonData) ?: actorId
     }
 
     private fun cachedJobForNickname(nickname: String): String? {
@@ -758,7 +776,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val actorDamage = mutableMapOf<Int, Int>()
 
             pdps.forEach { pdp ->
-                val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+                val uid = resolveMeterActorId(pdp.getActorId(), summonData)
                 if (uid <= 0) return@forEach
                 val damage = pdp.getDamage()
                 totalDamage += damage
@@ -814,7 +832,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         var endTime: Long? = null
 
         pdps.forEach { pdp ->
-            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveMeterActorId(pdp.getActorId(), summonData)
             if (uid <= 0) return@forEach
             val damage = pdp.getDamage()
             totalTargetDamage += damage
