@@ -87,13 +87,22 @@ const createI18n = ({
       try {
         const xhr = new XMLHttpRequest();
         xhr.open("GET", url, true);
-        xhr.responseType = "text";
+        xhr.responseType = "arraybuffer";
         xhr.onload = () => {
           if (xhr.status && xhr.status !== 200) {
             resolve(null);
             return;
           }
-          resolve(xhr.responseText || "");
+          if (!xhr.response) {
+            resolve("");
+            return;
+          }
+          try {
+            const decoded = new TextDecoder("utf-8").decode(xhr.response);
+            resolve(decoded);
+          } catch {
+            resolve("");
+          }
         };
         xhr.onerror = () => resolve(null);
         xhr.send();
