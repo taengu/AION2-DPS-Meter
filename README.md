@@ -89,6 +89,32 @@ cd Aion2-Dps-Meter
 
 ---
 
+
+## Memory Profiling (RAM Debugging)
+
+To capture periodic memory usage snapshots and class histograms while running from the JVM build:
+
+```bash
+./gradlew clean run
+```
+
+`run` now enables the profiler automatically with default dev settings (30s interval, top 50 classes) and writes logs to `build/memory-profile/`.
+
+Options:
+- `--mem-profile` enables profiling with defaults (60s interval, top 30 classes).
+- `--mem-profile-interval=<seconds>` changes snapshot frequency (minimum 5 seconds).
+- `--mem-profile-top=<count>` controls how many classes are shown in each histogram.
+- `--mem-profile-output=<dir>` changes where logs are written (default: `memory-profile/`).
+
+For Gradle `run`, defaults are configured via JVM properties:
+- `-DdpsMeter.memProfileEnabled=true`
+- `-DdpsMeter.memProfileInterval=30`
+- `-DdpsMeter.memProfileTop=50`
+- `-DdpsMeter.memProfileOutput=build/memory-profile`
+
+You can override these with CLI flags or your own JVM properties.
+Each run writes a timestamped log file (default: `memory-profile/`; Gradle `run`: `build/memory-profile/`) so you can identify what is consuming RAM over time.
+
 ## FAQ
 
 **Q: What's different from the original meter?**
