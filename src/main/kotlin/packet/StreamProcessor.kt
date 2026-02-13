@@ -651,31 +651,46 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 
-        if (offset + 1 >= packet.size) return false
-        if (packet[offset] != 0x40.toByte()) return false
-        if (packet[offset + 1] != 0x36.toByte()) return false
-        offset += 2
+        var summonId: Int? = null
 
-        val summonInfo = readVarInt(packet, offset)
-        if (summonInfo.length < 0) return false
-        var summonId = summonInfo.value.takeIf { it > 0 }
+        if (offset + 1 < packet.size &&
+            packet[offset] == 0x40.toByte() &&
+            packet[offset + 1] == 0x36.toByte()
+        ) {
+            offset += 2
 
-        offset += summonInfo.length + 28
-        if (packet.size > offset) {
-            val mobInfo = readVarInt(packet, offset)
-            if (mobInfo.length < 0) return false
-            offset += mobInfo.length
+            val summonInfo = readVarInt(packet, offset)
+            if (summonInfo.length < 0) return false
+            summonId = summonInfo.value.takeIf { it > 0 }
+
+            offset += summonInfo.length + 28
             if (packet.size > offset) {
-                val mobInfo2 = readVarInt(packet, offset)
-                if (mobInfo2.length < 0) return false
-                if (mobInfo.value == mobInfo2.value && summonId != null) {
-                    logger.trace("mid: {}, code: {}", summonId, mobInfo.value)
-                    dataStorage.appendMob(summonId, mobInfo.value)
+                val mobInfo = readVarInt(packet, offset)
+                if (mobInfo.length < 0) return false
+                offset += mobInfo.length
+                if (packet.size > offset) {
+                    val mobInfo2 = readVarInt(packet, offset)
+                    if (mobInfo2.length < 0) return false
+                    if (mobInfo.value == mobInfo2.value && summonId != null) {
+                        logger.trace("mid: {}, code: {}", summonId, mobInfo.value)
+                        dataStorage.appendMob(summonId, mobInfo.value)
+                    }
                 }
             }
         }
 
         var realActorId: Int? = null
+
+        if (summonId == null) {
+            val summonHeaderIdx = findArrayIndex(packet, 0x02, 0x38)
+            if (summonHeaderIdx != -1) {
+                val summonHeader = readVarInt(packet, summonHeaderIdx + 2)
+                if (summonHeader.length > 0 && summonHeader.value > 0) {
+                    summonId = summonHeader.value
+                }
+            }
+        }
+
         val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
         if (keyIdx != -1) {
             val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
@@ -705,6 +720,23 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         if (realActorId == null) {
+            val actorFrom3238 = parseActorFromOpcode(packet, 0x32, 0x38)
+            if (actorFrom3238 != null) {
+                realActorId = actorFrom3238
+            }
+        }
+
+        if (summonId == null || realActorId == null) {
+            val actorSummonFrom0438 = parseActorSummonFromDual0438(packet)
+            if (summonId == null) {
+                summonId = actorSummonFrom0438?.second
+            }
+            if (realActorId == null) {
+                realActorId = actorSummonFrom0438?.first
+            }
+        }
+
+        if (realActorId == null) {
             realActorId = parseActorFromLegacyAnchor(packet)
         }
 
@@ -715,6 +747,37 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", ownerId, resolvedSummonId)
         dataStorage.appendSummon(ownerId, resolvedSummonId)
         return true
+    }
+
+    private fun parseActorFromOpcode(packet: ByteArray, prefix: Int, opcode: Int): Int? {
+        val idx = findArrayIndex(packet, prefix, opcode)
+        if (idx == -1) return null
+        val actorInfo = readVarInt(packet, idx + 2)
+        if (actorInfo.length <= 0 || actorInfo.value <= 0) return null
+        return actorInfo.value
+    }
+
+    private fun parseActorSummonFromDual0438(packet: ByteArray): Pair<Int, Int>? {
+        val ids = mutableListOf<Int>()
+        var searchFrom = 0
+        while (searchFrom < packet.size) {
+            val idx = findArrayIndex(packet.copyOfRange(searchFrom, packet.size), 0x04, 0x38)
+            if (idx == -1) break
+            val absoluteIdx = searchFrom + idx
+            val idInfo = readVarInt(packet, absoluteIdx + 2)
+            if (idInfo.length > 0 && idInfo.value > 0) {
+                ids.add(idInfo.value)
+            }
+            searchFrom = absoluteIdx + 2
+        }
+
+        if (ids.size < 2) return null
+        val uniqueIds = ids.distinct()
+        if (uniqueIds.size < 2) return null
+
+        val owner = uniqueIds.firstOrNull { actorExists(it) || actorAppearsInCombat(it) } ?: uniqueIds[0]
+        val summon = uniqueIds.firstOrNull { it != owner } ?: return null
+        return owner to summon
     }
 
     private fun parseActorNearOpcode(afterPacket: ByteArray, opcodeIdx: Int): Int? {
