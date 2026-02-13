@@ -18,7 +18,7 @@ class PcapCapturer(
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(PcapCapturer::class.java)
-        private const val FALLBACK_DELAY_MS = 5000L
+        private const val FALLBACK_DELAY_MS = 1500L
         private const val DEVICE_STATUS_INTERVAL_MS = 10_000L
 
         private fun getAllDevices(): List<PcapNetworkInterface> =
@@ -30,10 +30,51 @@ class PcapCapturer(
             }
     }
 
-    private fun getLoopbackDevice(devices: List<PcapNetworkInterface>): PcapNetworkInterface? =
-        devices.firstOrNull {
-            it.isLoopBack || it.description?.contains("loopback", ignoreCase = true) == true
+    private fun getLoopbackDevice(devices: List<PcapNetworkInterface>): PcapNetworkInterface? {
+        val npfLoopback = devices.firstOrNull {
+            it.name.equals("\\Device\\NPF_Loopback", ignoreCase = true)
         }
+        if (npfLoopback != null) return npfLoopback
+
+        val nativeLoopback = devices.firstOrNull { it.isLoopBack }
+        if (nativeLoopback != null) return nativeLoopback
+
+        return devices.firstOrNull { it.description?.contains("loopback", ignoreCase = true) == true }
+    }
+
+
+    private fun isVirtualDevice(nif: PcapNetworkInterface): Boolean {
+        val label = (nif.description ?: nif.name).lowercase()
+        return nif.isLoopBack ||
+            nif.name.equals("\\Device\\NPF_Loopback", ignoreCase = true) ||
+            label.contains("loopback") ||
+            label.contains("tap-windows") ||
+            label.contains("tap") ||
+            label.contains("wintun") ||
+            label.contains("wireguard")
+    }
+
+    private fun openHandle(nif: PcapNetworkInterface): PcapHandle {
+        return try {
+            nif.openLive(
+                config.snapshotSize,
+                PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
+                config.timeout
+            )
+        } catch (e: PcapNativeException) {
+            if (!isVirtualDevice(nif)) throw e
+
+            logger.warn(
+                "Promiscuous open failed on virtual adapter {}; retrying in non-promiscuous mode",
+                nif.description ?: nif.name
+            )
+            nif.openLive(
+                config.snapshotSize,
+                PcapNetworkInterface.PromiscuousMode.NONPROMISCUOUS,
+                config.timeout
+            )
+        }
+    }
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
     private val running = AtomicBoolean(false)
@@ -44,11 +85,7 @@ class PcapCapturer(
 
         try {
             if (!running.get()) return@thread
-            val handle = nif.openLive(
-                config.snapshotSize,
-                PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
-                config.timeout
-            )
+            val handle = openHandle(nif)
             activeHandles[nif.name] = handle
 
             val filter = "tcp"
@@ -167,13 +204,14 @@ class PcapCapturer(
 
         logDeviceStatusesWhileUnlocked()
 
-        val loopback = getLoopbackDevice(devices)
+        val preferredLoopback = getLoopbackDevice(devices)
         val started = mutableSetOf<String>()
-        val nonLoopbacks = devices.filterNot { it == loopback || it.isLoopBack }
+        val virtualDevices = devices.filter { isVirtualDevice(it) }
+        val physicalDevices = devices.filterNot { isVirtualDevice(it) }
 
         fun startDevices(targets: List<PcapNetworkInterface>, reason: String) {
             if (targets.isEmpty()) {
-                logger.warn("No non-loopback adapters available to start ({})", reason)
+                logger.warn("No adapters available to start ({})", reason)
                 return
             }
 
@@ -213,20 +251,25 @@ class PcapCapturer(
             }
         }
 
-        if (loopback != null) {
-            started.add(loopback.name)
-            captureOnDevice(loopback)
+        val prioritizedVirtualDevices = buildList {
+            if (preferredLoopback != null) add(preferredLoopback)
+            virtualDevices.forEach { if (it != preferredLoopback) add(it) }
+        }
 
-            thread(name = "pcap-fallback") {
-                Thread.sleep(FALLBACK_DELAY_MS)
-                if (CombatPortDetector.currentPort() == null) {
-                    logger.warn("No combat port lock detected on loopback; checking other adapters")
-                    startDevices(nonLoopbacks, "fallback from loopback")
-                }
+        startDevices(prioritizedVirtualDevices, "virtual/loopback priority")
+
+        if (prioritizedVirtualDevices.isEmpty()) {
+            logger.warn("No virtual/loopback adapter found; starting physical adapters immediately")
+            startDevices(physicalDevices, "no virtual adapters")
+            return
+        }
+
+        thread(name = "pcap-fallback") {
+            Thread.sleep(FALLBACK_DELAY_MS)
+            if (CombatPortDetector.currentPort() == null) {
+                logger.warn("No combat port lock detected on virtual adapters; checking physical adapters")
+                startDevices(physicalDevices, "fallback from virtual adapters")
             }
-        } else {
-            logger.warn("Loopback capture device not found")
-            startDevices(nonLoopbacks, "loopback unavailable")
         }
     }
 
