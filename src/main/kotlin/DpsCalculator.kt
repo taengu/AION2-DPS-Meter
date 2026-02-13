@@ -740,32 +740,14 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         summonData[actorId]?.takeIf { it > 0 }?.let { return it }
 
         for (offset in POSSIBLE_OFFSETS) {
+            if (offset == 0) continue
             val lowered = actorId - offset
             if (lowered > 0) {
                 summonData[lowered]?.takeIf { it > 0 }?.let { return it }
             }
-            if (offset != 0) {
-                val raised = actorId + offset
-                if (raised > 0) {
-                    summonData[raised]?.takeIf { it > 0 }?.let { return it }
-                }
-            }
-        }
-
-        summonData.entries.firstOrNull { (_, summonId) -> summonId == actorId }?.key?.takeIf { it > 0 }?.let { return it }
-
-        for (offset in POSSIBLE_OFFSETS) {
-            val lowered = actorId - offset
-            if (lowered > 0) {
-                summonData.entries.firstOrNull { (_, summonId) -> summonId == lowered }?.key?.takeIf { it > 0 }
-                    ?.let { return it }
-            }
-            if (offset != 0) {
-                val raised = actorId + offset
-                if (raised > 0) {
-                    summonData.entries.firstOrNull { (_, summonId) -> summonId == raised }?.key?.takeIf { it > 0 }
-                        ?.let { return it }
-                }
+            val raised = actorId + offset
+            if (raised > 0) {
+                summonData[raised]?.takeIf { it > 0 }?.let { return it }
             }
         }
 
