@@ -1292,7 +1292,12 @@ const createDetailsUI = ({
     const isSame = isOpen && openedRowId === rowId;
     const isSwitch = isOpen && openedRowId && openedRowId !== rowId;
 
-    if (!force && isSame) return;
+    const requestedCompact = !!compact;
+    const requestedPin = !!pin;
+    const isSameCompactMode = activeCompactMode === requestedCompact;
+    const isAlreadyPinnedForRow = pinnedRowId === rowId;
+
+    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) return;
 
     if (isSwitch && restartOnSwitch) {
       close();
@@ -1309,7 +1314,7 @@ const createDetailsUI = ({
     }
     lastRow = row;
 
-    activeCompactMode = !!compact;
+    activeCompactMode = requestedCompact;
     selectedAttackerLabel = resolveRowLabel(row);
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
