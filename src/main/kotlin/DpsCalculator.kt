@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory
 import kotlin.math.roundToInt
 import java.util.UUID
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentMap
 
 class DpsCalculator(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -641,7 +642,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
-            val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveActorId(pdp.getActorId(), dataStorage.getSummonData())
             if (uid <= 0) return@forEach
             val nickname = resolveNickname(uid, nicknameData)
             val cachedJob = cachedJobForNickname(nickname)
@@ -719,8 +720,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun resolveNickname(uid: Int, nicknameData: Map<Int, String>): String {
         val summonData = dataStorage.getSummonData()
         return nicknameData[uid]
-            ?: nicknameData[summonData[uid] ?: uid]
+            ?: nicknameData[resolveActorId(uid, summonData)]
             ?: uid.toString()
+    }
+
+    private fun resolveActorId(actorId: Int, summonData: ConcurrentMap<Int, Int>): Int {
+        var current = actorId
+        val visited = mutableSetOf<Int>()
+        while (current > 0 && visited.add(current)) {
+            val owner = summonData[current] ?: break
+            if (owner <= 0) break
+            current = owner
+        }
+        return current
     }
 
     private fun cachedJobForNickname(nickname: String): String? {
@@ -758,7 +770,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val actorDamage = mutableMapOf<Int, Int>()
 
             pdps.forEach { pdp ->
-                val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+                val uid = resolveActorId(pdp.getActorId(), summonData)
                 if (uid <= 0) return@forEach
                 val damage = pdp.getDamage()
                 totalDamage += damage
@@ -814,7 +826,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         var endTime: Long? = null
 
         pdps.forEach { pdp ->
-            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveActorId(pdp.getActorId(), summonData)
             if (uid <= 0) return@forEach
             val damage = pdp.getDamage()
             totalTargetDamage += damage
