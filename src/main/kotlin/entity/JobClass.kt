@@ -11,14 +11,8 @@ enum class JobClass(val className: String, val classPrefix: Int, val basicSkillC
     CHANTER("호법성", 18, 18010000);
 
     companion object {
-        /**
-         * Identifies the JobClass associated with a skill code.
-         * Only returns a JobClass for skills that are uniquely identifying for a Player Job.
-         * Explicitly excludes generic NPC/Spirit skill ranges to prevent false positives.
-         */
         fun convertFromSkill(skillCode: Int): JobClass? {
             // 1. PC Elementalist specific 6-digit skills (Earth Chain, etc.)
-            // Whitelisted based on the provided PC Elementalist list (100510..103500, etc.)
             if (skillCode in 100510..103500 || skillCode in 109300..109362) {
                 return ELEMENTALIST
             }
@@ -26,46 +20,48 @@ enum class JobClass(val className: String, val classPrefix: Int, val basicSkillC
             // 2. 8-digit Standard Player Skills
             if (skillCode in 10_000_000..19_999_999) {
                 val prefix = skillCode / 1_000_000
+                val sub = (skillCode / 10000) % 100
 
-                // Elementalist (16) has high overlap with Mobs/Summons.
-                // We exclude generic combat (sub 00) and summon spells (sub 10-13)
-                // to prevent NPCs from being identified as Elementalist players.
+                // GLOBAL FILTER: Exclude generic mob skills (sub 00) for ALL classes.
+                // Exception for Elementalist Spirit Commands (160011xx..160013xx)
+                if (sub == 0) {
+                    if (prefix == 16) {
+                        val commandRange = (skillCode / 100) % 100
+                        if (commandRange in 11..13) return ELEMENTALIST
+                    }
+                    return null
+                }
+
+                // Elementalist (16) Strict Whitelist
                 if (prefix == 16) {
-                    val sub = (skillCode / 10000) % 100
-
-                    // Known Exclusions:
-                    // 00: Spirit generic skills (e.g. 16000000) -> Not a Player
-                    // 10..13: Summoning spells (e.g. 1612xxxx) -> Used by NPCs/Mobs
-                    // 78: Element Unification (1678xxxx) -> Used by NPCs (Actor 17723)
-
-                    // Whitelist valid PC sub-ranges:
-                    // 1..8: Basic Attacks/Spells
-                    // 14, 15: Jointstrikes
-                    // 17: Sacrifice
-                    // 19: Enhance
-                    // 21..26: Curses/Masks/Summon Ancient
-                    // 30..37: Fusions/Controls
-                    // 70..77: Stigmas (excluding 78)
-                    // 80: Consecutive Countercurrent
+                    // Valid PC Sub-ranges (Revised based on Spirit usage logs):
+                    // 1..8: Basic Attacks/Spells (Safe?)
+                    // 14, 15: Jointstrikes (Safe)
+                    // 17: Sacrifice (Safe)
+                    // 19: Enhance (Safe)
+                    // 21..26: Curses/Masks/Summon Ancient (Safe)
+                    // 30, 31, 32, 34, 35, 36, 37: Fusions/Controls (EXCLUDE 33: Dimensional Control used by Spirit)
+                    // 70..76, 80: Stigmas (EXCLUDE 77: Communion, 78: Unification used by Spirit/NPC)
 
                     val isPcRange = when (sub) {
                         in 1..8 -> true
                         14, 15, 17, 19 -> true
                         in 21..26 -> true
-                        in 30..37 -> true
-                        in 70..77 -> true
+                        // Exclude 33 (Dimensional Control)
+                        30, 31, 32, 34, 35, 36, 37 -> true
+                        // Exclude 77 (Communion), 78 (Unification)
+                        in 70..76 -> true
                         80 -> true
                         else -> false
                     }
                     return if (isPcRange) ELEMENTALIST else null
                 }
 
-                // General Job Prefix matching for other classes
+                // For other classes, allow if prefix matches (and sub != 0)
                 val found = entries.find { it.classPrefix == prefix }
                 if (found != null) return found
             }
 
-            // 3. Exact match for Basic Skill Codes (Auto-attacks, etc.)
             return entries.find { it.basicSkillCode == skillCode }
         }
     }

@@ -217,10 +217,17 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
             else -> pdpMap[currentTarget]?.toList() ?: return dpsData
         }
+
+        val summonData = dataStorage.getSummonData()
+
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
-            val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
+
+            // MAP SUMMON TO OWNER:
+            // Use owner UID if it exists in summonData, otherwise use actor's own ID.
+            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
             if (uid <= 0) return@forEach
+
             val nickname = resolveNickname(uid, nicknameData)
             val cachedJob = cachedJobForNickname(nickname)
             val existing = dpsData.map[uid]
@@ -251,7 +258,13 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     pdp.getHexPayload()
                 ) ?: pdp.getSkillCode1()
             )
+
+            // Attribute the data to the owner (uid)
             dpsData.map[uid]!!.processPdp(pdp)
+
+            // JOB IDENTIFICATION:
+            // Only update Job status if this actor is unknown.
+            // Crucially, JobClass.convertFromSkill now returns NULL for generic NPC skills.
             if (dpsData.map[uid]!!.job == "") {
                 val origSkillCode = inferOriginalSkillCode(
                     pdp.getSkillCode1(),
@@ -267,10 +280,17 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 }
             }
         }
+
         val localActorIds = resolveConfirmedLocalActorIds()
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {
             val (uid, data) = iterator.next()
+
+            // FINAL CLEANUP:
+            // If an actor is in the meter but we haven't identified their job,
+            // we remove them unless they are the local player.
+            // Since we attributed summon damage to the owner 'uid', the owner
+            // will likely have a Job already.
             val keep = if (data.job == "") {
                 if (localActorIds != null && localActorIds.contains(uid)) {
                     data.job = "Unknown"
@@ -584,8 +604,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val localActorIds = mutableSetOf<Int>()
         val localPlayerId = LocalPlayer.playerId?.toInt()
         if (localPlayerId != null) {
-            // If packet parsing has confirmed local player ID, trust it directly.
-            // Nickname mapping may appear later or differ temporarily.
             localActorIds.add(localPlayerId)
         } else if (normalizedLocalName.isNotBlank()) {
             val nicknameData = dataStorage.getNickname()
