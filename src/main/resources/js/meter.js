@@ -338,5 +338,12 @@ const createMeterUI = ({
     rowViewById.clear();
     classIconSrcByJob.clear();
   };
-  return { updateFromRows, onResetMeterUi };
+
+  const getRowById = (id) => {
+    if (id === null || id === undefined) return null;
+    const view = rowViewById.get(id) || rowViewById.get(String(id));
+    return view?.currentRow || null;
+  };
+
+  return { updateFromRows, onResetMeterUi, getRowById };
 };

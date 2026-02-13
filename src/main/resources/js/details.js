@@ -31,6 +31,7 @@ const createDetailsUI = ({
   let skillSortDir = "desc";
   let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
+  const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
   const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -1186,8 +1187,18 @@ const createDetailsUI = ({
         return;
       }
 
-      const detailsList = await Promise.all(
-        targetList.map((target) =>
+      const [firstTarget, ...restTargets] = targetList;
+      const firstDetails = await getDetails(lastRow, {
+        targetId: firstTarget.targetId,
+        attackerIds: selectedAttackerIds,
+        totalTargetDamage: firstTarget.totalDamage,
+        showSkillIcons,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(firstDetails, lastRow);
+
+      const restDetails = await Promise.all(
+        restTargets.map((target) =>
           getDetails(lastRow, {
             targetId: target.targetId,
             attackerIds: selectedAttackerIds,
@@ -1196,6 +1207,7 @@ const createDetailsUI = ({
           })
         )
       );
+      const detailsList = [firstDetails, ...restDetails];
       const totalTargetDamage = targetList.reduce(
         (sum, target) => sum + (Number(target?.totalDamage) || 0),
         0
@@ -1277,6 +1289,16 @@ const createDetailsUI = ({
     renderSkills(details, { compact: activeCompactMode });
     lastRow = row;
     lastDetails = details;
+    const cacheRowId = String(row?.id ?? "").trim();
+    if (cacheRowId) {
+      detailsCacheByRowId.set(cacheRowId, details);
+    }
+  };
+
+  const getCachedDetails = (rowId) => {
+    const cacheRowId = String(rowId ?? "").trim();
+    if (!cacheRowId) return null;
+    return detailsCacheByRowId.get(cacheRowId) || null;
   };
 
   const isOpen = () => detailsPanel.classList.contains("open");
@@ -1292,7 +1314,12 @@ const createDetailsUI = ({
     const isSame = isOpen && openedRowId === rowId;
     const isSwitch = isOpen && openedRowId && openedRowId !== rowId;
 
-    if (!force && isSame) return;
+    const requestedCompact = !!compact;
+    const requestedPin = !!pin;
+    const isSameCompactMode = activeCompactMode === requestedCompact;
+    const isAlreadyPinnedForRow = pinnedRowId === rowId;
+
+    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) return;
 
     if (isSwitch && restartOnSwitch) {
       close();
@@ -1309,7 +1336,7 @@ const createDetailsUI = ({
     }
     lastRow = row;
 
-    activeCompactMode = !!compact;
+    activeCompactMode = requestedCompact;
     selectedAttackerLabel = resolveRowLabel(row);
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
@@ -1341,11 +1368,16 @@ const createDetailsUI = ({
     updateHeaderText();
     detailsPanel.classList.add("open");
 
-    // 이전 값 비우기
-    for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
-    for (let i = 0; i < skillSlots.length; i++) {
-      skillSlots[i].rowEl.style.display = "none";
-      skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+    const cachedDetails = getCachedDetails(rowId);
+    if (cachedDetails) {
+      render(cachedDetails, row);
+    } else {
+      // 이전 값 비우기
+      for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
+      for (let i = 0; i < skillSlots.length; i++) {
+        skillSlots[i].rowEl.style.display = "none";
+        skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+      }
     }
 
     const seq = ++openSeq;

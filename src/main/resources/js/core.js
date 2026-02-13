@@ -100,7 +100,9 @@ class DpsApp {
     this.setWindowDragFreeze(false);
     this.latestRowsById = new Map();
     this.isWindowDragging = false;
+    this.isMeterBarHovered = false;
     this.deferFetchUntilDragEnd = false;
+    this.deferFetchUntilHoverEnd = false;
     this.suppressRowInteractionUntilMs = 0;
 
     DpsApp.instance = this;
@@ -410,6 +412,16 @@ class DpsApp {
     }
   }
 
+  setMeterHoverFreeze(active) {
+    const next = !!active;
+    if (this.isMeterBarHovered === next) return;
+    this.isMeterBarHovered = next;
+    if (!next && this.deferFetchUntilHoverEnd) {
+      this.deferFetchUntilHoverEnd = false;
+      this.fetchDps();
+    }
+  }
+
   formatBattleTime(ms) {
     const totalMs = Number(ms);
     if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
@@ -498,6 +510,7 @@ class DpsApp {
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
     this.setWindowDragFreeze(false);
+    this.setMeterHoverFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
 
@@ -544,11 +557,15 @@ class DpsApp {
     let pendingHoverRow = null;
 
     this.elList.addEventListener("mousemove", (event) => {
-      if (this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
       const rowEl = event?.target?.closest?.(".item");
+      this.setMeterHoverFreeze(!!rowEl);
+
+      if (this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
       const rowId = Number(rowEl?.dataset?.rowId);
       if (!Number.isFinite(rowId) || rowId <= 0) return;
-      const row = this.latestRowsById?.get?.(String(rowId));
+      const row =
+        this.meterUI?.getRowById?.(rowId) ||
+        this.latestRowsById?.get?.(String(rowId));
       if (!row) return;
 
       pendingHoverRow = row;
@@ -563,6 +580,7 @@ class DpsApp {
     });
 
     this.elList.addEventListener("mouseleave", () => {
+      this.setMeterHoverFreeze(false);
       if (hoverRafId !== null) {
         cancelAnimationFrame(hoverRafId);
         hoverRafId = null;
@@ -581,6 +599,10 @@ class DpsApp {
     if (this.isCollapse) return;
     if (this.isWindowDragging) {
       this.deferFetchUntilDragEnd = true;
+      return;
+    }
+    if (this.isMeterBarHovered) {
+      this.deferFetchUntilHoverEnd = true;
       return;
     }
     const now = this.nowMs();
@@ -2480,6 +2502,7 @@ class DpsApp {
     this.pinnedDetailsRowId = null;
     this.hoveredDetailsRowId = null;
     this.setWindowDragFreeze(false);
+    this.setMeterHoverFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
