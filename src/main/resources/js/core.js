@@ -8,6 +8,8 @@ class DpsApp {
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
     this.pinMeToTop = false;
+    this.mainPlayerNamesBold = false;
+    this.mainPlayerDpsBold = false;
     this.includeMainMeterScreenshot = false;
     this.saveScreenshotToFolder = false;
     this.screenshotFolder = "";
@@ -29,6 +31,8 @@ class DpsApp {
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
       pinMeToTop: "dpsMeter.pinMeToTop",
+      mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
+      mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
       theme: "dpsMeter.theme",
     };
 
@@ -49,12 +53,18 @@ class DpsApp {
       "obsidian",
       "varian",
     ];
+    this.supportQrImages = {
+      afdian: "./assets/afdian.png",
+      kofi: "./assets/kofi.png",
+      wechat: "./assets/wechat.png",
+    };
 
     // 빈데이터 덮어쓰기 방지 스냅샷
     this.lastSnapshot = null;
     // reset 직후 서버가 구 데이터 계속 주는 현상 방지
     this.resetPending = false;
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
 
     this.BATTLE_TIME_BASIS = "render";
     this.GRACE_MS = 30000;
@@ -85,6 +95,15 @@ class DpsApp {
     this._detailsFlashTimer = null;
     this._meterFlashTimer = null;
     this._recentLocalIdByName = new Map();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
+    this.latestRowsById = new Map();
+    this.isWindowDragging = false;
+    this.isMeterBarHovered = false;
+    this.deferFetchUntilDragEnd = false;
+    this.deferFetchUntilHoverEnd = false;
+    this.suppressRowInteractionUntilMs = 0;
 
     DpsApp.instance = this;
   }
@@ -160,24 +179,31 @@ class DpsApp {
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
+      onHoverUserRow: (row) => {
+        if (this.shouldSuppressRowInteractions()) return;
+        this.openHoverDetailsRow(row);
+      },
+      onLeaveUserRow: () => {
+        this.hoveredDetailsRowId = null;
+        if (this.pinnedDetailsRowId !== null) return;
+        requestAnimationFrame(() => {
+          const hoveredRow = this.elList?.querySelector?.(".item:hover");
+          if (hoveredRow) return;
+          this.detailsUI?.close?.({ keepPinned: false });
+        });
+      },
       onClickUserRow: (row) => {
-        const fallbackAllTargets =
-          this.lastTargetMode === "lastHitByMe" &&
-          (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
-          !this.lastTargetName;
-        const isTrainTargets = this.lastTargetMode === "trainTargets";
-        const shouldDefaultAllTrainTargets = isTrainTargets && this.trainSelectionMode === "all";
-        const shouldDefaultTrainTarget = isTrainTargets && this.trainSelectionMode === "highestDamage";
-        const defaultTargetId = shouldDefaultTrainTarget && Number(this.lastTargetId) > 0
-          ? Number(this.lastTargetId)
-          : null;
+        if (!row || this.isWindowDragging) return;
+        const rowId = Number(row?.id);
+        this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
         this.detailsUI.open(row, {
-          defaultTargetAll:
-            this.lastTargetMode === "allTargets" || fallbackAllTargets || shouldDefaultAllTrainTargets,
-          defaultTargetId,
+          pin: true,
+          ...this.getDefaultDetailsOpenOptions(),
         });
       },
     });
+
+    this.bindInstantDetailsHover();
 
     const withBacklog = (text) => {
       if (!window.javaBridge?.isRunningFromIde?.()) return text;
@@ -246,6 +272,10 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getDetails: (row, options) => this.getDetails(row, options),
       getDetailsContext: () => this.getDetailsContext(),
+      onPinnedRowChange: (rowId) => {
+        const nextId = Number(rowId);
+        this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
+      },
     });
     this.detailsRefreshBtn?.addEventListener("click", () => {
       this.detailsUI?.refresh?.();
@@ -335,9 +365,13 @@ class DpsApp {
       }
       this.refreshConnectionInfo();
       this.refreshBossLabel();
+      this.updateSupportVisibility(lang);
+      this.updateSupportPrimaryAction(lang);
+      this.updateSupportQrImage(this.supportPrimaryButton?.dataset.support || "afdian");
     });
     window.ReleaseChecker?.start?.();
     this.setupConsoleDebugging();
+    this.bindNativeHotkeyBridge();
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
@@ -347,8 +381,45 @@ class DpsApp {
     this.fetchDps();
   }
 
+  bindNativeHotkeyBridge() {
+    if (this._nativeHotkeyBridgeBound) return;
+    this._nativeHotkeyBridgeBound = true;
+
+    window.addEventListener("nativeResetHotKey", () => {
+      this.refreshDamageData({ reason: "native hotkey refresh" });
+    });
+  }
+
   nowMs() {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
+  }
+
+  shouldSuppressRowInteractions() {
+    return this.isWindowDragging || this.nowMs() < Number(this.suppressRowInteractionUntilMs || 0);
+  }
+
+  setWindowDragFreeze(active) {
+    const enabled = !!active;
+    document.documentElement?.classList?.toggle?.("windowDragFreeze", enabled);
+    document.body?.classList?.toggle?.("windowDragFreeze", enabled);
+    if (enabled) {
+      try {
+        const selection = window.getSelection?.();
+        selection?.removeAllRanges?.();
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  setMeterHoverFreeze(active) {
+    const next = !!active;
+    if (this.isMeterBarHovered === next) return;
+    this.isMeterBarHovered = next;
+    if (!next && this.deferFetchUntilHoverEnd) {
+      this.deferFetchUntilHoverEnd = false;
+      this.fetchDps();
+    }
   }
 
   formatBattleTime(ms) {
@@ -436,7 +507,11 @@ class DpsApp {
     this.battleTime?.reset?.();
     this.battleTime?.setVisible?.(false);
 
-    this.detailsUI?.close?.();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
+    this.setMeterHoverFreeze(false);
+    this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
 
     if (this.elBossName) {
@@ -461,8 +536,75 @@ class DpsApp {
 
 
 
+  openHoverDetailsRow(row) {
+    if (!row || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
+    const rowId = Number(row?.id);
+    if (!Number.isFinite(rowId) || rowId <= 0) return;
+    if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
+    this.hoveredDetailsRowId = rowId;
+    this.detailsUI?.open?.(row, {
+      pin: false,
+      compact: true,
+      restartOnSwitch: false,
+      ...this.getDefaultDetailsOpenOptions(),
+    });
+  }
+
+  bindInstantDetailsHover() {
+    if (!this.elList) return;
+
+    let hoverRafId = null;
+    let pendingHoverRow = null;
+
+    this.elList.addEventListener("mousemove", (event) => {
+      const rowEl = event?.target?.closest?.(".item");
+      this.setMeterHoverFreeze(!!rowEl);
+
+      if (this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
+      const rowId = Number(rowEl?.dataset?.rowId);
+      if (!Number.isFinite(rowId) || rowId <= 0) return;
+      const row =
+        this.meterUI?.getRowById?.(rowId) ||
+        this.latestRowsById?.get?.(String(rowId));
+      if (!row) return;
+
+      pendingHoverRow = row;
+      if (hoverRafId !== null) return;
+      hoverRafId = requestAnimationFrame(() => {
+        hoverRafId = null;
+        const nextRow = pendingHoverRow;
+        pendingHoverRow = null;
+        if (!nextRow || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
+        this.openHoverDetailsRow(nextRow);
+      });
+    });
+
+    this.elList.addEventListener("mouseleave", () => {
+      this.setMeterHoverFreeze(false);
+      if (hoverRafId !== null) {
+        cancelAnimationFrame(hoverRafId);
+        hoverRafId = null;
+      }
+      pendingHoverRow = null;
+      if (this.pinnedDetailsRowId !== null) return;
+      this.hoveredDetailsRowId = null;
+      this.detailsUI?.close?.({ keepPinned: false });
+    });
+  }
+
+
+
+
   fetchDps() {
     if (this.isCollapse) return;
+    if (this.isWindowDragging) {
+      this.deferFetchUntilDragEnd = true;
+      return;
+    }
+    if (this.isMeterBarHovered) {
+      this.deferFetchUntilHoverEnd = true;
+      return;
+    }
     const now = this.nowMs();
     if (this.settingsPanel?.classList.contains("isOpen")) {
       this.refreshConnectionInfo({ skipSettingsRefresh: true });
@@ -499,16 +641,24 @@ class DpsApp {
     const { rows, targetName, targetMode, battleTimeMs, targetId, localPlayerId } =
       this.buildRowsFromPayload(raw);
     if (this.refreshPending) {
-      if (rows.length > 0) {
+      const pendingAgeMs = Math.max(0, now - (Number(this.refreshPendingStartedAt) || 0));
+      const allowFallbackResume = rows.length > 0 && pendingAgeMs >= 1000;
+
+      if (rows.length > 0 && !allowFallbackResume) {
         return;
       }
+
       this.refreshPending = false;
-      this.lastJson = raw;
-      this.lastSnapshot = [];
-      this._lastRenderedListSignature = "";
-      this._lastRenderedRowsSummary = null;
-      this.meterUI?.onResetMeterUi?.();
-      return;
+      this.refreshPendingStartedAt = 0;
+
+      if (rows.length === 0) {
+        this.lastJson = raw;
+        this.lastSnapshot = [];
+        this._lastRenderedListSignature = "";
+        this._lastRenderedRowsSummary = null;
+        this.meterUI?.onResetMeterUi?.();
+        return;
+      }
     }
 
     this.lastJson = raw;
@@ -642,6 +792,7 @@ class DpsApp {
       this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
+    this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
     this.meterUI.updateFromRows(rowsToRender);
   }
 
@@ -832,6 +983,7 @@ class DpsApp {
     this.resetTargetTrackingState();
     window.javaBridge?.restartTargetSelection?.();
     this.refreshPending = false;
+    this.refreshPendingStartedAt = 0;
     this.resetPending = false;
     this.lastJson = null;
     this.lastSnapshot = null;
@@ -914,7 +1066,10 @@ class DpsApp {
     return raw;
   }
 
-  async getDetails(row, { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false } = {}) {
+  async getDetails(
+    row,
+    { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false, maxSkills = null } = {}
+  ) {
     let raw = null;
     if (targetId && window.dpsData?.getTargetDetails) {
       const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
@@ -1074,6 +1229,11 @@ class DpsApp {
       }
     }
 
+
+    if (Number.isFinite(Number(maxSkills)) && Number(maxSkills) > 0 && skills.length > Number(maxSkills)) {
+      skills.sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
+      skills.length = Number(maxSkills);
+    }
     const pct = (num, den) => {
       if (den <= 0) return 0;
       return Math.round((num / den) * 1000) / 10;
@@ -1243,10 +1403,22 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
+    this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
+    this.playerDpsBoldCheckbox = document.querySelector(".playerDpsBoldCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
+    this.supportWidget = document.querySelector(".supportWidget");
+    this.supportButton = document.querySelector(".supportButton");
+    this.supportModal = document.querySelector("#supportModal");
+    this.supportModalTitle = document.querySelector("#supportModalTitle");
+    this.supportModalClose = document.querySelector(".supportModalClose");
+    this.supportQrImage = document.querySelector(".supportQrImage");
+    this.supportPrimaryButton = document.querySelector(".supportPrimaryButton");
+    this.supportCopyStatus = document.querySelector(".supportCopyStatus");
+    this.supportActionButtons = Array.from(document.querySelectorAll(".supportIconButton"));
     this.kofiButton = document.querySelector(".kofiButton");
+    this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
     this.settingsVersionValue = document.querySelector(".settingsVersionValue");
     this.settingsVersionLink = document.querySelector(".settingsVersionLink");
@@ -1276,6 +1448,8 @@ class DpsApp {
       this.safeGetStorage(this.storageKeys.meterFillOpacity);
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
+    const storedMainPlayerNamesBold = this.safeGetSetting(this.storageKeys.mainPlayerNamesBold) === "true";
+    const storedMainPlayerDpsBold = this.safeGetSetting(this.storageKeys.mainPlayerDpsBold) === "true";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
@@ -1284,6 +1458,8 @@ class DpsApp {
     this.setOnlyShowUser(false, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
     this.setPinMeToTop(storedPinMeToTop, { persist: false });
+    this.setMainPlayerNamesBold(storedMainPlayerNamesBold, { persist: false });
+    this.setMainPlayerDpsBold(storedMainPlayerDpsBold, { persist: false });
     const normalizedTargetSelection =
       storedTargetSelection === "allTargets" || storedTargetSelection === "trainTargets"
         ? storedTargetSelection
@@ -1358,6 +1534,20 @@ class DpsApp {
         this.setPinMeToTop(isChecked, { persist: true });
       });
     }
+    if (this.playerNamesBoldCheckbox) {
+      this.playerNamesBoldCheckbox.checked = this.mainPlayerNamesBold;
+      this.playerNamesBoldCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setMainPlayerNamesBold(isChecked, { persist: true });
+      });
+    }
+    if (this.playerDpsBoldCheckbox) {
+      this.playerDpsBoldCheckbox.checked = this.mainPlayerDpsBold;
+      this.playerDpsBoldCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setMainPlayerDpsBold(isChecked, { persist: true });
+      });
+    }
     if (this.meterOpacityInput && this.meterOpacityValue) {
       const defaultOpacity = this.getDefaultMeterFillOpacity();
       const hasStoredOpacity =
@@ -1402,6 +1592,25 @@ class DpsApp {
       window.javaBridge?.openBrowser?.("https://discord.gg/Aion2Global");
     });
 
+    this.supportButton?.addEventListener("click", () => {
+      this.openSupportModal();
+    });
+    this.supportModalClose?.addEventListener("click", () => this.closeSupportModal());
+    this.supportModal?.addEventListener("click", (event) => {
+      if (event.target === this.supportModal) {
+        this.closeSupportModal();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (this.supportModal?.classList.contains("isOpen")) {
+        this.closeSupportModal();
+      }
+    });
+    this.supportActionButtons?.forEach((button) => {
+      button.addEventListener("click", () => this.handleSupportAction(button));
+    });
+
     this.kofiButton?.addEventListener("click", () => {
       window.javaBridge?.openBrowser?.("https://ko-fi.com/W7W51T1YW9");
     });
@@ -1415,6 +1624,162 @@ class DpsApp {
     });
 
     this.updateSettingsVersion();
+    this.updateSupportVisibility(currentLanguage);
+    this.updateSupportPrimaryAction(currentLanguage);
+    this.updateSupportQrImage(this.supportPrimaryButton?.dataset.support || "afdian");
+  }
+
+  isChineseLanguage(lang) {
+    return String(lang || "").startsWith("zh");
+  }
+
+  updateSupportVisibility() {
+    if (this.supportWidget) {
+      this.supportWidget.style.display = "flex";
+    }
+    if (this.kofiWidget) {
+      this.kofiWidget.style.display = "none";
+    }
+  }
+
+  getSupportIconSvg(type) {
+    const iconByType = {
+      afdian:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 2 5 13h5l-1.5 9L19 10h-5.5L13.5 2z" fill="currentColor"/></svg>',
+      kofi:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V7z" fill="currentColor"/><path d="M16 9h1.5a2.5 2.5 0 0 1 0 5H16V9z" fill="currentColor" opacity="0.75"/><path d="M6 5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+      wechat:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4c-3.87 0-7 2.69-7 6 0 1.9 1.03 3.59 2.62 4.69L4 19l3.66-1.85A8.4 8.4 0 0 0 9 17c3.87 0 7-2.69 7-6s-3.13-7-7-7z" fill="currentColor"/><path d="M16.5 10.5c3.04 0 5.5 2.01 5.5 4.5 0 1.42-.79 2.69-2.02 3.52L20.5 22l-2.79-1.41c-.39.08-.79.12-1.21.12-3.04 0-5.5-2.01-5.5-4.5s2.46-4.5 5.5-4.5z" fill="currentColor" opacity="0.78"/></svg>',
+      paypal:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.2 3.2h7.2c3.2 0 5.3 1.9 4.9 4.7-.42 2.85-2.8 4.58-6.1 4.58h-2.4l-.75 4.35H5.9L7.2 3.2z" fill="currentColor"/><path d="M9.3 5.6h4.05c1.3 0 2.05.74 1.83 1.82-.22 1.13-1.2 1.84-2.49 1.84H8.55L9.3 5.6z" fill="currentColor" opacity="0.55"/><path d="M10.55 9.05h2.52c1.95 0 3.2 1.14 2.93 2.86-.3 1.92-1.95 3.12-4.19 3.12h-2.38l.56-3.18h2.2c.75 0 1.23-.4 1.33-1 .1-.56-.3-.93-1.02-.93h-2.15l.2-.87z" fill="#0b2f63" opacity="0.45"/></svg>',
+    };
+    return iconByType[type] || "";
+  }
+
+  updateSupportPrimaryAction(lang) {
+    if (!this.supportPrimaryButton) return;
+    const isChinese = this.isChineseLanguage(lang);
+    const nextSupport = isChinese ? "afdian" : "kofi";
+    const nextUrl = isChinese
+      ? "https://afdian.com/a/hiddencube"
+      : "https://ko-fi.com/hiddencube";
+    const nextLabel = isChinese ? "爱发电" : "Ko-fi";
+    const nextIcon = this.getSupportIconSvg(isChinese ? "afdian" : "kofi");
+    this.supportPrimaryButton.dataset.support = nextSupport;
+    this.supportPrimaryButton.dataset.url = nextUrl;
+    const label = this.supportPrimaryButton.querySelector(".supportLabel");
+    const icon = this.supportPrimaryButton.querySelector(".supportIcon");
+    if (label) label.textContent = nextLabel;
+    if (icon) icon.innerHTML = nextIcon;
+    this.supportPrimaryButton.setAttribute("aria-label", nextLabel);
+    const i18nLabel = isChinese ? "support.aria.afdian" : "support.aria.kofi";
+    this.supportPrimaryButton.dataset.i18nAriaLabel = i18nLabel;
+  }
+
+  openSupportModal() {
+    if (!this.supportModal) return;
+    this.supportModal.classList.add("isOpen");
+    this.supportModal.setAttribute("aria-hidden", "false");
+    if (this.supportCopyStatus) {
+      this.supportCopyStatus.textContent = "";
+    }
+  }
+
+  closeSupportModal() {
+    if (!this.supportModal) return;
+    this.supportModal.classList.remove("isOpen");
+    this.supportModal.setAttribute("aria-hidden", "true");
+  }
+
+  handleSupportAction(button) {
+    if (!button) return;
+    const supportType = button.dataset.support;
+    const url = button.dataset.url;
+    const copyValue = button.dataset.copy;
+    const qrType = button.dataset.qr || supportType;
+
+    if (qrType && this.supportQrImages?.[qrType]) {
+      this.updateSupportQrImage(qrType);
+    }
+
+    if (url) {
+      const externalOnly = supportType === "paypal" || supportType === "afdian" || supportType === "kofi";
+      this.openExternalLink(url, { externalOnly });
+    }
+
+    if (copyValue) {
+      const messageKey = `support.copy.${supportType}`;
+      const fallback = `Copied ${supportType?.toUpperCase?.() || "address"}`;
+      this.copySupportValue(copyValue, this.i18n?.t?.(messageKey, fallback) || fallback);
+    }
+  }
+
+  openExternalLink(url, { externalOnly = false } = {}) {
+    if (!url) return;
+    window.javaBridge?.openBrowser?.(url);
+    if (externalOnly) return;
+    try {
+      window.open(url, "_blank", "noopener");
+    } catch {
+      // ignore
+    }
+  }
+
+  copySupportValue(value, message) {
+    if (!value) return;
+    const showStatus = (text) => {
+      if (!this.supportCopyStatus) return;
+      this.supportCopyStatus.textContent = text;
+    };
+    const attemptLegacyCopy = () => {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (success) showStatus(message);
+      } catch {
+        // ignore
+      }
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(value)
+        .then(() => showStatus(message))
+        .catch(() => attemptLegacyCopy());
+      return;
+    }
+    attemptLegacyCopy();
+  }
+
+  updateSupportQrImage(type) {
+    if (!this.supportQrImage) return;
+    const src = this.supportQrImages?.[type];
+    if (!src) return;
+    this.supportQrImage.src = src;
+    this.updateSupportTitle(type);
+    this.supportActionButtons?.forEach((button) => {
+      const match = button.dataset.support === type || button.dataset.qr === type;
+      button.classList.toggle("isActive", match);
+    });
+  }
+
+  updateSupportTitle(type) {
+    if (!this.supportModalTitle) return;
+    const currentLanguage = this.i18n?.getLanguage?.();
+    const isChinese = this.isChineseLanguage(currentLanguage);
+    const isWeChat = type === "wechat";
+    const titleKey = isWeChat ? "support.titleWechat" : "support.title";
+    const fallback = isWeChat
+      ? "Support the author on WeChat"
+      : isChinese
+        ? "Support the author on Afdian"
+        : "Support the author on Ko-fi";
+    this.supportModalTitle.textContent = this.i18n?.t?.(titleKey, fallback) || fallback;
   }
 
   initializeSettingsDropdowns() {
@@ -1763,7 +2128,7 @@ class DpsApp {
 
     this.detailsSettingsBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
-      this.toggleDetailsSettingsMenu();
+      this.toggleDetailsSettingsMenu(event);
     });
 
     this.detailsSettingsMenu?.addEventListener("click", (event) => {
@@ -1910,20 +2275,48 @@ class DpsApp {
     return `AION2_DPS_${stamp}.png`;
   }
 
-  toggleDetailsSettingsMenu() {
+  toggleDetailsSettingsMenu(event) {
     if (!this.detailsSettingsMenu) return;
-    this.detailsSettingsMenu.classList.toggle("isOpen");
+    if (this.detailsSettingsMenu.classList.contains("isOpen")) {
+      this.closeDetailsSettingsMenu();
+      return;
+    }
+    this.openDetailsSettingsMenu(event);
+  }
+
+  openDetailsSettingsMenu(event) {
+    if (!this.detailsSettingsMenu) return;
+    this.detailsSettingsMenu.classList.add("isOpen");
+    const menu = this.detailsSettingsMenu;
+    const padding = 8;
+    const buttonRect = this.detailsSettingsBtn?.getBoundingClientRect();
+    const baseX = Number.isFinite(event?.clientX) ? event.clientX : buttonRect?.right ?? padding;
+    const baseY = Number.isFinite(event?.clientY) ? event.clientY : buttonRect?.bottom ?? padding;
+    const rect = menu.getBoundingClientRect();
+    let left = baseX + padding;
+    let top = baseY + padding;
+    const maxLeft = window.innerWidth - rect.width - padding;
+    const maxTop = window.innerHeight - rect.height - padding;
+    left = Math.min(Math.max(padding, left), Math.max(padding, maxLeft));
+    top = Math.min(Math.max(padding, top), Math.max(padding, maxTop));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
   }
 
   closeDetailsSettingsMenu() {
-    this.detailsSettingsMenu?.classList.remove("isOpen");
+    if (!this.detailsSettingsMenu) return;
+    this.detailsSettingsMenu.classList.remove("isOpen");
+    this.detailsSettingsMenu.style.left = "";
+    this.detailsSettingsMenu.style.top = "";
   }
 
   toggleSettingsPanel() {
     if (!this.settingsPanel) return;
     const isOpen = this.settingsPanel.classList.toggle("isOpen");
     if (isOpen) {
-      this.detailsUI?.close?.();
+      this.pinnedDetailsRowId = null;
+      this.hoveredDetailsRowId = null;
+      this.detailsUI?.close?.({ keepPinned: false });
       this.refreshConnectionInfo();
     }
   }
@@ -1997,6 +2390,28 @@ class DpsApp {
       this.safeSetSetting(this.storageKeys.pinMeToTop, String(this.pinMeToTop));
     }
     this.renderCurrentRows();
+  }
+
+  setMainPlayerNamesBold(enabled, { persist = false } = {}) {
+    this.mainPlayerNamesBold = !!enabled;
+    if (this.playerNamesBoldCheckbox && document.activeElement !== this.playerNamesBoldCheckbox) {
+      this.playerNamesBoldCheckbox.checked = this.mainPlayerNamesBold;
+    }
+    document.body?.classList.toggle("mainPlayerNamesBold", this.mainPlayerNamesBold);
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.mainPlayerNamesBold, String(this.mainPlayerNamesBold));
+    }
+  }
+
+  setMainPlayerDpsBold(enabled, { persist = false } = {}) {
+    this.mainPlayerDpsBold = !!enabled;
+    if (this.playerDpsBoldCheckbox && document.activeElement !== this.playerDpsBoldCheckbox) {
+      this.playerDpsBoldCheckbox.checked = this.mainPlayerDpsBold;
+    }
+    document.body?.classList.toggle("mainPlayerDpsBold", this.mainPlayerDpsBold);
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.mainPlayerDpsBold, String(this.mainPlayerDpsBold));
+    }
   }
 
   setTargetSelection(mode, { persist = false, syncBackend = false, reason = "update" } = {}) {
@@ -2075,6 +2490,7 @@ class DpsApp {
 
   refreshDamageData({ reason = "refresh" } = {}) {
     this.refreshPending = true;
+    this.refreshPendingStartedAt = this.nowMs();
     this.lastSnapshot = null;
     this.lastJson = null;
     this.lastTargetMode = "";
@@ -2083,7 +2499,11 @@ class DpsApp {
     this._lastRenderedListSignature = "";
     this._lastRenderedTargetLabel = "";
     this._lastRenderedRowsSummary = null;
-    this.detailsUI?.close?.();
+    this.pinnedDetailsRowId = null;
+    this.hoveredDetailsRowId = null;
+    this.setWindowDragFreeze(false);
+    this.setMeterHoverFreeze(false);
+    this.detailsUI?.close?.({ keepPinned: false });
     this.lastSnapshot = [];
     this._lastRenderedRowsSummary = null;
     this._lastRenderedListSignature = "";
@@ -2103,6 +2523,7 @@ class DpsApp {
     }
 
     window.javaBridge?.resetDps?.();
+    window.javaBridge?.restartTargetSelection?.();
     this.logDebug(`Damage data refreshed (${reason}).`);
   }
 
@@ -2144,6 +2565,23 @@ class DpsApp {
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.meterUI?.updateFromRows?.(rowsToRender);
+  }
+
+  getDefaultDetailsOpenOptions() {
+    const fallbackAllTargets =
+      this.lastTargetMode === "lastHitByMe" &&
+      (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
+      !this.lastTargetName;
+    const isTrainTargets = this.lastTargetMode === "trainTargets";
+    const shouldDefaultAllTrainTargets = isTrainTargets && this.trainSelectionMode === "all";
+    const shouldDefaultTrainTarget = isTrainTargets && this.trainSelectionMode === "highestDamage";
+    const defaultTargetId = shouldDefaultTrainTarget && Number(this.lastTargetId) > 0
+      ? Number(this.lastTargetId)
+      : null;
+    return {
+      defaultTargetAll: this.lastTargetMode === "allTargets" || fallbackAllTargets || shouldDefaultAllTrainTargets,
+      defaultTargetId,
+    };
   }
 
   refreshConnectionInfo({ skipSettingsRefresh = false } = {}) {
@@ -2364,12 +2802,33 @@ class DpsApp {
 
   bindDragToMoveWindow() {
     let isDragging = false;
-    let startX = 0,
-      startY = 0;
-    let initialStageX = 0,
-      initialStageY = 0;
+    let startX = 0;
+    let startY = 0;
+    let initialStageX = 0;
+    let initialStageY = 0;
+    let pendingStageX = 0;
+    let pendingStageY = 0;
+    let lastMovedX = Number.NaN;
+    let lastMovedY = Number.NaN;
+    let dragRafId = null;
+    let hasDragMoved = false;
+
+    const flushMove = (force = false) => {
+      dragRafId = null;
+      if ((!isDragging && !force) || !window.javaBridge) return;
+      const deltaSinceLastX = Math.abs(pendingStageX - lastMovedX);
+      const deltaSinceLastY = Math.abs(pendingStageY - lastMovedY);
+      if (!force && Number.isFinite(deltaSinceLastX) && Number.isFinite(deltaSinceLastY)) {
+        if (deltaSinceLastX < 2 && deltaSinceLastY < 2) return;
+      }
+      if (pendingStageX === lastMovedX && pendingStageY === lastMovedY) return;
+      window.javaBridge.moveWindow(pendingStageX, pendingStageY);
+      lastMovedX = pendingStageX;
+      lastMovedY = pendingStageY;
+    };
 
     document.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       const targetEl = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
       if (targetEl?.closest?.(".resizeHandle")) {
         return;
@@ -2380,24 +2839,65 @@ class DpsApp {
       if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
         return;
       }
+      if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .list .item")) {
+        return;
+      }
+      if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
+        return;
+      }
       isDragging = true;
+      hasDragMoved = false;
+      this.isWindowDragging = true;
+      this.deferFetchUntilDragEnd = true;
+      this.setWindowDragFreeze(true);
+      if (this.pinnedDetailsRowId === null) {
+        this.hoveredDetailsRowId = null;
+        this.detailsUI?.close?.({ keepPinned: false });
+      }
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
       initialStageY = window.screenY;
+      pendingStageX = initialStageX;
+      pendingStageY = initialStageY;
+      lastMovedX = Number.NaN;
+      lastMovedY = Number.NaN;
     });
 
     document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      if (!window.javaBridge) return;
+      if (!isDragging || !window.javaBridge) return;
 
       const deltaX = e.screenX - startX;
       const deltaY = e.screenY - startY;
-      window.javaBridge.moveWindow(initialStageX + deltaX, initialStageY + deltaY);
+      if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
+        hasDragMoved = true;
+        this.elList?.classList?.add?.("dragInteracting");
+      }
+      pendingStageX = initialStageX + deltaX;
+      pendingStageY = initialStageY + deltaY;
+
+      if (dragRafId !== null) return;
+      dragRafId = requestAnimationFrame(flushMove);
     });
 
     document.addEventListener("mouseup", () => {
+      if (!isDragging) return;
       isDragging = false;
+      this.isWindowDragging = false;
+      this.setWindowDragFreeze(false);
+      if (hasDragMoved) {
+        this.elList?.classList?.remove?.("dragInteracting");
+        this.suppressRowInteractionUntilMs = this.nowMs() + 120;
+      }
+      if (dragRafId !== null) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = null;
+      }
+      flushMove(true);
+      if (this.deferFetchUntilDragEnd) {
+        this.deferFetchUntilDragEnd = false;
+        this.fetchDps();
+      }
     });
   }
 
@@ -2456,8 +2956,11 @@ class DpsApp {
 
     const onMouseMove = (event) => {
       if (!isResizing) return;
-      const nextWidth = Math.max(minWidth, startWidth + (event.clientX - startX));
-      const nextHeight = Math.max(minHeight, startHeight + (event.clientY - startY));
+      const rect = this.detailsPanel.getBoundingClientRect();
+      const maxWidth = Math.max(minWidth, Math.floor(window.innerWidth - Math.max(0, rect.left) - 12));
+      const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight - Math.max(0, rect.top) - 12));
+      const nextWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + (event.clientX - startX)));
+      const nextHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + (event.clientY - startY)));
       this.detailsPanel.style.width = `${nextWidth}px`;
       this.detailsPanel.style.height = `${nextHeight}px`;
     };

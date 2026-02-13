@@ -73,6 +73,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "輸入你的角色名稱",
     "pinMeToTop": "將我置頂",
+    "bold": {
+      "label": "加粗",
+      "names": "名稱",
+      "dps": "DPS"
+    },
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
     "discord": "在 Discord 找到我們",
@@ -136,6 +141,29 @@
       }
     }
   },
+  "support": {
+    "button": "支持我一下 ☕",
+    "title": "在愛發電支持作者",
+    "titleWechat": "在微信支持作者",
+    "label": {
+      "wechat": "微信"
+    },
+    "copy": {
+      "btc": "已複製 BTC 地址",
+      "eth": "已複製 ETH 地址",
+      "usdc": "已複製 USDC 地址"
+    },
+    "aria": {
+      "afdian": "開啟愛發電",
+      "kofi": "開啟 Ko-fi",
+      "close": "關閉支持視窗",
+      "wechat": "顯示微信 QR 碼",
+      "paypal": "開啟 PayPal",
+      "btc": "複製 BTC 地址",
+      "eth": "複製 ETH 地址",
+      "usdc": "複製 USDC 地址"
+    }
+  },
   "battleTime": {
     "analysing": "正在監控資料...",
     "idle": "閒置",
@@ -151,7 +179,8 @@
   "update": {
     "title": "有新更新",
     "ok": "確定",
-    "text": "有新更新可用！\n\n目前版本：v.{current}\n最新版本：v.{latest}\n\n請在繼續前更新。"
+    "later": "稍後更新",
+    "text": "有新更新可用！\n\n目前版本：v.{current}\n最新版本：v.{latest}\n\n請在繼續前更新。\n\n新版本帶來更好的資料準確性、效能改善與修正。建議盡快更新。"
   },
   "connection": {
     "auto": "自動",

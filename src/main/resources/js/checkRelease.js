@@ -32,10 +32,14 @@
       modal = document.querySelector("#updateModal");
       text = document.querySelector("#updateModalText");
 
-      document.querySelector(".updateModalBtn").onclick = () => {
+      document.querySelector(".updateNowBtn").onclick = () => {
         modal.classList.remove("isOpen");
         window.javaBridge.openBrowser(URL);
         window.javaBridge.exitApp();
+      };
+
+      document.querySelector(".updateLaterBtn").onclick = () => {
+        modal.classList.remove("isOpen");
       };
 
       for (
@@ -80,7 +84,9 @@
         if (!hasUpdate) {
           return;
         }
-        const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.`;
+        const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.
+
+The new version brings better data accuracy, performance improvements, and fixes. It's important you update soon.`;
         text.textContent =
           window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;
         modal.classList.add("isOpen");

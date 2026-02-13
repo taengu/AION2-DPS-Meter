@@ -51,6 +51,7 @@
   --indicator-idle: #7f8a9a;
   --font: 16px;
   --details-bg-opacity: 0.8;
+  --cjk-font-stack: "Noto Sans SC", "Noto Sans TC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
 :root[data-theme="aion2"] {
@@ -290,54 +291,50 @@
   unicode-range: U+0000-00FF, U+0100-024F;
 }
 
-@font-face {
-  font-family: "UI";
-  src:
-          local("Noto Sans TC"),
-          local("Noto Sans SC"),
-          local("Microsoft JhengHei UI"),
-          local("Microsoft YaHei UI"),
-          local("PingFang TC"),
-          local("PingFang SC"),
-          local("Heiti TC"),
-          local("Heiti SC"),
-          local("SimHei");
-  unicode-range: U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF;
+/* Default (EN / fallback): Pretendard first */
+html, body {
+  font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
 }
 
-* {
-  font-family:
-          "UI",
-          "Pretendard",
-          "Segoe UI",
-          "Arial Unicode MS",
-          sans-serif;
-  margin: 0;
-  padding: 0;
-  -webkit-user-select: none;
-  user-select: none;
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
-
-:root:lang(ko) *,
-html[lang="ko"] * {
+/* Korean */
+html:lang(ko), html:lang(ko) body {
   font-family:
           "Spoqa Han Sans Neo",
           "Spoqa Han Sans",
           "Pretendard",
-          "Noto Sans SC",
-          "Noto Sans TC",
+          "Malgun Gothic",        /* common KR on Windows */
+          "Apple SD Gothic Neo",  /* macOS */
+          sans-serif;
+}
+
+/* Chinese - Simplified */
+html:lang(zh-CN), html:lang(zh-CN) body,
+html:lang(zh-Hans), html:lang(zh-Hans) body {
+  font-family:
           "Microsoft YaHei UI",
           "Microsoft YaHei",
-          "Microsoft JhengHei UI",
-          "Microsoft JhengHei",
           "PingFang SC",
-          "PingFang TC",
           "Heiti SC",
-          "Heiti TC",
           "SimHei",
+          "Pretendard",
           "Segoe UI",
-          "Arial Unicode MS",
+          sans-serif;
+}
+
+/* Chinese - Traditional */
+html:lang(zh-TW), html:lang(zh-TW) body,
+html:lang(zh-Hant), html:lang(zh-Hant) body {
+  font-family:
+          "PingFang TC",
+          "Microsoft JhengHei UI",
+          "Microsoft YaHei UI",
           sans-serif;
 }
 
@@ -680,6 +677,27 @@ html[lang="ko"] * {
     outline-offset: 2px;
   }
 
+  .settingsRowBoldToggles {
+    align-items: center;
+  }
+
+  .settingsBoldToggleGroup {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .settingsToggleInline {
+    width: auto;
+    gap: 8px;
+  }
+
+  .settingsToggleInline .settingsToggleLabel {
+    flex: 0 0 auto;
+    font-size: 13px;
+  }
+
   .discordButton {
     border: 1px solid var(--panel-border);
     border-radius: var(--rounded-xs);
@@ -778,7 +796,7 @@ html[lang="ko"] * {
     }
   }
 
-  .item:hover .fill::after {
+  .item.hoverRippleOnce .fill::after {
     opacity: 1;
     animation: meterBarHoverRipple 900ms ease-out;
   }
@@ -815,7 +833,9 @@ html[lang="ko"] * {
       text-overflow: ellipsis;
     }
     .name.isCjk {
-      font-weight: 400;
+      font-family: var(--cjk-font-stack);
+      font-weight: 500;
+      letter-spacing: 0;
     }
     .dps {
       color: var(--dps-text);
@@ -831,6 +851,15 @@ html[lang="ko"] * {
 .meter .item.isIdentifying .content .name {
   font-size: 18px;
   font-weight: 400;
+}
+body.mainPlayerNamesBold .meter .item .content .name {
+  font-weight: 700;
+}
+body.mainPlayerNamesBold .meter .item .content .name.isCjk {
+  font-weight: 700;
+}
+body.mainPlayerDpsBold .meter .item .content .dps {
+  font-weight: 700;
 }
 .battleTime {
   display: none;
@@ -913,16 +942,17 @@ html[lang="ko"] * {
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
+  right: 12px;
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(940px, calc(100vw - 24px));
+  width: min(1030px, max(280px, calc(100vw - 384px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
-  max-width: calc(100vw - 24px);
+  max-width: max(280px, calc(100vw - 384px));
   overflow: hidden;
 
   &.flash {
@@ -973,6 +1003,8 @@ html[lang="ko"] * {
     .detailsDropdownCaret {
       opacity: 0.6;
       font-size: 0.8em;
+      order: -1;
+      flex: 0 0 auto;
     }
 
     .detailsNicknameBtn {
@@ -1672,10 +1704,58 @@ html[lang="ko"] * {
   gap: 12px;
   font-size: 13px;
 }
+.settingsPanel .settingsRowBoldToggles {
+  align-items: center;
+}
+.settingsPanel .settingsBoldToggleGroup {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.settingsPanel .settingsToggleInline {
+  width: auto;
+  gap: 8px;
+}
+.settingsPanel .settingsToggleInline .settingsToggleLabel {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
 .settingsPanel .settingsSupportRow {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.settingsPanel .supportWidget {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: -12px;
+}
+.settingsPanel .supportButton {
+  border: none;
+  padding: 8px 18px;
+  cursor: pointer;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.settingsPanel .supportButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.05);
+}
+.settingsPanel .supportButton:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  filter: brightness(0.98);
 }
 .settingsPanel .kofiWidget {
   display: flex;
@@ -1811,7 +1891,7 @@ html[lang="ko"] * {
   pointer-events: none;
   background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
 }
-.list .item:hover .fill::after {
+.list .item.hoverRippleOnce .fill::after {
   opacity: 1;
   animation: meterBarHoverRipple 900ms ease-out;
 }
@@ -1843,7 +1923,9 @@ html[lang="ko"] * {
   text-overflow: ellipsis;
 }
 .list .item .name.isCjk {
+  font-family: var(--cjk-font-stack);
   font-weight: 500;
+  letter-spacing: 0;
 }
 .list .item .dps {
   color: var(--dps-text);
@@ -1926,9 +2008,16 @@ html[lang="ko"] * {
 .detailsPanel .detailsHeader .detailsDropdownCaret {
   opacity: 0.6;
   font-size: 0.8em;
+  order: -1;
+  flex: 0 0 auto;
 }
 .detailsPanel .detailsHeader .detailsNicknameBtn {
   color: var(--isUser-fill);
+}
+.detailsPanel .detailsHeader .detailsNicknameBtn.isCjk,
+.detailsPanel .detailsHeader .detailsDropdownItem.isCjk {
+  font-family: var(--cjk-font-stack);
+  letter-spacing: 0;
 }
 .detailsPanel .detailsHeader .detailsTargetBtn,
 .detailsPanel .detailsHeader .detailsTargetSuffix {
@@ -2055,10 +2144,10 @@ html[lang="ko"] * {
   background: rgba(255, 255, 255, 0.08);
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu {
-  position: absolute;
-  right: 0;
+  position: fixed;
+  right: auto;
   top: auto;
-  bottom: calc(100% + 8px);
+  bottom: auto;
   min-width: 260px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -2066,7 +2155,7 @@ html[lang="ko"] * {
   background: rgba(12, 22, 40, 0.95);
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
   display: none;
-  z-index: 5;
+  z-index: 1000;
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu.isOpen {
   display: block;
@@ -2221,6 +2310,10 @@ html[lang="ko"] * {
 .detailsPanel .detailsStats .stat .value {
   font-weight: 400;
 }
+.detailsPanel .detailsStats .stat .label,
+.detailsPanel .detailsStats .stat .value {
+  margin: 0;
+}
 .detailsPanel .detailsBody {
   font-weight: 400;
   display: flex;
@@ -2235,7 +2328,7 @@ html[lang="ko"] * {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-sort-key] {
@@ -2246,6 +2339,13 @@ html[lang="ko"] * {
   display: flex;
   align-items: center;
 }
+.detailsPanel .detailsSkills .skillHeader .cell,
+.detailsPanel .detailsSkills .skills .skillRow .cell {
+  white-space: nowrap;
+}
+.detailsPanel .detailsSkills .skillHeader .cell {
+  min-width: max-content;
+}
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   font-weight: 400;
 }
@@ -2253,14 +2353,22 @@ html[lang="ko"] * {
   font-weight: 700;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 2.4 1 0;
+  flex: 0 0 var(--details-skill-name-width, 144px);
+  min-width: var(--details-skill-name-width, 144px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
 }
+.detailsPanel .detailsSkills .cell.name .skillNameText {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 1 1 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .detailsPanel .detailsSkills .cell.heal {
   flex: 0.9 1 0;
@@ -2271,6 +2379,7 @@ html[lang="ko"] * {
 }
 .detailsPanel .detailsSkills .cell.dmg {
   flex: 2.5 1 0;
+  min-width: 170px;
   justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {
@@ -2279,11 +2388,14 @@ html[lang="ko"] * {
 .detailsPanel .detailsSkills .skillHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
-  min-width: 900px;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
@@ -2295,7 +2407,10 @@ html[lang="ko"] * {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
-  min-width: 900px;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2335,6 +2450,7 @@ html[lang="ko"] * {
   height: 14px;
   cursor: se-resize;
   opacity: 0.65;
+  z-index: 30;
 }
 .detailsResizeHandle::before {
   content: "";
@@ -2370,6 +2486,7 @@ html[lang="ko"] * {
   height: 14px;
   cursor: se-resize;
   opacity: 0.65;
+  z-index: 30;
 }
 .detailsResizeHandle::before {
   content: "";
@@ -2448,7 +2565,7 @@ html[lang="ko"] * {
 .detailsPanel .detailsSkills .skills .skillRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -2515,4 +2632,162 @@ html[lang="ko"] * {
   cursor: pointer;
   color: white;
   text-shadow: var(--text-shadow);
+}
+
+.supportModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 8;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.supportModal.isOpen {
+  display: flex;
+}
+.supportModal .supportModalCard {
+  width: min(360px, 95vw);
+  border-radius: 18px;
+  background: rgb(12, 22, 40);
+  padding: 20px;
+  color: white;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.supportModal .supportModalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.supportModal .supportModalClose {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.supportModal .supportQrContainer {
+  background: white;
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.supportModal .supportQrImage {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: white;
+}
+.supportModal .supportActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.supportModal .supportIconButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 10px;
+  padding: 10px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.supportModal .supportIconButton:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.16);
+}
+.supportModal .supportIconButton.isActive {
+  background: rgba(143, 106, 243, 0.35);
+  box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
+}
+.supportModal .supportIcon {
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.supportModal .supportIcon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.supportModal .supportLabel {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.supportModal .supportIconButton[data-support="afdian"] {
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
+  color: #ffffff;
+}
+.supportModal .supportIconButton[data-support="wechat"] {
+  background: rgba(16, 187, 89, 0.2);
+  color: #8df0b6;
+}
+.supportModal .supportIconButton[data-support="paypal"] {
+  background: rgba(0, 112, 186, 0.2);
+  color: #8fc9ff;
+}
+.supportModal .supportIconButton[data-support="kofi"] {
+  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
+  color: #ffffff;
+}
+.supportModal .supportIconButton[data-support="btc"] {
+  background: rgba(247, 147, 26, 0.22);
+  color: #ffd0a1;
+}
+.supportModal .supportIconButton[data-support="eth"] {
+  background: rgba(98, 126, 234, 0.22);
+  color: #c2d2ff;
+}
+.supportModal .supportIconButton[data-support="usdc"] {
+  background: rgba(39, 117, 202, 0.22);
+  color: #bcd8ff;
+}
+.supportModal .supportCopyStatus {
+  min-height: 18px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
+
+.list.dragInteracting .item {
+  pointer-events: none;
+}
+
+
+.windowDragFreeze,
+.windowDragFreeze * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  cursor: grabbing !important;
 }

@@ -12,8 +12,10 @@ const createDetailsUI = ({
   dpsFormatter,
   getDetails,
   getDetailsContext,
+  onPinnedRowChange,
 }) => {
   let openedRowId = null;
+  let pinnedRowId = null;
   let openSeq = 0;
   let lastRow = null;
   let lastDetails = null;
@@ -27,6 +29,12 @@ const createDetailsUI = ({
   let detectedJobByActorId = new Map();
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
+  let lastSkillNameColumnWidth = 0;
+  let activeCompactMode = false;
+  const detailsCacheByRowId = new Map();
+  const COMPACT_MAX_SKILLS = 5;
+  const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
+  const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
@@ -100,7 +108,7 @@ const createDetailsUI = ({
     },
     { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     { key: "details.stats.combatTime", fallback: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
-    { key: "details.stats.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
+    { key: "details.skills.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
     { key: "details.stats.multiHitHits", fallback: "Multi-Hits", getValue: (d) => formatCount(d?.multiHitCount) },
     {
       key: "details.stats.multiHitDamage",
@@ -111,7 +119,7 @@ const createDetailsUI = ({
     { key: "details.stats.perfectRate", fallback: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
     { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
     { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
-    { key: "details.stats.selfHealing", fallback: "Self-Healing", getValue: (d) => formatCount(d?.totalHeal) },
+    { key: "details.skills.heal", fallback: "Heal", getValue: (d) => formatCount(d?.totalHeal) },
     { key: "details.stats.empty", fallback: "", getValue: () => "", isPlaceholder: true },
   ];
 
@@ -245,6 +253,7 @@ const createDetailsUI = ({
       } else {
         detailsNicknameBtn.textContent = selectedAttackerLabel || "-";
       }
+      applyCjkClass(detailsNicknameBtn, selectedAttackerLabel || "");
       const actorId = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length === 1
         ? selectedAttackerIds[0]
         : null;
@@ -283,6 +292,7 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
+    syncSkillColumnMinWidths();
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -291,6 +301,7 @@ const createDetailsUI = ({
       case "details.stats.totalDamage":
         return formatDamageCompact(data.totalDmg);
       case "details.stats.hits":
+      case "details.skills.hits":
         return formatCount(data.totalHits);
       case "details.stats.multiHitDamage":
         return formatDamageCompact(data.multiHitDamage);
@@ -307,6 +318,7 @@ const createDetailsUI = ({
       case "details.stats.parryRate":
         return pctText(data.totalParryPct);
       case "details.stats.selfHealing":
+      case "details.skills.heal":
         return formatCount(data.totalHeal);
       case "details.stats.empty":
         return "";
@@ -317,11 +329,22 @@ const createDetailsUI = ({
     }
   };
 
-  const renderStats = (details) => {
-    const showCombinedTotals = details?.showCombinedTotals && Array.isArray(details?.perActorStats);
+  const COMPACT_STAT_KEYS = new Set([
+    "details.stats.totalDamage",
+    "details.stats.contribution",
+    "details.stats.combatTime",
+    "details.skills.hits",
+    "details.stats.critRate",
+  ]);
+
+  const renderStats = (details, { compact = false } = {}) => {
+    const showCombinedTotals = !compact && details?.showCombinedTotals && Array.isArray(details?.perActorStats);
     for (let i = 0; i < STATUS.length; i++) {
       const slot = statSlots[i];
       const statKey = STATUS[i].key;
+      const shouldShow = !compact || COMPACT_STAT_KEYS.has(statKey);
+      slot.statEl.style.display = shouldShow ? "" : "none";
+      if (!shouldShow) continue;
       if (!showCombinedTotals) {
         slot.valueEl.style.display = "";
         slot.valueEl.style.flexWrap = "";
@@ -350,7 +373,7 @@ const createDetailsUI = ({
           const span = document.createElement("span");
           if (statKey === "details.stats.totalDamage") {
             span.textContent = formatDamageCompact(actor.totalDmg);
-          } else if (statKey === "details.stats.hits") {
+          } else if (statKey === "details.stats.hits" || statKey === "details.skills.hits") {
             span.textContent = formatCount(actor.totalHits);
           } else if (statKey === "details.stats.multiHitDamage") {
             span.textContent = formatDamageCompact(actor.multiHitDamage);
@@ -522,6 +545,192 @@ const createDetailsUI = ({
     });
   };
 
+  const syncSkillColumnMinWidths = () => {
+    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
+    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
+    if (!headerEl || !headerCells?.length) return;
+
+    const compactColumns = ["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"];
+    const compactSet = new Set(compactColumns);
+    const columnOrder = ["name", ...compactColumns, "dmg"];
+
+    const compactColumnMaxWidths = {
+      hit: 56,
+      mhit: 66,
+      mdmg: 78,
+      crit: 64,
+      parry: 64,
+      perfect: 68,
+      double: 66,
+      back: 62,
+      heal: 72,
+    };
+
+    const compactColumnMinWidths = {
+      hit: 40,
+      mhit: 48,
+      mdmg: 56,
+      crit: 46,
+      parry: 46,
+      perfect: 50,
+      double: 48,
+      back: 44,
+      heal: 50,
+    };
+
+    const isVisibleCell = (cell) => {
+      if (!cell) return false;
+      const style = window.getComputedStyle(cell);
+      return style.display !== "none";
+    };
+
+    const measuredWidths = new Map();
+    const headerMinWidths = new Map();
+
+    columnOrder.forEach((columnClass) => {
+      const headerCell = [...headerCells].find(
+        (cell) => cell.classList.contains(columnClass) && isVisibleCell(cell)
+      );
+      if (!headerCell) return;
+
+      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`) || [];
+      const visibleCells = [...columnCells].filter((cell) => {
+        if (!isVisibleCell(cell)) return false;
+        const row = cell?.closest?.(".skillRow");
+        return !row || row.style.display !== "none";
+      });
+      if (!visibleCells.length) return;
+
+      const headerWidth = Math.ceil(headerCell.scrollWidth || 0);
+      if (!Number.isFinite(headerWidth) || headerWidth <= 0) return;
+
+      headerMinWidths.set(columnClass, headerWidth + 4);
+
+      let targetWidth = headerWidth + 4;
+      if (columnClass === "name") {
+        const currentNameWidth = parseFloat(
+          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "144"
+        );
+        if (Number.isFinite(currentNameWidth) && currentNameWidth > 0) {
+          targetWidth = Math.max(targetWidth, Math.ceil(currentNameWidth));
+        }
+        targetWidth = Math.min(Math.max(96, targetWidth), 176);
+      } else if (compactSet.has(columnClass)) {
+        visibleCells.forEach((cell) => {
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
+        });
+        targetWidth = Math.min(targetWidth, compactColumnMaxWidths[columnClass] || 74);
+      } else if (columnClass === "dmg") {
+        visibleCells.forEach((cell) => {
+          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
+        });
+        targetWidth = Math.min(Math.max(120, targetWidth), 170);
+      }
+
+      measuredWidths.set(columnClass, Math.ceil(targetWidth));
+    });
+
+    const visibleColumns = columnOrder.filter((columnClass) => measuredWidths.has(columnClass));
+    if (!visibleColumns.length) return;
+
+    const gap = 6;
+    const totalGap = Math.max(0, visibleColumns.length - 1) * gap;
+    const availableWidth = Math.max(300, Math.floor(headerEl.clientWidth - 4));
+    const getTotalWidth = () => visibleColumns.reduce((sum, key) => sum + (measuredWidths.get(key) || 0), 0) + totalGap;
+
+    let overflow = getTotalWidth() - availableWidth;
+
+    if (overflow > 0 && measuredWidths.has("name")) {
+      const current = measuredWidths.get("name") || 0;
+      const minName = Math.max(headerMinWidths.get("name") || 84, 108);
+      const reducible = Math.max(0, current - minName);
+      const delta = Math.min(reducible, overflow);
+      measuredWidths.set("name", current - delta);
+      overflow -= delta;
+    }
+
+    if (overflow > 0 && measuredWidths.has("dmg")) {
+      const current = measuredWidths.get("dmg") || 0;
+      const minDmg = Math.max(headerMinWidths.get("dmg") || 100, 108);
+      const reducible = Math.max(0, current - minDmg);
+      const delta = Math.min(reducible, overflow);
+      measuredWidths.set("dmg", current - delta);
+      overflow -= delta;
+    }
+
+    if (overflow > 0) {
+      const shrinkable = compactColumns.filter((columnClass) => measuredWidths.has(columnClass));
+      let safety = 2000;
+      while (overflow > 0 && safety > 0) {
+        safety -= 1;
+        let changed = false;
+        for (let i = 0; i < shrinkable.length && overflow > 0; i++) {
+          const key = shrinkable[i];
+          const current = measuredWidths.get(key) || 0;
+          const minWidth = Math.max(compactColumnMinWidths[key] || 40, headerMinWidths.get(key) || 40);
+          if (current <= minWidth) continue;
+          measuredWidths.set(key, current - 1);
+          overflow -= 1;
+          changed = true;
+        }
+        if (!changed) break;
+      }
+    }
+
+    visibleColumns.forEach((columnClass) => {
+      const width = Math.max(36, Math.floor(measuredWidths.get(columnClass) || 0));
+      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
+      if (!columnCells?.length) return;
+
+      columnCells.forEach((cell) => {
+        if (!isVisibleCell(cell)) return;
+        cell.style.minWidth = `${width}px`;
+        cell.style.width = `${width}px`;
+        cell.style.maxWidth = `${width}px`;
+        cell.style.flex = `0 0 ${width}px`;
+      });
+
+      if (columnClass === "name") {
+        detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${width}px`);
+      }
+    });
+
+    const panelRect = detailsPanel?.getBoundingClientRect?.();
+    const currentWidth = Math.ceil(panelRect?.width || 0);
+    const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
+    if (currentWidth > maxAllowedWidth) {
+      detailsPanel.style.width = `${maxAllowedWidth}px`;
+    }
+  };
+
+  const syncSkillNameColumnWidth = (skills = []) => {
+    if (!skillNameMeasureCtx) return;
+    const fontSource =
+      detailsPanel?.querySelector?.(".detailsSkills .skills .skillRow .skillNameText") ||
+      detailsPanel?.querySelector?.(".detailsSkills .skillHeader .cell.name");
+    if (!fontSource) return;
+
+    const computed = window.getComputedStyle(fontSource);
+    const font = computed?.font || `${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
+    if (!font) return;
+
+    skillNameMeasureCtx.font = font;
+    let widest = 0;
+    for (let i = 0; i < skills.length; i++) {
+      const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
+      if (width > widest) widest = width;
+    }
+
+    const panelRect = detailsPanel?.getBoundingClientRect?.();
+    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
+    const maxNameColumnWidth = Math.max(112, Math.floor(panelWidth * 0.224));
+    const nextWidth = Math.min(Math.max(84, Math.ceil(widest + 16)), maxNameColumnWidth);
+    if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
+    lastSkillNameColumnWidth = nextWidth;
+    detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);
+  };
+
+
   const bindSkillHeaderSorting = () => {
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell[data-sort-key]");
     headerCells?.forEach?.((cell) => {
@@ -536,7 +745,7 @@ const createDetailsUI = ({
         }
         updateSkillHeaderSortState();
         if (lastDetails) {
-          renderSkills(lastDetails);
+          renderSkills(lastDetails, { compact: activeCompactMode });
         }
       });
     });
@@ -544,8 +753,9 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
+  syncSkillColumnMinWidths();
 
-  const renderSkills = (details) => {
+  const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
     const groupedSkills = new Map();
     skills.forEach((skill) => {
@@ -579,17 +789,15 @@ const createDetailsUI = ({
         multiHitDamage: (Number(existing.multiHitDamage) || 0) + (Number(skill.multiHitDamage) || 0),
       });
     });
-    const topSkills = [...groupedSkills.values()].sort(compareSkillSort);
-    // .slice(0, 12);
+    const sortedSkills = [...groupedSkills.values()].sort(compareSkillSort);
+    const topSkills = compact ? sortedSkills.slice(0, COMPACT_MAX_SKILLS) : sortedSkills;
 
     const totalDamage = Number(details?.totalDmg);
-    if (!Number.isFinite(totalDamage) || totalDamage <= 0) {
-      // uiDebug?.log("details:invalidTotalDmg", details);
-      return;
-    }
-    const percentBaseTotal = totalDamage;
+    const aggregatedDamage = topSkills.reduce((sum, skill) => sum + (Number(skill?.dmg) || 0), 0);
+    const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
 
     ensureSkillSlots(topSkills.length);
+    syncSkillNameColumnWidth(topSkills);
 
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
@@ -643,6 +851,8 @@ const createDetailsUI = ({
       view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
+
+    syncSkillColumnMinWidths();
   };
 
   const loadDetailsContext = () => {
@@ -679,12 +889,39 @@ const createDetailsUI = ({
     return `Player #${actorId}`;
   };
 
+  const getActorIdsByLabel = (label) => {
+    const normalizedLabel = String(label ?? "").trim().toLowerCase();
+    if (!normalizedLabel) return [];
+    const ids = [];
+    detailsActors.forEach((actor, actorId) => {
+      const nickname = String(actor?.nickname ?? "").trim().toLowerCase();
+      if (!nickname) return;
+      if (nickname === normalizedLabel) {
+        ids.push(actorId);
+      }
+    });
+    return ids;
+  };
+
+  const syncSelectedAttackersFromLabel = () => {
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) return;
+    if (!detailsActors.size) return;
+    const matchingActorIds = getActorIdsByLabel(selectedAttackerLabel);
+    if (!matchingActorIds.length) return;
+    selectedAttackerIds = matchingActorIds;
+  };
+
   const resolveRowLabel = (row) => {
     if (!row) return "-";
     if (row.isIdentifying) {
       return `Player #${row.id ?? row.name ?? ""}`.trim();
     }
     return String(row.name ?? "-");
+  };
+
+  const applyCjkClass = (element, text) => {
+    if (!element) return;
+    element.classList.toggle("isCjk", cjkRegex.test(String(text || "")));
   };
 
   const renderNicknameMenu = () => {
@@ -716,6 +953,7 @@ const createDetailsUI = ({
       item.className = "detailsDropdownItem";
       item.dataset.value = String(entry.id);
       item.textContent = entry.label;
+      applyCjkClass(item, entry.label);
       const color = getJobColor(getActorJob(entry.id));
       if (color) {
         item.style.color = color;
@@ -915,6 +1153,18 @@ const createDetailsUI = ({
 
   const refreshDetailsView = async (seq) => {
     if (!lastRow) return;
+    if (activeCompactMode) {
+      const details = await getDetails(lastRow, {
+        targetId: null,
+        attackerIds: null,
+        totalTargetDamage: null,
+        showSkillIcons: false,
+        maxSkills: COMPACT_MAX_SKILLS,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(details, lastRow);
+      return;
+    }
     if (!detailsContext) {
       const details = await getDetails(lastRow);
       if (typeof seq === "number" && seq !== openSeq) return;
@@ -937,8 +1187,18 @@ const createDetailsUI = ({
         return;
       }
 
-      const detailsList = await Promise.all(
-        targetList.map((target) =>
+      const [firstTarget, ...restTargets] = targetList;
+      const firstDetails = await getDetails(lastRow, {
+        targetId: firstTarget.targetId,
+        attackerIds: selectedAttackerIds,
+        totalTargetDamage: firstTarget.totalDamage,
+        showSkillIcons,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(firstDetails, lastRow);
+
+      const restDetails = await Promise.all(
+        restTargets.map((target) =>
           getDetails(lastRow, {
             targetId: target.targetId,
             attackerIds: selectedAttackerIds,
@@ -947,6 +1207,7 @@ const createDetailsUI = ({
           })
         )
       );
+      const detailsList = [firstDetails, ...restDetails];
       const totalTargetDamage = targetList.reduce(
         (sum, target) => sum + (Number(target?.totalDamage) || 0),
         0
@@ -1024,17 +1285,27 @@ const createDetailsUI = ({
     rememberJobsFromDetails(details);
     selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
     updateHeaderText();
-    renderStats(details);
-    renderSkills(details);
+    renderStats(details, { compact: activeCompactMode });
+    renderSkills(details, { compact: activeCompactMode });
     lastRow = row;
     lastDetails = details;
+    const cacheRowId = String(row?.id ?? "").trim();
+    if (cacheRowId) {
+      detailsCacheByRowId.set(cacheRowId, details);
+    }
+  };
+
+  const getCachedDetails = (rowId) => {
+    const cacheRowId = String(rowId ?? "").trim();
+    if (!cacheRowId) return null;
+    return detailsCacheByRowId.get(cacheRowId) || null;
   };
 
   const isOpen = () => detailsPanel.classList.contains("open");
 
   const open = async (
     row,
-    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null } = {}
+    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null, pin = true, compact = false } = {}
   ) => {
     const rowId = row?.id ?? null;
     // if (!rowId) return;
@@ -1043,24 +1314,43 @@ const createDetailsUI = ({
     const isSame = isOpen && openedRowId === rowId;
     const isSwitch = isOpen && openedRowId && openedRowId !== rowId;
 
-    if (!force && isSame) return;
+    const requestedCompact = !!compact;
+    const requestedPin = !!pin;
+    const isSameCompactMode = activeCompactMode === requestedCompact;
+    const isAlreadyPinnedForRow = pinnedRowId === rowId;
+
+    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) return;
 
     if (isSwitch && restartOnSwitch) {
       close();
       requestAnimationFrame(() => {
-        open(row, { force: true, restartOnSwitch: false });
+        open(row, { force: true, restartOnSwitch: false, defaultTargetAll, defaultTargetId, pin, compact });
       });
       return;
     }
 
     openedRowId = rowId;
+    if (pin) {
+      pinnedRowId = rowId;
+      onPinnedRowChange?.(pinnedRowId);
+    }
     lastRow = row;
 
+    activeCompactMode = requestedCompact;
     selectedAttackerLabel = resolveRowLabel(row);
     const rowIdNum = Number(rowId);
     selectedAttackerIds = Number.isFinite(rowIdNum) ? [rowIdNum] : null;
-    loadDetailsContext();
-    if (defaultTargetAll) {
+    if (activeCompactMode) {
+      detailsContext = null;
+      detailsActors = new Map();
+      detailsTargets = [];
+    } else {
+      loadDetailsContext();
+    }
+    syncSelectedAttackersFromLabel();
+    if (activeCompactMode) {
+      selectedTargetId = null;
+    } else if (defaultTargetAll) {
       selectedTargetId = null;
     } else if (Number.isFinite(Number(defaultTargetId)) && Number(defaultTargetId) > 0) {
       selectedTargetId = Number(defaultTargetId);
@@ -1078,11 +1368,16 @@ const createDetailsUI = ({
     updateHeaderText();
     detailsPanel.classList.add("open");
 
-    // 이전 값 비우기
-    for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
-    for (let i = 0; i < skillSlots.length; i++) {
-      skillSlots[i].rowEl.style.display = "none";
-      skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+    const cachedDetails = getCachedDetails(rowId);
+    if (cachedDetails) {
+      render(cachedDetails, row);
+    } else {
+      // 이전 값 비우기
+      for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
+      for (let i = 0; i < skillSlots.length; i++) {
+        skillSlots[i].rowEl.style.display = "none";
+        skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+      }
     }
 
     const seq = ++openSeq;
@@ -1096,12 +1391,20 @@ const createDetailsUI = ({
       // uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
     }
   };
-  const close = () => {
+  const close = ({ keepPinned = false } = {}) => {
     openSeq++;
 
     openedRowId = null;
+    if (!keepPinned) {
+      pinnedRowId = null;
+      onPinnedRowChange?.(null);
+    }
     lastRow = null;
     lastDetails = null;
+    activeCompactMode = false;
+    for (let i = 0; i < statSlots.length; i++) {
+      statSlots[i].statEl.style.display = "";
+    }
     detailsPanel.classList.remove("open");
   };
   detailsClose?.addEventListener("click", close);
@@ -1110,10 +1413,15 @@ const createDetailsUI = ({
     if (!detailsPanel.classList.contains("open") || !lastRow) return;
     const previousTargetId = selectedTargetId;
     const previousAttackerIds = Array.isArray(selectedAttackerIds) ? [...selectedAttackerIds] : null;
+    const wasCompact = activeCompactMode;
     const seq = ++openSeq;
-    loadDetailsContext();
+    if (!wasCompact) {
+      loadDetailsContext();
+    }
     selectedTargetId = previousTargetId;
+    activeCompactMode = wasCompact;
     selectedAttackerIds = previousAttackerIds;
+    syncSelectedAttackersFromLabel();
     renderNicknameMenu();
     renderTargetMenu();
     syncSortButtons();
@@ -1121,5 +1429,7 @@ const createDetailsUI = ({
     await refreshDetailsView(seq);
   };
 
-  return { open, close, isOpen, render, updateLabels, refresh };
+  const isPinned = () => pinnedRowId !== null;
+
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh };
 };

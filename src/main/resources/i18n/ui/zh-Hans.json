@@ -73,6 +73,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "输入你的角色名称",
     "pinMeToTop": "将我置顶",
+    "bold": {
+      "label": "加粗",
+      "names": "名称",
+      "dps": "DPS"
+    },
     "debugLogging": "启用调试日志",
     "quit": "退出",
     "discord": "在 Discord 找到我们",
@@ -136,6 +141,29 @@
       }
     }
   },
+  "support": {
+    "button": "支持我一下 ☕",
+    "title": "在爱发电支持作者",
+    "titleWechat": "在微信支持作者",
+    "label": {
+      "wechat": "微信"
+    },
+    "copy": {
+      "btc": "已复制 BTC 地址",
+      "eth": "已复制 ETH 地址",
+      "usdc": "已复制 USDC 地址"
+    },
+    "aria": {
+      "afdian": "打开爱发电",
+      "kofi": "打开 Ko-fi",
+      "close": "关闭支持弹窗",
+      "wechat": "显示微信二维码",
+      "paypal": "打开 PayPal",
+      "btc": "复制 BTC 地址",
+      "eth": "复制 ETH 地址",
+      "usdc": "复制 USDC 地址"
+    }
+  },
   "battleTime": {
     "analysing": "正在监控数据...",
     "idle": "空闲",
@@ -151,7 +179,8 @@
   "update": {
     "title": "有新更新",
     "ok": "确定",
-    "text": "有新更新可用！\n\n当前版本：v.{current}\n最新版本：v.{latest}\n\n请在继续前更新。"
+    "later": "稍后更新",
+    "text": "有新更新可用！\n\n当前版本：v.{current}\n最新版本：v.{latest}\n\n请在继续前更新。\n\n新版本带来更好的数据准确性、性能改进和修复。建议尽快更新。"
   },
   "connection": {
     "auto": "自动",

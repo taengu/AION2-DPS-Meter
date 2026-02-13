@@ -3,10 +3,14 @@ package com.tbread.packet
 import com.tbread.DataStorage
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
-import com.tbread.logging.DebugLogWriter
+import com.tbread.logging.UnifiedLogger
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
+    companion object {
+        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
+    }
+
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
 
     data class VarIntOutput(val value: Int, val length: Int)
@@ -337,7 +341,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 candidate.name,
                 toHex(candidate.nameBytes)
             )
-            DebugLogWriter.info(
+            UnifiedLogger.info(
                 logger,
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
@@ -371,12 +375,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val possibleName = String(possibleNameBytes, Charsets.UTF_8)
                     val sanitizedName = sanitizeNickname(possibleName)
                     if (sanitizedName != null) {
-                        logger.info(
+                        logger.debug(
                             "Potential nickname found in cast net: {} (hex={})",
                             sanitizedName,
                             toHex(possibleNameBytes)
                         )
-                        DebugLogWriter.info(
+                        UnifiedLogger.debug(
                             logger,
                             "Potential nickname found in cast net: {} (hex={})",
                             sanitizedName,
@@ -418,13 +422,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun skipGuildName(packet: ByteArray, startIndex: Int): Int {
         if (startIndex >= packet.size) return startIndex
-        val length = packet[startIndex].toInt() and 0xff
-        if (length !in 1..32) return startIndex
-        val nameStart = startIndex + 1
+
+        var offset = startIndex
+        if (packet[offset] == 0x00.toByte()) {
+            offset++
+            if (offset >= packet.size) return offset
+        }
+
+        val length = packet[offset].toInt() and 0xff
+        if (length !in 1..32) return offset
+        val nameStart = offset + 1
         val nameEnd = nameStart + length
-        if (nameEnd > packet.size) return startIndex
+        if (nameEnd > packet.size) return offset
         val nameBytes = packet.copyOfRange(nameStart, nameEnd)
-        decodeUtf8Strict(nameBytes) ?: return startIndex
+        decodeUtf8Strict(nameBytes) ?: return offset
         return nameEnd
     }
 
@@ -475,13 +486,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val existingNickname = dataStorage.getNickname()[actorId]
         if (existingNickname != sanitizedName) {
-            logger.info(
+            logger.debug(
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
                 sanitizedName,
                 toHex(possibleNameBytes)
             )
-            DebugLogWriter.info(
+            UnifiedLogger.debug(
                 logger,
                 "Actor name binding found {} -> {} (hex={})",
                 actorId,
@@ -549,10 +560,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val damageInfo = readVarInt(packet,offset)
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
-        pdp.setHexPayload(toHex(packet))
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
 
-        logger.debug("{}", toHex(packet))
-        DebugLogWriter.debug(logger, "{}", toHex(packet))
+        if (logger.isDebugEnabled) {
+            logger.debug("{}", toHex(packet))
+        }
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(logger, "{}", toHex(packet))
+        }
         logger.debug(
             "Dot damage actor {}, target {}, skill {}, damage {}",
             pdp.getActorId(),
@@ -560,7 +577,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getSkillCode1(),
             pdp.getDamage()
         )
-        DebugLogWriter.debug(
+        UnifiedLogger.debug(
             logger,
             "Dot damage actor {}, target {}, skill {}, damage {}",
             pdp.getActorId(),
@@ -569,7 +586,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage()
         )
         logger.debug("----------------------------------")
-        DebugLogWriter.debug(logger, "----------------------------------")
+        UnifiedLogger.debug(logger, "----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
@@ -669,7 +686,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val realActorId = parseUInt16le(packet, offset)
 
         logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-        DebugLogWriter.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
+        UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
         dataStorage.appendSummon(realActorId, summonInfo.value)
         return true
     }
@@ -730,7 +747,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val possibleName = String(np, Charsets.UTF_8)
         val sanitizedName = sanitizeNickname(possibleName) ?: return false
         logger.debug("Confirmed nickname found in pattern 0 {}", sanitizedName)
-        DebugLogWriter.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
+        UnifiedLogger.debug(logger, "Confirmed nickname found in pattern 0 {}", sanitizedName)
         dataStorage.appendNickname(playerInfo.value, sanitizedName)
 
         return true
@@ -749,7 +766,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet[reader.offset + 1] != 0x38.toByte()) return false
         reader.offset += 2
         fun logUnparsedDamage(): Boolean {
-            DebugLogWriter.debug(logger, "Unparsed damage packet hex={}", toHex(packet))
+            UnifiedLogger.debug(logger, "Unparsed damage packet hex={}", toHex(packet))
             return false
         }
         if (reader.offset >= packet.size) return logUnparsedDamage()
@@ -875,15 +892,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setHealAmount(healAmount)
         pdp.setUnknown(unknownInfo)
         pdp.setDamage(VarIntOutput(finalDamage, 1))
-        pdp.setHexPayload(toHex(packet))
+        if (UnifiedLogger.isDebugEnabled()) {
+            pdp.setHexPayload(toHex(packet))
+        }
 
-        logger.trace("{}", toHex(packet))
-        logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
-        logger.trace(
-            "Type packet bits {}",
-            String.format("%8s", (damageType.toInt() and 0xFF).toString(2)).replace(' ', '0')
-        )
-        logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        if (logger.isTraceEnabled) {
+            logger.trace("{}", toHex(packet))
+            logger.trace("Type packet {}", toHex(byteArrayOf(damageType)))
+            logger.trace(
+                "Type packet bits {}",
+                Integer.toBinaryString(damageType.toInt() and 0xFF).padStart(8, '0')
+            )
+            logger.trace("Varint packet: {}", toHex(packet.copyOfRange(start, start + tempV)))
+        }
         logger.debug(
             "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}",
             pdp.getTargetId(),
@@ -893,17 +914,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage(),
             pdp.getSpecials()
         )
-        DebugLogWriter.debug(
-            logger,
-            "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
-            pdp.getTargetId(),
-            pdp.getActorId(),
-            pdp.getSkillCode1(),
-            pdp.getType(),
-            pdp.getDamage(),
-            pdp.getSpecials(),
-            toHex(packet)
-        )
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(
+                logger,
+                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, damage flag:{}, hex={}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getSkillCode1(),
+                pdp.getType(),
+                pdp.getDamage(),
+                pdp.getSpecials(),
+                toHex(packet)
+            )
+        }
 
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
@@ -915,8 +938,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun toHex(bytes: ByteArray): String {
-        //출력테스트용
-        return bytes.joinToString(" ") { "%02X".format(it) }
+        if (bytes.isEmpty()) return ""
+        val hex = CharArray(bytes.size * 3 - 1)
+        var pos = 0
+        bytes.forEachIndexed { index, b ->
+            val value = b.toInt() and 0xFF
+            val high = value ushr 4
+            val low = value and 0x0F
+            hex[pos++] = HEX_DIGITS[high]
+            hex[pos++] = HEX_DIGITS[low]
+            if (index != bytes.lastIndex) {
+                hex[pos++] = ' '
+            }
+        }
+        return String(hex)
     }
 
     private fun normalizeSkillId(raw: Int): Int {

@@ -1,7 +1,7 @@
 package com.tbread.packet
 
 import com.tbread.DataStorage
-import com.tbread.logging.CrashLogWriter
+import com.tbread.logging.UnifiedLogger
 import com.tbread.windows.WindowTitleDetector
 import kotlinx.coroutines.channels.Channel
 import org.slf4j.LoggerFactory
@@ -23,11 +23,18 @@ class CaptureDispatcher(
     private val MAGIC = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
     private val TLS_CONTENT_TYPES = setOf(0x14, 0x15, 0x16, 0x17)
     private val TLS_VERSIONS = setOf(0x00, 0x01, 0x02, 0x03, 0x04)
+    private var skipLogWindowStartMs = 0L
+    private var skipLogCountInWindow = 0
 
     suspend fun run() {
         for (cap in channel) {
             try {
                 if (!ensureAionRunning()) {
+                    logUnlockedPacketSkip(cap, "AION window not detected")
+                    continue
+                }
+                val lockedDevice = CombatPortDetector.currentDevice()
+                if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
                 val a = minOf(cap.srcPort, cap.dstPort)
@@ -38,8 +45,26 @@ class CaptureDispatcher(
                     StreamAssembler(StreamProcessor(sharedDataStorage))
                 }
 
-                // "Lock" is informational for now; don't filter until parsing confirmed stable
-                if (CombatPortDetector.currentPort() == null && isUnencryptedCandidate(cap.data)) {
+                val unlocked = CombatPortDetector.currentPort() == null
+                val tlsPayload = looksLikeTlsPayload(cap.data)
+
+                if (unlocked && tlsPayload) {
+                    logUnlockedPacketSkip(cap, "TLS payload ignored while waiting for combat lock")
+                    continue
+                }
+
+                val hasCombatMagic = if (tlsPayload) false else contains(cap.data, MAGIC)
+                if (unlocked && !hasCombatMagic) {
+                    val reason = when {
+                        cap.data.isEmpty() -> "Empty payload while waiting for combat signature"
+                        cap.data.size < MAGIC.size -> "Payload too short for combat signature while waiting for lock"
+                        else -> "No combat signature (06 00 36) while waiting for combat lock"
+                    }
+                    logUnlockedPacketSkip(cap, reason)
+                    continue
+                }
+
+                if (unlocked && hasCombatMagic) {
                     // Choose srcPort for now (since magic typically comes from the sender)
                     CombatPortDetector.registerCandidate(cap.srcPort, key, cap.deviceName)
                     logger.info(
@@ -52,24 +77,67 @@ class CaptureDispatcher(
                     )
                 }
 
-                if (looksLikeTlsPayload(cap.data)) {
-                    continue
-                }
                 val parsed = assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
                 }
                 if (parsed) {
                     CombatPortDetector.markPacketParsed()
+                } else {
+                    val reason = if (unlocked) {
+                        "Combat-signature candidate rejected or incomplete by assembler"
+                    } else {
+                        "Locked-flow chunk rejected or incomplete by assembler"
+                    }
+                    logUnlockedPacketSkip(cap, reason)
                 }
             } catch (e: Exception) {
-                CrashLogWriter.log(
+                UnifiedLogger.crash(
                     "Parser stopped while processing ${cap.deviceName} ${cap.srcPort}-${cap.dstPort}",
                     e
                 )
                 throw e
             }
         }
+    }
+
+    private fun logUnlockedPacketSkip(cap: CapturedPayload, reason: String) {
+        if (!UnifiedLogger.isDebugEnabled()) return
+        if (CombatPortDetector.currentPort() != null || CombatPortDetector.currentDevice() != null) return
+
+        val now = System.currentTimeMillis()
+        if (skipLogWindowStartMs == 0L || now - skipLogWindowStartMs >= SKIP_LOG_WINDOW_MS) {
+            skipLogWindowStartMs = now
+            skipLogCountInWindow = 0
+        }
+        if (skipLogCountInWindow >= SKIP_LOG_LIMIT_PER_WINDOW) return
+        skipLogCountInWindow++
+
+        val hex = toHex(cap.data)
+        UnifiedLogger.debug(
+            logger,
+            "Unlocked packet skipped/rejected #{}/{} in {}ms: reason={}, device={}, src={}, dst={}, hex={}",
+            skipLogCountInWindow,
+            SKIP_LOG_LIMIT_PER_WINDOW,
+            SKIP_LOG_WINDOW_MS,
+            reason,
+            cap.deviceName ?: "unknown",
+            cap.srcPort,
+            cap.dstPort,
+            hex
+        )
+    }
+
+    private fun toHex(bytes: ByteArray): String {
+        if (bytes.isEmpty()) return ""
+        val chars = CharArray(bytes.size * 2)
+        var idx = 0
+        for (b in bytes) {
+            val v = b.toInt() and 0xFF
+            chars[idx++] = HEX_DIGITS[v ushr 4]
+            chars[idx++] = HEX_DIGITS[v and 0x0F]
+        }
+        return String(chars)
     }
 
     private fun ensureAionRunning(): Boolean {
@@ -85,10 +153,6 @@ class CaptureDispatcher(
             isAionRunning = running
         }
         return isAionRunning
-    }
-
-    private fun isUnencryptedCandidate(data: ByteArray): Boolean {
-        return !looksLikeTlsPayload(data) && contains(data, MAGIC)
     }
 
     private fun looksLikeTlsPayload(data: ByteArray): Boolean {
@@ -111,6 +175,11 @@ class CaptureDispatcher(
         return false
     }
 
+    private fun deviceMatches(lockedDevice: String, packetDevice: String?): Boolean {
+        val trimmedPacket = packetDevice?.trim()?.takeIf { it.isNotBlank() } ?: return false
+        return trimmedPacket.equals(lockedDevice, ignoreCase = true)
+    }
+
     fun getParsingBacklog(): Int {
         synchronized(assemblers) {
             return assemblers.values.sumOf { it.bufferedBytes() }
@@ -118,7 +187,10 @@ class CaptureDispatcher(
     }
 
     companion object {
+        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
+        private const val SKIP_LOG_WINDOW_MS = 30_000L
+        private const val SKIP_LOG_LIMIT_PER_WINDOW = 5
     }
 }

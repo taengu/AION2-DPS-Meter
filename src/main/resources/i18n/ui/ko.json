@@ -73,6 +73,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "캐릭터 이름 입력",
     "pinMeToTop": "내 캐릭터를 맨 위에 고정",
+    "bold": {
+      "label": "굵게",
+      "names": "이름",
+      "dps": "DPS"
+    },
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
     "discord": "디스코드에서 만나요",
@@ -136,6 +141,29 @@
       }
     }
   },
+  "support": {
+    "button": "지원하기 ☕",
+    "title": "Support the author on Ko-fi",
+    "titleWechat": "Support the author on WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
+    "copy": {
+      "btc": "BTC 주소가 복사되었습니다",
+      "eth": "ETH 주소가 복사되었습니다",
+      "usdc": "USDC 주소가 복사되었습니다"
+    },
+    "aria": {
+      "afdian": "爱发电 열기",
+      "kofi": "Ko-fi 열기",
+      "close": "후원 모달 닫기",
+      "wechat": "WeChat QR 코드 보기",
+      "paypal": "PayPal 열기",
+      "btc": "BTC 주소 복사",
+      "eth": "ETH 주소 복사",
+      "usdc": "USDC 주소 복사"
+    }
+  },
   "battleTime": {
     "analysing": "데이터 모니터링 중...",
     "idle": "대기 중",
@@ -151,7 +179,8 @@
   "update": {
     "title": "새 업데이트 사용 가능",
     "ok": "확인",
-    "text": "새 업데이트가 있습니다!\n\n현재 버전: v.{current}\n최신 버전: v.{latest}\n\n계속하기 전에 업데이트해 주세요."
+    "later": "나중에 업데이트",
+    "text": "새 업데이트가 있습니다!\n\n현재 버전: v.{current}\n최신 버전: v.{latest}\n\n계속하기 전에 업데이트해 주세요.\n\n새 버전은 데이터 정확도 향상, 성능 개선, 버그 수정을 포함합니다. 곧 업데이트하는 것이 중요합니다."
   },
   "connection": {
     "auto": "자동",

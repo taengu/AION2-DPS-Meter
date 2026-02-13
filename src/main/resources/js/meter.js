@@ -3,12 +3,15 @@ const createMeterUI = ({
   dpsFormatter,
   getUserName,
   onClickUserRow,
+  onHoverUserRow,
+  onLeaveUserRow,
   getMetric,
   getSortDirection,
   getPinUserToTop,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
+  const classIconSrcByJob = new Map();
 
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
@@ -69,7 +72,43 @@ const createMeterUI = ({
       fillEl,
       currentRow: null,
       lastSeenAt: 0,
+      isVisible: false,
+      lastNameText: "",
+      lastIsCjk: false,
+      lastMetricText: "",
+      lastContributionText: "",
+      lastFillRatio: -1,
+      lastClassIconSrc: "",
+      lastIsUser: false,
+      lastIsIdentifying: false,
+      hoverRipplePlayed: false,
+      hoverRippleTimer: null,
     };
+
+    rowEl.addEventListener("mouseenter", () => {
+      if (!view.hoverRipplePlayed) {
+        view.rowEl.classList.add("hoverRippleOnce");
+        view.hoverRipplePlayed = true;
+        if (view.hoverRippleTimer) {
+          clearTimeout(view.hoverRippleTimer);
+        }
+        view.hoverRippleTimer = setTimeout(() => {
+          view.rowEl.classList.remove("hoverRippleOnce");
+          view.hoverRippleTimer = null;
+        }, 950);
+      }
+      onHoverUserRow?.(view.currentRow);
+    });
+
+    rowEl.addEventListener("mouseleave", () => {
+      view.hoverRipplePlayed = false;
+      if (view.hoverRippleTimer) {
+        clearTimeout(view.hoverRippleTimer);
+        view.hoverRippleTimer = null;
+      }
+      view.rowEl.classList.remove("hoverRippleOnce");
+      onLeaveUserRow?.(view.currentRow);
+    });
 
     rowEl.addEventListener("click", () => {
       // if (view.currentRow?.isUser)
@@ -162,23 +201,59 @@ const createMeterUI = ({
       view.currentRow = row;
       view.lastSeenAt = now;
 
-      view.rowEl.style.display = "";
-      view.rowEl.classList.toggle("isUser", !!row.isUser);
-      view.rowEl.classList.toggle("isIdentifying", !!row.isIdentifying);
+      if (!view.isVisible) {
+        view.rowEl.style.display = "";
+        view.isVisible = true;
+      }
+
+      const isUser = !!row.isUser;
+      if (view.lastIsUser !== isUser) {
+        view.rowEl.classList.toggle("isUser", isUser);
+        view.lastIsUser = isUser;
+      }
+
+      const isIdentifying = !!row.isIdentifying;
+      if (view.lastIsIdentifying !== isIdentifying) {
+        view.rowEl.classList.toggle("isIdentifying", isIdentifying);
+        view.lastIsIdentifying = isIdentifying;
+      }
 
       const rowId = row.id ?? row.name ?? "";
       const nameText = row.isIdentifying
         ? window.i18n?.format?.("meter.identifyingPlayer", { id: rowId }, `Player #${rowId}`) ??
           `Player #${rowId}`
         : row.name ?? "";
-      view.nameEl.textContent = nameText;
-      view.nameEl.classList.toggle("isCjk", cjkRegex.test(nameText));
+      if (view.lastNameText !== nameText) {
+        view.nameEl.textContent = nameText;
+        view.lastNameText = nameText;
+      }
+
+      const isCjk = cjkRegex.test(nameText);
+      if (view.lastIsCjk !== isCjk) {
+        view.nameEl.classList.toggle("isCjk", isCjk);
+        view.lastIsCjk = isCjk;
+      }
+
       if (row.job && !!row.job) {
-        const src = `./assets/${row.job}.png`;
-        view.classIconImg.src = src;
-        view.classIconImg.style.visibility = "visible";
+        if (!classIconSrcByJob.has(row.job)) {
+          classIconSrcByJob.set(row.job, `./assets/${row.job}.png`);
+        }
+        const src = classIconSrcByJob.get(row.job);
+        if (view.lastClassIconSrc !== src) {
+          view.classIconImg.src = src;
+          view.lastClassIconSrc = src;
+        }
+        if (view.classIconImg.style.visibility !== "visible") {
+          view.classIconImg.style.visibility = "visible";
+        }
       } else {
-        view.classIconImg.style.visibility = "hidden";
+        if (view.lastClassIconSrc) {
+          view.lastClassIconSrc = "";
+          view.classIconImg.removeAttribute("src");
+        }
+        if (view.classIconImg.style.visibility !== "hidden") {
+          view.classIconImg.style.visibility = "hidden";
+        }
       }
 
       // view.classIconEl.style.display = "";
@@ -204,10 +279,23 @@ const createMeterUI = ({
         view.prevContribClass = contributionClass;
       }
 
-      view.dpsNumber.textContent = metric.text;
-      view.dpsContribution.textContent = `${damageContribution.toFixed(1)}%`;
+      const metricText = metric.text;
+      if (view.lastMetricText !== metricText) {
+        view.dpsNumber.textContent = metricText;
+        view.lastMetricText = metricText;
+      }
+
+      const contributionText = `${damageContribution.toFixed(1)}%`;
+      if (view.lastContributionText !== contributionText) {
+        view.dpsContribution.textContent = contributionText;
+        view.lastContributionText = contributionText;
+      }
+
       const ratio = Math.max(0, Math.min(1, metricValue / topMetric));
-      view.fillEl.style.transform = `scaleX(${ratio})`;
+      if (view.lastFillRatio !== ratio) {
+        view.fillEl.style.transform = `scaleX(${ratio})`;
+        view.lastFillRatio = ratio;
+      }
 
       elList.appendChild(view.rowEl);
     }
@@ -215,7 +303,10 @@ const createMeterUI = ({
     for (const id of lastVisibleIds) {
       if (nextVisibleIds.has(id)) continue;
       const view = rowViewById.get(id);
-      if (view) view.rowEl.style.display = "none";
+      if (view && view.isVisible) {
+        view.rowEl.style.display = "none";
+        view.isVisible = false;
+      }
     }
 
     lastVisibleIds = nextVisibleIds;
@@ -245,6 +336,14 @@ const createMeterUI = ({
     }
 
     rowViewById.clear();
+    classIconSrcByJob.clear();
   };
-  return { updateFromRows, onResetMeterUi };
+
+  const getRowById = (id) => {
+    if (id === null || id === undefined) return null;
+    const view = rowViewById.get(id) || rowViewById.get(String(id));
+    return view?.currentRow || null;
+  };
+
+  return { updateFromRows, onResetMeterUi, getRowById };
 };

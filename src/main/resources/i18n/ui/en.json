@@ -47,7 +47,7 @@
       "back": "Back",
       "multiHit": "MHits",
       "multiHitDamage": "MHDmg",
-      "totalDamage": "Total Damage",
+      "totalDamage": "Total Dmg",
       "heal": "Heal"
     },
     "stats": {
@@ -75,6 +75,11 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
     "pinMeToTop": "Always show me at the top",
+    "bold": {
+      "label": "Bold",
+      "names": "Names",
+      "dps": "DPS"
+    },
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
     "discord": "Find us on Discord",
@@ -138,6 +143,29 @@
       }
     }
   },
+  "support": {
+    "button": "Support me ☕",
+    "title": "Support the author on Ko-fi",
+    "titleWechat": "Support the author on WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
+    "copy": {
+      "btc": "BTC address copied",
+      "eth": "ETH address copied",
+      "usdc": "USDC address copied"
+    },
+    "aria": {
+      "afdian": "Open Afdian",
+      "kofi": "Open Ko-fi",
+      "close": "Close support modal",
+      "wechat": "Show WeChat QR code",
+      "paypal": "Open PayPal",
+      "btc": "Copy BTC address",
+      "eth": "Copy ETH address",
+      "usdc": "Copy USDC address"
+    }
+  },
   "battleTime": {
     "analysing": "Monitoring data...",
     "idle": "Idle",
@@ -153,7 +181,8 @@
   "update": {
     "title": "New update available",
     "ok": "OK",
-    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing."
+    "later": "Update Later",
+    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing.\n\nThe new version brings better data accuracy, performance improvements, and fixes. It's important you update soon."
   },
   "connection": {
     "auto": "Auto",

@@ -1,11 +1,13 @@
 package com.tbread
 
 import com.tbread.entity.ParsedDamagePacket
-import com.tbread.logging.DebugLogWriter
+import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
+import java.util.concurrent.atomic.AtomicInteger
 
 class DataStorage {
     private val logger = LoggerFactory.getLogger(DataStorage::class.java)
@@ -13,11 +15,11 @@ class DataStorage {
     private val byActorStorage = ConcurrentHashMap<Int, ConcurrentSkipListSet<ParsedDamagePacket>>()
     private val nicknameStorage = ConcurrentHashMap<Int, String>()
     private val pendingNicknameStorage = ConcurrentHashMap<Int, String>()
-    private val summonStorage = HashMap<Int, Int>()
-    private val skillCodeData = HashMap<Int, String>()
-    private val mobCodeData = HashMap<Int, String>()
-    private val mobStorage = HashMap<Int, Int>()
-    private var currentTarget:Int = 0
+    private val summonStorage = ConcurrentHashMap<Int, Int>()
+    private val skillCodeData = ConcurrentHashMap<Int, String>()
+    private val mobCodeData = ConcurrentHashMap<Int, String>()
+    private val mobStorage = ConcurrentHashMap<Int, Int>()
+    private val currentTarget = AtomicInteger(0)
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
@@ -29,11 +31,11 @@ class DataStorage {
     }
 
     fun setCurrentTarget(targetId:Int){
-        currentTarget = targetId
+        currentTarget.set(targetId)
     }
 
     fun getCurrentTarget():Int{
-        return currentTarget
+        return currentTarget.get()
     }
 
     fun appendMobCode(code: Int, name: String) {
@@ -49,6 +51,7 @@ class DataStorage {
         summonStorage[summon] = summoner
     }
 
+    @Synchronized
     fun appendNickname(uid: Int, nickname: String) {
         if (nicknameStorage[uid] != null && nicknameStorage[uid].equals(nickname)) {
             val localName = LocalPlayer.characterName?.trim().orEmpty()
@@ -62,7 +65,7 @@ class DataStorage {
             nickname.toByteArray(Charsets.UTF_8).size < nicknameStorage[uid]!!.toByteArray(Charsets.UTF_8).size
         ) {
             logger.debug("Nickname registration skipped {} -x> {}", nicknameStorage[uid], nickname)
-            DebugLogWriter.debug(
+            UnifiedLogger.debug(
                 logger,
                 "Nickname registration skipped {} -x> {}",
                 nicknameStorage[uid],
@@ -71,7 +74,7 @@ class DataStorage {
             return
         }
         logger.debug("Nickname registered {} -> {}", nicknameStorage[uid], nickname)
-        DebugLogWriter.debug(logger, "Nickname registered {} -> {}", nicknameStorage[uid], nickname)
+        UnifiedLogger.debug(logger, "Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         nicknameStorage[uid] = nickname
 
         val localName = LocalPlayer.characterName?.trim().orEmpty()
@@ -85,18 +88,21 @@ class DataStorage {
         appendNickname(uid, nickname.trim())
     }
 
+    @Synchronized
     fun cachePendingNickname(uid: Int, nickname: String) {
         if (nicknameStorage[uid] != null) return
         logger.debug("Pending nickname stored {} -> {}", uid, nickname)
-        DebugLogWriter.debug(logger, "Pending nickname stored {} -> {}", uid, nickname)
+        UnifiedLogger.debug(logger, "Pending nickname stored {} -> {}", uid, nickname)
         pendingNicknameStorage[uid] = nickname
     }
 
+    @Synchronized
     fun resetNicknameStorage() {
         nicknameStorage.clear()
         pendingNicknameStorage.clear()
     }
 
+    @Synchronized
     private fun applyPendingNickname(uid: Int) {
         if (nicknameStorage[uid] != null) return
         val pending = pendingNicknameStorage.remove(uid) ?: return
@@ -108,6 +114,7 @@ class DataStorage {
         byActorStorage.clear()
         byTargetStorage.clear()
         summonStorage.clear()
+        currentTarget.set(0)
         logger.info("Damage packets reset")
     }
 
@@ -131,15 +138,15 @@ class DataStorage {
         return nicknameStorage
     }
 
-    fun getSummonData(): HashMap<Int, Int> {
+    fun getSummonData(): ConcurrentMap<Int, Int> {
         return summonStorage
     }
 
-    fun getMobCodeData(): HashMap<Int, String> {
+    fun getMobCodeData(): ConcurrentMap<Int, String> {
         return mobCodeData
     }
 
-    fun getMobData(): HashMap<Int, Int> {
+    fun getMobData(): ConcurrentMap<Int, Int> {
         return mobStorage
     }
 }
