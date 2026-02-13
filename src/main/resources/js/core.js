@@ -548,7 +548,9 @@ class DpsApp {
       const rowEl = event?.target?.closest?.(".item");
       const rowId = Number(rowEl?.dataset?.rowId);
       if (!Number.isFinite(rowId) || rowId <= 0) return;
-      const row = this.latestRowsById?.get?.(String(rowId));
+      const row =
+        this.meterUI?.getRowById?.(rowId) ||
+        this.latestRowsById?.get?.(String(rowId));
       if (!row) return;
 
       pendingHoverRow = row;
