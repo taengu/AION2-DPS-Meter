@@ -839,6 +839,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     }
     .name.isCjk {
       font-family: var(--cjk-font-stack);
+      font-size: 19px;
       font-weight: 500;
       letter-spacing: 0;
     }

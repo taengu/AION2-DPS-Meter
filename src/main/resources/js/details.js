@@ -32,8 +32,6 @@ const createDetailsUI = ({
   let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
   let skillColumnSyncRafId = 0;
-  let pendingSkillColumnForceSync = false;
-  let lastSkillColumnSyncAt = 0;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
   const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
@@ -295,7 +293,7 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
-    scheduleSkillColumnMinWidths({ force: true });
+    scheduleSkillColumnMinWidths();
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -558,11 +556,19 @@ const createDetailsUI = ({
     });
   };
 
-  const syncSkillColumnMinWidths = ({ force = false } = {}) => {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    if (!force && now - lastSkillColumnSyncAt < 120) {
-      return;
-    }
+  const clearSkillColumnInlineWidths = () => {
+    const cells = detailsPanel?.querySelectorAll?.(".detailsSkills .cell");
+    if (!cells?.length) return;
+    cells.forEach((cell) => {
+      cell.style.removeProperty("min-width");
+      cell.style.removeProperty("width");
+      cell.style.removeProperty("max-width");
+      cell.style.removeProperty("flex");
+    });
+  };
+
+  const syncSkillColumnMinWidths = () => {
+    clearSkillColumnInlineWidths();
     const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
     if (!headerEl || !headerCells?.length) return;
@@ -719,21 +725,15 @@ const createDetailsUI = ({
       detailsPanel.style.width = `${maxAllowedWidth}px`;
     }
 
-    lastSkillColumnSyncAt = now;
   };
 
-  const scheduleSkillColumnMinWidths = ({ force = false } = {}) => {
-    if (force) {
-      pendingSkillColumnForceSync = true;
-    }
+  const scheduleSkillColumnMinWidths = () => {
     if (skillColumnSyncRafId) {
       return;
     }
     skillColumnSyncRafId = requestAnimationFrame(() => {
       skillColumnSyncRafId = 0;
-      const shouldForce = pendingSkillColumnForceSync;
-      pendingSkillColumnForceSync = false;
-      syncSkillColumnMinWidths({ force: shouldForce });
+      syncSkillColumnMinWidths();
     });
   };
 
@@ -796,11 +796,11 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
-  scheduleSkillColumnMinWidths({ force: true });
+  scheduleSkillColumnMinWidths();
 
   if (typeof ResizeObserver === "function") {
     const skillColumnsResizeObserver = new ResizeObserver(() => {
-      scheduleSkillColumnMinWidths({ force: true });
+      scheduleSkillColumnMinWidths();
     });
     const skillsEl = detailsPanel?.querySelector?.(".detailsSkills .skills");
     if (skillsEl) {
@@ -1429,7 +1429,9 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     detailsPanel.classList.add("open");
-    scheduleSkillColumnMinWidths({ force: true });
+    detailsPanel.style.removeProperty("width");
+    clearSkillColumnInlineWidths();
+    scheduleSkillColumnMinWidths();
 
     const cachedDetails = getCachedDetails(rowId);
     if (cachedDetails) {
@@ -1465,6 +1467,9 @@ const createDetailsUI = ({
     lastRow = null;
     lastDetails = null;
     activeCompactMode = false;
+    lastSkillNameColumnWidth = 0;
+    detailsPanel.style.removeProperty("width");
+    clearSkillColumnInlineWidths();
     for (let i = 0; i < statSlots.length; i++) {
       statSlots[i].statEl.style.display = "";
     }
