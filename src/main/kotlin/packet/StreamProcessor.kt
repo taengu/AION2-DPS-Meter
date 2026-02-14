@@ -109,12 +109,22 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val packetLengthInfo = readVarInt(packet)
 
+        if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
+            logger.debug("Malformed packet length header skipped: {}", toHex(packet))
+            return parsed
+        }
+
         if (packet.size == packetLengthInfo.value) {
+            val payloadEnd = packet.size - 3
+            if (payloadEnd <= 0) {
+                logger.debug("Short packet with no payload skipped: {}", toHex(packet))
+                return parsed
+            }
             logger.trace(
                 "Current byte length matches expected length: {}",
-                toHex(packet.copyOfRange(0, packet.size - 3))
+                toHex(packet.copyOfRange(0, payloadEnd))
             )
-            if (parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))) parsed = true
+            if (parsePerfectPacket(packet.copyOfRange(0, payloadEnd))) parsed = true
             return parsed
         }
         if (packet.size <= 3) return parsed
@@ -129,18 +139,25 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return parsed
         }
 
+        val payloadEnd = packetLengthInfo.value - 3
+        if (payloadEnd <= 0 || payloadEnd > packet.size) {
+            logger.debug("Invalid payload boundary skipped: length={}, packet={}", packetLengthInfo.value, toHex(packet))
+            return parsed
+        }
+
         try {
-            if (packet.copyOfRange(0, packetLengthInfo.value - 3).size != 3) {
-                if (packet.copyOfRange(0, packetLengthInfo.value - 3).isNotEmpty()) {
+            val headPacket = packet.copyOfRange(0, payloadEnd)
+            if (headPacket.size != 3) {
+                if (headPacket.isNotEmpty()) {
                     logger.trace(
                         "Packet split succeeded: {}",
-                        toHex(packet.copyOfRange(0, packetLengthInfo.value - 3))
+                        toHex(headPacket)
                     )
-                    if (parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - 3))) parsed = true
+                    if (parsePerfectPacket(headPacket)) parsed = true
                 }
             }
 
-            if (onPacketReceived(packet.copyOfRange(packetLengthInfo.value - 3, packet.size))) parsed = true
+            if (onPacketReceived(packet.copyOfRange(payloadEnd, packet.size))) parsed = true
         } catch (_: IndexOutOfBoundsException) {
             logger.debug("Truncated tail packet skipped: {}", toHex(packet))
             return parsed
