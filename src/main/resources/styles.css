@@ -2365,7 +2365,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSkills .skills .skillRow .cell.name {
   font-weight: 700;
   white-space: normal;
-  align-items: flex-start;
+  align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
   flex: 0 0 var(--details-skill-name-width, 144px);
