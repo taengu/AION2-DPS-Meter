@@ -8,8 +8,8 @@ class DpsApp {
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
     this.pinMeToTop = false;
-    this.mainPlayerNamesBold = false;
-    this.mainPlayerDpsBold = false;
+    this.mainPlayerNamesBold = true;
+    this.mainPlayerDpsBold = true;
     this.includeMainMeterScreenshot = false;
     this.saveScreenshotToFolder = false;
     this.screenshotFolder = "";
@@ -104,6 +104,8 @@ class DpsApp {
     this.deferFetchUntilDragEnd = false;
     this.deferFetchUntilHoverEnd = false;
     this.suppressRowInteractionUntilMs = 0;
+    this.hoverTooltipCacheByRowId = new Map();
+    this.hoverTooltipRequestSeqByRowId = new Map();
 
     DpsApp.instance = this;
   }
@@ -540,14 +542,54 @@ class DpsApp {
     if (!row || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
     const rowId = Number(row?.id);
     if (!Number.isFinite(rowId) || rowId <= 0) return;
-    if (this.hoveredDetailsRowId === rowId && this.detailsUI?.isOpen?.()) return;
+    if (this.hoveredDetailsRowId === rowId) return;
     this.hoveredDetailsRowId = rowId;
-    this.detailsUI?.open?.(row, {
-      pin: false,
-      compact: true,
-      restartOnSwitch: false,
-      ...this.getDefaultDetailsOpenOptions(),
-    });
+    this.detailsUI?.close?.({ keepPinned: false });
+    this.applyHoverTooltip(row);
+  }
+
+  applyHoverTooltip(row) {
+    const rowId = Number(row?.id);
+    if (!Number.isFinite(rowId) || rowId <= 0) return;
+    const rowEl = this.elList?.querySelector?.(`.item[data-row-id="${rowId}"]`);
+    if (!rowEl) return;
+
+    const baseLines = [
+      String(row?.name || "-"),
+      `${this.i18n?.t("header.display.dps", "DPS") ?? "DPS"}: ${this.getMetricForRow(row).text}`,
+      `${this.i18n?.t("details.stats.totalDamage", "Total Damage") ?? "Total Damage"}: ${this.dpsFormatter.format(Number(row?.totalDamage) || 0)}`,
+    ];
+
+    const cachedTooltip = this.hoverTooltipCacheByRowId.get(rowId);
+    if (cachedTooltip) {
+      rowEl.title = cachedTooltip;
+      return;
+    }
+
+    rowEl.title = `${baseLines.join("\n")}\n${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}`;
+    const requestSeq = (this.hoverTooltipRequestSeqByRowId.get(rowId) || 0) + 1;
+    this.hoverTooltipRequestSeqByRowId.set(rowId, requestSeq);
+
+    this.getDetails(row, { maxSkills: 5, showSkillIcons: false })
+      .then((details) => {
+        const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
+        if (currentSeq !== requestSeq) return;
+        const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
+        const skillLines = skills.map((skill, index) => {
+          const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
+          return `${index + 1}. ${String(skill?.name || "-")} (${dmg})`;
+        });
+        const tooltipText = skillLines.length
+          ? [...baseLines, "", ...skillLines].join("\n")
+          : baseLines.join("\n");
+        this.hoverTooltipCacheByRowId.set(rowId, tooltipText);
+        rowEl.title = tooltipText;
+      })
+      .catch(() => {
+        const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
+        if (currentSeq !== requestSeq) return;
+        rowEl.title = baseLines.join("\n");
+      });
   }
 
   bindInstantDetailsHover() {
@@ -793,6 +835,7 @@ class DpsApp {
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
+    this.hoverTooltipCacheByRowId.clear();
     this.meterUI.updateFromRows(rowsToRender);
   }
 
@@ -1384,6 +1427,7 @@ class DpsApp {
     this.logoBtn?.addEventListener("click", () => {
       this.captureMainMeterScreenshot();
     });
+    this.logoBtn?.setAttribute("data-no-drag", "true");
   }
 
   setupSettingsPanel() {
@@ -1448,8 +1492,10 @@ class DpsApp {
       this.safeGetStorage(this.storageKeys.meterFillOpacity);
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
-    const storedMainPlayerNamesBold = this.safeGetSetting(this.storageKeys.mainPlayerNamesBold) === "true";
-    const storedMainPlayerDpsBold = this.safeGetSetting(this.storageKeys.mainPlayerDpsBold) === "true";
+    const mainPlayerNamesBoldSetting = this.safeGetSetting(this.storageKeys.mainPlayerNamesBold);
+    const storedMainPlayerNamesBold = mainPlayerNamesBoldSetting !== "false";
+    const mainPlayerDpsBoldSetting = this.safeGetSetting(this.storageKeys.mainPlayerDpsBold);
+    const storedMainPlayerDpsBold = mainPlayerDpsBoldSetting !== "false";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
@@ -1460,6 +1506,12 @@ class DpsApp {
     this.setPinMeToTop(storedPinMeToTop, { persist: false });
     this.setMainPlayerNamesBold(storedMainPlayerNamesBold, { persist: false });
     this.setMainPlayerDpsBold(storedMainPlayerDpsBold, { persist: false });
+    if (mainPlayerNamesBoldSetting === null || mainPlayerNamesBoldSetting === undefined || mainPlayerNamesBoldSetting === "") {
+      this.safeSetSetting(this.storageKeys.mainPlayerNamesBold, "true");
+    }
+    if (mainPlayerDpsBoldSetting === null || mainPlayerDpsBoldSetting === undefined || mainPlayerDpsBoldSetting === "") {
+      this.safeSetSetting(this.storageKeys.mainPlayerDpsBold, "true");
+    }
     const normalizedTargetSelection =
       storedTargetSelection === "allTargets" || storedTargetSelection === "trainTargets"
         ? storedTargetSelection
@@ -2018,10 +2070,10 @@ class DpsApp {
     this.setDetailsFontSize(initialFontSize, { persist: false });
 
     const storedIncludeMeter =
-      this.safeGetStorage(this.storageKeys.detailsIncludeMeterScreenshot) === "true";
+      this.safeGetSetting(this.storageKeys.detailsIncludeMeterScreenshot) === "true";
     const storedSaveToFolder =
-      this.safeGetStorage(this.storageKeys.detailsSaveScreenshotToFolder) === "true";
-    const storedFolder = this.safeGetStorage(this.storageKeys.detailsScreenshotFolder);
+      this.safeGetSetting(this.storageKeys.detailsSaveScreenshotToFolder) === "true";
+    const storedFolder = this.safeGetSetting(this.storageKeys.detailsScreenshotFolder);
     this.includeMainMeterScreenshot = storedIncludeMeter;
     this.saveScreenshotToFolder = storedSaveToFolder;
     this.screenshotFolder = storedFolder || this.getDefaultScreenshotFolder();
@@ -2030,7 +2082,7 @@ class DpsApp {
       this.detailsIncludeMeterCheckbox.checked = this.includeMainMeterScreenshot;
       this.detailsIncludeMeterCheckbox.addEventListener("change", (event) => {
         this.includeMainMeterScreenshot = !!event.target?.checked;
-        this.safeSetStorage(
+        this.safeSetSetting(
           this.storageKeys.detailsIncludeMeterScreenshot,
           String(this.includeMainMeterScreenshot)
         );
@@ -2043,12 +2095,12 @@ class DpsApp {
         if (this.saveScreenshotToFolder && !this.screenshotFolder) {
           this.screenshotFolder = this.getDefaultScreenshotFolder();
         }
-        this.safeSetStorage(
+        this.safeSetSetting(
           this.storageKeys.detailsSaveScreenshotToFolder,
           String(this.saveScreenshotToFolder)
         );
         if (this.screenshotFolder) {
-          this.safeSetStorage(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
+          this.safeSetSetting(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
         }
         this.updateScreenshotFolderDisplay();
       });
@@ -2058,7 +2110,7 @@ class DpsApp {
         const selected = window.javaBridge?.chooseScreenshotFolder?.(this.screenshotFolder);
         if (!selected || typeof selected !== "string") return;
         this.screenshotFolder = selected;
-        this.safeSetStorage(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
+        this.safeSetSetting(this.storageKeys.detailsScreenshotFolder, this.screenshotFolder);
         this.updateScreenshotFolderDisplay();
       });
     }
@@ -2253,7 +2305,7 @@ class DpsApp {
   getDefaultScreenshotFolder() {
     return (
       window.javaBridge?.getDefaultScreenshotFolder?.() ||
-      this.safeGetStorage(this.storageKeys.detailsScreenshotFolder) ||
+      this.safeGetSetting(this.storageKeys.detailsScreenshotFolder) ||
       ""
     );
   }
@@ -2836,7 +2888,7 @@ class DpsApp {
       if (targetEl?.closest?.(".detailsResizeHandle")) {
         return;
       }
-      if (targetEl?.closest?.(".headerBtn, .footerBtn")) {
+      if (targetEl?.closest?.(".headerBtn, .footerBtn, .bossIcon")) {
         return;
       }
       if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .list .item")) {
