@@ -1,5 +1,6 @@
 (function initSkillIcons(global) {
   const BASE_URL = "https://assets.playnccdn.com/static-aion2-gamedata/resources";
+  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
   const classCodeByPrefix = {
     "11": "GL",
@@ -85,12 +86,16 @@
     if (!imgEl) return;
     const candidates = getIconCandidates(skill);
     if (!candidates.length) {
-      imgEl.style.display = "none";
-      imgEl.removeAttribute("src");
+      imgEl.dataset.iconCandidates = "[]";
+      imgEl.dataset.iconIndex = "0";
+      imgEl.classList.add("isPlaceholder");
+      imgEl.src = TRANSPARENT_PIXEL;
+      imgEl.style.display = "";
       return;
     }
     imgEl.dataset.iconCandidates = JSON.stringify(candidates);
     imgEl.dataset.iconIndex = "0";
+    imgEl.classList.remove("isPlaceholder");
     imgEl.src = candidates[0];
     imgEl.style.display = "";
   };
@@ -107,10 +112,13 @@
     }
     const idx = Number(imgEl.dataset.iconIndex || 0) + 1;
     if (!Array.isArray(candidates) || idx >= candidates.length) {
-      imgEl.style.display = "none";
+      imgEl.classList.add("isPlaceholder");
+      imgEl.src = TRANSPARENT_PIXEL;
+      imgEl.style.display = "";
       return;
     }
     imgEl.dataset.iconIndex = String(idx);
+    imgEl.classList.remove("isPlaceholder");
     imgEl.src = candidates[idx];
   };
 

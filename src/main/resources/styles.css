@@ -2382,6 +2382,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   flex: 0 0 auto;
   object-fit: cover;
 }
+.detailsPanel .detailsSkills .cell.name .skillIcon.isPlaceholder {
+  background: rgba(180, 186, 198, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
 .detailsPanel .detailsSkills .cell.name .skillNameText {
   flex: 1 1 auto;
   min-width: 0;
@@ -2896,6 +2900,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: 3px;
   flex: 0 0 auto;
   object-fit: cover;
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isPlaceholder {
+  background: rgba(180, 186, 198, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .hoverDetailsTooltipSkill .name .skillName {
