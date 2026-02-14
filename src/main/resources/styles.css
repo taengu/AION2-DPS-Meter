@@ -2856,6 +2856,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 700;
 }
 
 .hoverDetailsTooltipSkill .dmg {
