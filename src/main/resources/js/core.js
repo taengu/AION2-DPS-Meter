@@ -58,6 +58,24 @@ class DpsApp {
       kofi: "./assets/kofi.png",
       wechat: "./assets/wechat.png",
     };
+    this.jobColorMap = {
+      정령성: "#E06BFF",
+      Spiritmaster: "#E06BFF",
+      궁성: "#41D98A",
+      Ranger: "#41D98A",
+      살성: "#7BE35A",
+      Assassin: "#7BE35A",
+      수호성: "#5F8CFF",
+      Templar: "#5F8CFF",
+      마도성: "#9A6BFF",
+      Sorcerer: "#9A6BFF",
+      호법성: "#FF9A3D",
+      Chanter: "#FF9A3D",
+      치유성: "#F2C15A",
+      Cleric: "#F2C15A",
+      검성: "#4FD1C5",
+      Gladiator: "#4FD1C5",
+    };
 
     // 빈데이터 덮어쓰기 방지 스냅샷
     this.lastSnapshot = null;
@@ -572,20 +590,15 @@ class DpsApp {
     this.applyHoverTooltip(row, { forceRefresh: !isSameRow });
   }
 
+  getJobColor(job) {
+    return this.jobColorMap[String(job || "")] || "";
+  }
+
   renderHoverTooltip(details, row, rowEl) {
     if (!this.hoverTooltipEl || !rowEl) return;
     const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
-    const containerRect = this.elList?.getBoundingClientRect?.();
-    const mouseX = Number(this.hoverMousePos?.x);
-    const mouseY = Number(this.hoverMousePos?.y);
-    const fallbackTop = rowEl.offsetTop + rowEl.offsetHeight + 8;
-    const fallbackLeft = rowEl.offsetLeft + rowEl.offsetWidth + 12;
-    let top = fallbackTop;
-    let left = fallbackLeft;
-    if (containerRect && Number.isFinite(mouseX) && Number.isFinite(mouseY)) {
-      left = mouseX - containerRect.left + 16;
-      top = mouseY - containerRect.top + 6;
-    }
+    let top = 0;
+    let left = 372;
     const dpsText = this.getMetricForRow(row).text;
     const totalDamageText = this.dpsFormatter.format(Number(row?.totalDamage) || 0);
 
@@ -593,9 +606,9 @@ class DpsApp {
       .map((skill, index) => {
         const name = String(skill?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
-        const hue = (index * 47 + 195) % 360;
-        const skillColor = `hsl(${hue} 90% 76%)`;
-        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name" style="color:${skillColor}">${name}</span><span class="dmg">${dmg}</span></div>`;
+        const skillColor = this.getJobColor(skill?.job || row?.job);
+        const skillStyle = skillColor ? ` style="color:${skillColor}"` : "";
+        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name"${skillStyle}>${name}</span><span class="dmg">${dmg}</span></div>`;
       })
       .join("");
 
@@ -607,10 +620,10 @@ class DpsApp {
       </div>
       <div class="hoverDetailsTooltipSkills">${skillsHtml || `<div class="hoverDetailsTooltipSkill muted">${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}</div>`}</div>
     `;
-    const maxLeft = Math.max(8, (this.elList?.clientWidth || 0) - (this.hoverTooltipEl.offsetWidth || 0) - 8);
+    const maxLeft = Math.max(372, (this.elList?.clientWidth || 0) - (this.hoverTooltipEl.offsetWidth || 0) - 8);
     const maxTop = Math.max(8, (this.elList?.clientHeight || 0) - (this.hoverTooltipEl.offsetHeight || 0) - 8);
-    left = Math.max(8, Math.min(maxLeft, left));
-    top = Math.max(8, Math.min(maxTop, top));
+    left = Math.max(372, Math.min(maxLeft, left));
+    top = Math.max(0, Math.min(maxTop, top));
 
     this.hoverTooltipEl.style.left = `${left}px`;
     this.hoverTooltipEl.style.top = `${top}px`;
