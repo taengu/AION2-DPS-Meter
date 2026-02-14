@@ -3,6 +3,7 @@ package com.tbread.packet
 import com.tbread.DataStorage
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
+import com.tbread.DpsCalculator
 import com.tbread.logging.UnifiedLogger
 import org.slf4j.LoggerFactory
 
@@ -54,15 +55,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val normalized = normalizeSkillId(raw)
 
                 // --- NEW: Added 1,000,000..9,999,999 to allow NPC skills and Effects ---
+                // --- NEW: Added 30,000,000 range to allow Theostone Procs ---
                 if (
                     normalized in 11_000_000..19_999_999 ||
                     normalized in 3_000_000..3_999_999 ||
                     normalized in 100_000..199_999 ||
-                    normalized in 1_000_000..9_999_999
+                    normalized in 1_000_000..9_999_999 ||
+                    normalized in 30_000_000..30_999_999
                 ) {
                     offset = start + i + 5
                     return normalized
                 }
+
                 // -----------------------------------------------------------------------
             }
 
@@ -626,30 +630,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
         if (pattern.isEmpty()) return 0
-
         val p = ByteArray(pattern.size) { pattern[it].toByte() }
-
-        val lps = IntArray(p.size)
-        var len = 0
-        for (i in 1 until p.size) {
-            while (len > 0 && p[i] != p[len]) len = lps[len - 1]
-            if (p[i] == p[len]) len++
-            lps[i] = len
-        }
-
-        var i = 0
-        var j = 0
-        while (i < data.size) {
-            if (data[i] == p[j]) {
-                i++; j++
-                if (j == p.size) return i - j
-            } else if (j > 0) {
-                j = lps[j - 1]
-            } else {
-                i++
-            }
-        }
-        return -1
+        return findArrayIndex(data, p)
     }
 
     private fun findArrayIndex(data: ByteArray, p: ByteArray): Int {
@@ -783,9 +765,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parsingDamage(packet: ByteArray): Boolean {
-        if (packet[0] == 0x20.toByte()) return false
-        if (packet[0] == 0x1f.toByte()) return false
-        if (packet[0] == 0x1e.toByte()) return false
+        // The 3 hardcoded filters that blocked 30, 31, and 32-byte packets have been removed!
+
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         val reader = DamagePacketReader(packet, packetLengthInfo.length)
@@ -811,9 +792,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return true
         }
 
-        val flagValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
-        @Suppress("UNUSED_VARIABLE")
-        val flagInfo = VarIntOutput(flagValue, 1) // Required advancement but unused mapping
+        reader.tryReadVarInt() ?: return logUnparsedDamage() // Consume Unused flag value
 
         if (reader.offset >= packet.size) return logUnparsedDamage()
 
@@ -969,7 +948,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun normalizeSkillId(raw: Int): Int {
-        return raw - (raw % 10000)
+        // 1. Always preserve Theostones (8-digit IDs starting with 30M)
+        if (raw in 30_000_000..30_999_999) {
+            return raw
+        }
+
+        val base = raw - (raw % 10000)
+
+        // 2. Data-Driven Aggregation
+        val rawName = DpsCalculator.SKILL_MAP[raw]
+        val baseName = DpsCalculator.SKILL_MAP[base]
+
+        // If the specific variant has a fundamentally different name than the base, preserve it!
+        // (e.g., 11050047 "Wave Attack" != 11050000 "Crushing Wave")
+        // (e.g., 16001101 "Fire Spirit: Flame Explosion" != 16000000 "Basic Attack")
+        if (rawName != null && baseName != null && rawName != baseName) {
+            return raw
+        }
+
+        // If the names are identical, safely crush it to the base for clean UI aggregation.
+        // (e.g., 11020047 "Keen Strike" == 11020000 "Keen Strike")
+        return base
     }
 
 

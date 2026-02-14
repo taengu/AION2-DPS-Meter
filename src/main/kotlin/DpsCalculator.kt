@@ -735,7 +735,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     ): Int? {
         val isValidRange = skillCode in 11_000_000..19_999_999 ||
                 skillCode in 3_000_000..3_999_999 ||
-                skillCode in 100_000..199_999
+                skillCode in 100_000..199_999||
+                skillCode in 30_000_000..30_999_999
 
         if (isValidRange) {
             return skillCode
@@ -745,7 +746,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val possibleOrigin = skillCode - offset
             val isInferredValid = possibleOrigin in 11_000_000..19_999_999 ||
                     possibleOrigin in 3_000_000..3_999_999 ||
-                    possibleOrigin in 100_000..199_999
+                    possibleOrigin in 100_000..199_999||
+                    possibleOrigin in 30_000_000..30_999_999
             if (isInferredValid) {
                 logger.debug("Inferred original skill code: {}", possibleOrigin)
                 return possibleOrigin
