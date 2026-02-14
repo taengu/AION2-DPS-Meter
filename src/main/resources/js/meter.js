@@ -15,6 +15,8 @@ const createMeterUI = ({
 
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
+  let pendingRenderRows = null;
+  let renderRowsRafId = 0;
 
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
@@ -318,7 +320,12 @@ const createMeterUI = ({
     pruneCache(nextVisibleIds);
   };
 
-  const updateFromRows = (rows) => {
+  const flushPendingRows = () => {
+    renderRowsRafId = 0;
+    const rows = pendingRenderRows;
+    pendingRenderRows = null;
+    if (!rows) return;
+
     const arr = Array.isArray(rows) ? rows.slice() : [];
     const sortDirection = typeof getSortDirection === "function" ? getSortDirection() : "desc";
     arr.sort((a, b) => {
@@ -328,7 +335,18 @@ const createMeterUI = ({
     });
     renderRows(getDisplayRows(arr));
   };
+
+  const updateFromRows = (rows) => {
+    pendingRenderRows = rows;
+    if (renderRowsRafId) return;
+    renderRowsRafId = requestAnimationFrame(flushPendingRows);
+  };
   const onResetMeterUi = () => {
+    if (renderRowsRafId) {
+      cancelAnimationFrame(renderRowsRafId);
+      renderRowsRafId = 0;
+    }
+    pendingRenderRows = null;
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 

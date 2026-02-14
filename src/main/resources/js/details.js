@@ -31,6 +31,9 @@ const createDetailsUI = ({
   let skillSortDir = "desc";
   let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
+  let skillColumnSyncRafId = 0;
+  let pendingSkillColumnForceSync = false;
+  let lastSkillColumnSyncAt = 0;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
   const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
@@ -292,7 +295,7 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
-    syncSkillColumnMinWidths();
+    scheduleSkillColumnMinWidths({ force: true });
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -555,7 +558,11 @@ const createDetailsUI = ({
     });
   };
 
-  const syncSkillColumnMinWidths = () => {
+  const syncSkillColumnMinWidths = ({ force = false } = {}) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (!force && now - lastSkillColumnSyncAt < 120) {
+      return;
+    }
     const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
     if (!headerEl || !headerCells?.length) return;
@@ -707,10 +714,27 @@ const createDetailsUI = ({
 
     const panelRect = detailsPanel?.getBoundingClientRect?.();
     const currentWidth = Math.ceil(panelRect?.width || 0);
-    const maxAllowedWidth = Math.max(520, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
+    const maxAllowedWidth = Math.max(280, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
     if (currentWidth > maxAllowedWidth) {
       detailsPanel.style.width = `${maxAllowedWidth}px`;
     }
+
+    lastSkillColumnSyncAt = now;
+  };
+
+  const scheduleSkillColumnMinWidths = ({ force = false } = {}) => {
+    if (force) {
+      pendingSkillColumnForceSync = true;
+    }
+    if (skillColumnSyncRafId) {
+      return;
+    }
+    skillColumnSyncRafId = requestAnimationFrame(() => {
+      skillColumnSyncRafId = 0;
+      const shouldForce = pendingSkillColumnForceSync;
+      pendingSkillColumnForceSync = false;
+      syncSkillColumnMinWidths({ force: shouldForce });
+    });
   };
 
   const getSkillIconReserveWidth = () => {
@@ -772,7 +796,24 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
-  syncSkillColumnMinWidths();
+  scheduleSkillColumnMinWidths({ force: true });
+
+  if (typeof ResizeObserver === "function") {
+    const skillColumnsResizeObserver = new ResizeObserver(() => {
+      scheduleSkillColumnMinWidths({ force: true });
+    });
+    const skillsEl = detailsPanel?.querySelector?.(".detailsSkills .skills");
+    if (skillsEl) {
+      skillColumnsResizeObserver.observe(skillsEl);
+    }
+    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
+    if (headerEl) {
+      skillColumnsResizeObserver.observe(headerEl);
+    }
+    if (detailsPanel) {
+      skillColumnsResizeObserver.observe(detailsPanel);
+    }
+  }
 
   const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
@@ -873,7 +914,7 @@ const createDetailsUI = ({
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
 
-    syncSkillColumnMinWidths();
+    scheduleSkillColumnMinWidths();
   };
 
   const loadDetailsContext = () => {
@@ -1388,6 +1429,7 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     detailsPanel.classList.add("open");
+    scheduleSkillColumnMinWidths({ force: true });
 
     const cachedDetails = getCachedDetails(rowId);
     if (cachedDetails) {

@@ -947,18 +947,18 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   --details-skill-icon-size: 36px;
   /* display: block; */
   /* left: calc(100% + 8px); */
-  left: 372px;
+  left: min(372px, calc(100vw - 292px));
   right: 12px;
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(1030px, max(280px, calc(100vw - 384px)));
+  width: min(1030px, max(280px, calc(100vw - 304px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
-  max-width: max(280px, calc(100vw - 384px));
+  max-width: max(280px, calc(100vw - 304px));
   overflow: hidden;
 
   &.flash {
