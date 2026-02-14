@@ -2791,3 +2791,75 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   pointer-events: none !important;
   cursor: grabbing !important;
 }
+
+.hoverDetailsTooltip {
+  position: absolute;
+  z-index: 40;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(12, 22, 40, 0.88);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: var(--title);
+  text-shadow: var(--text-shadow);
+  opacity: 0;
+  transform: translateY(2px);
+  pointer-events: none;
+  transition: opacity 80ms ease, transform 80ms ease;
+}
+
+.hoverDetailsTooltip.isVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hoverDetailsTooltipHeader {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.hoverDetailsTooltipStats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  opacity: 0.95;
+  margin-bottom: 6px;
+}
+
+.hoverDetailsTooltipSkills {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.hoverDetailsTooltipSkill {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.hoverDetailsTooltipSkill .idx {
+  opacity: 0.7;
+}
+
+.hoverDetailsTooltipSkill .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hoverDetailsTooltipSkill .dmg {
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.hoverDetailsTooltipSkill.muted {
+  display: block;
+  opacity: 0.75;
+}

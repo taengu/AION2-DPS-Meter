@@ -106,6 +106,7 @@ class DpsApp {
     this.suppressRowInteractionUntilMs = 0;
     this.hoverTooltipCacheByRowId = new Map();
     this.hoverTooltipRequestSeqByRowId = new Map();
+    this.hoverTooltipEl = null;
 
     DpsApp.instance = this;
   }
@@ -173,6 +174,7 @@ class DpsApp {
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
     this.bindResizeHandle();
+    this.initHoverTooltip();
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -191,6 +193,7 @@ class DpsApp {
         requestAnimationFrame(() => {
           const hoveredRow = this.elList?.querySelector?.(".item:hover");
           if (hoveredRow) return;
+          this.hideHoverTooltip();
           this.detailsUI?.close?.({ keepPinned: false });
         });
       },
@@ -198,6 +201,7 @@ class DpsApp {
         if (!row || this.isWindowDragging) return;
         const rowId = Number(row?.id);
         this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
+        this.hideHoverTooltip();
         this.detailsUI.open(row, {
           pin: true,
           ...this.getDefaultDetailsOpenOptions(),
@@ -205,7 +209,6 @@ class DpsApp {
       },
     });
 
-    this.bindInstantDetailsHover();
 
     const withBacklog = (text) => {
       if (!window.javaBridge?.isRunningFromIde?.()) return text;
@@ -538,6 +541,22 @@ class DpsApp {
 
 
 
+  initHoverTooltip() {
+    const container = document.querySelector(".container");
+    if (!container || this.hoverTooltipEl) return;
+    const tooltip = document.createElement("div");
+    tooltip.className = "hoverDetailsTooltip";
+    tooltip.setAttribute("aria-hidden", "true");
+    container.appendChild(tooltip);
+    this.hoverTooltipEl = tooltip;
+  }
+
+  hideHoverTooltip() {
+    if (!this.hoverTooltipEl) return;
+    this.hoverTooltipEl.classList.remove("isVisible");
+    this.hoverTooltipEl.innerHTML = "";
+  }
+
   openHoverDetailsRow(row) {
     if (!row || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
     const rowId = Number(row?.id);
@@ -548,90 +567,64 @@ class DpsApp {
     this.applyHoverTooltip(row);
   }
 
+  renderHoverTooltip(details, row, rowEl) {
+    if (!this.hoverTooltipEl || !rowEl) return;
+    const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
+    const top = rowEl.offsetTop + rowEl.offsetHeight + 8;
+    const left = rowEl.offsetLeft + 8;
+    const dpsText = this.getMetricForRow(row).text;
+    const totalDamageText = this.dpsFormatter.format(Number(row?.totalDamage) || 0);
+
+    const skillsHtml = skills
+      .map((skill, index) => {
+        const name = String(skill?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
+        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name">${name}</span><span class="dmg">${dmg}</span></div>`;
+      })
+      .join("");
+
+    this.hoverTooltipEl.innerHTML = `
+      <div class="hoverDetailsTooltipHeader">${String(row?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      <div class="hoverDetailsTooltipStats">
+        <span>${this.i18n?.t("header.display.dps", "DPS") ?? "DPS"}: ${dpsText}</span>
+        <span>${this.i18n?.t("details.stats.totalDamage", "Total Damage") ?? "Total Damage"}: ${totalDamageText}</span>
+      </div>
+      <div class="hoverDetailsTooltipSkills">${skillsHtml || `<div class="hoverDetailsTooltipSkill muted">${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}</div>`}</div>
+    `;
+    this.hoverTooltipEl.style.left = `${left}px`;
+    this.hoverTooltipEl.style.top = `${top}px`;
+    this.hoverTooltipEl.classList.add("isVisible");
+  }
+
   applyHoverTooltip(row) {
     const rowId = Number(row?.id);
     if (!Number.isFinite(rowId) || rowId <= 0) return;
     const rowEl = this.elList?.querySelector?.(`.item[data-row-id="${rowId}"]`);
     if (!rowEl) return;
 
-    const baseLines = [
-      String(row?.name || "-"),
-      `${this.i18n?.t("header.display.dps", "DPS") ?? "DPS"}: ${this.getMetricForRow(row).text}`,
-      `${this.i18n?.t("details.stats.totalDamage", "Total Damage") ?? "Total Damage"}: ${this.dpsFormatter.format(Number(row?.totalDamage) || 0)}`,
-    ];
-
-    const cachedTooltip = this.hoverTooltipCacheByRowId.get(rowId);
-    if (cachedTooltip) {
-      rowEl.title = cachedTooltip;
+    const cached = this.hoverTooltipCacheByRowId.get(rowId);
+    if (cached) {
+      this.renderHoverTooltip(cached, row, rowEl);
       return;
     }
 
-    rowEl.title = `${baseLines.join("\n")}\n${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}`;
+    this.renderHoverTooltip({ skills: [] }, row, rowEl);
     const requestSeq = (this.hoverTooltipRequestSeqByRowId.get(rowId) || 0) + 1;
     this.hoverTooltipRequestSeqByRowId.set(rowId, requestSeq);
 
     this.getDetails(row, { maxSkills: 5, showSkillIcons: false })
       .then((details) => {
         const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
-        if (currentSeq !== requestSeq) return;
-        const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
-        const skillLines = skills.map((skill, index) => {
-          const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
-          return `${index + 1}. ${String(skill?.name || "-")} (${dmg})`;
-        });
-        const tooltipText = skillLines.length
-          ? [...baseLines, "", ...skillLines].join("\n")
-          : baseLines.join("\n");
-        this.hoverTooltipCacheByRowId.set(rowId, tooltipText);
-        rowEl.title = tooltipText;
+        if (currentSeq !== requestSeq || this.hoveredDetailsRowId !== rowId) return;
+        const lightweightDetails = { skills: Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [] };
+        this.hoverTooltipCacheByRowId.set(rowId, lightweightDetails);
+        this.renderHoverTooltip(lightweightDetails, row, rowEl);
       })
       .catch(() => {
         const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
-        if (currentSeq !== requestSeq) return;
-        rowEl.title = baseLines.join("\n");
+        if (currentSeq !== requestSeq || this.hoveredDetailsRowId !== rowId) return;
+        this.renderHoverTooltip({ skills: [] }, row, rowEl);
       });
-  }
-
-  bindInstantDetailsHover() {
-    if (!this.elList) return;
-
-    let hoverRafId = null;
-    let pendingHoverRow = null;
-
-    this.elList.addEventListener("mousemove", (event) => {
-      const rowEl = event?.target?.closest?.(".item");
-      this.setMeterHoverFreeze(!!rowEl);
-
-      if (this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
-      const rowId = Number(rowEl?.dataset?.rowId);
-      if (!Number.isFinite(rowId) || rowId <= 0) return;
-      const row =
-        this.meterUI?.getRowById?.(rowId) ||
-        this.latestRowsById?.get?.(String(rowId));
-      if (!row) return;
-
-      pendingHoverRow = row;
-      if (hoverRafId !== null) return;
-      hoverRafId = requestAnimationFrame(() => {
-        hoverRafId = null;
-        const nextRow = pendingHoverRow;
-        pendingHoverRow = null;
-        if (!nextRow || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
-        this.openHoverDetailsRow(nextRow);
-      });
-    });
-
-    this.elList.addEventListener("mouseleave", () => {
-      this.setMeterHoverFreeze(false);
-      if (hoverRafId !== null) {
-        cancelAnimationFrame(hoverRafId);
-        hoverRafId = null;
-      }
-      pendingHoverRow = null;
-      if (this.pinnedDetailsRowId !== null) return;
-      this.hoveredDetailsRowId = null;
-      this.detailsUI?.close?.({ keepPinned: false });
-    });
   }
 
 
