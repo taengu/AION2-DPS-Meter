@@ -752,6 +752,31 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
+        // --- NEW: Log NPC skills in debug mode ---
+        if (skillCode in 1_000_000..9_999_999) {
+            if (logger.isDebugEnabled()) {
+                val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
+                logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
+
+                if (UnifiedLogger.isDebugEnabled()) {
+                    UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
+                }
+            }
+            // Return null so the caller safely defaults to the raw ID without throwing a warning
+            return null
+        }
+        // -----------------------------------------
+
+        // --- NEW: Silently ignore non-player entities to prevent log spam ---
+        val isPlayer = dataStorage.getNickname().containsKey(actorId) ||
+                dataStorage.getSummonData().containsKey(actorId) ||
+                LocalPlayer.playerId?.toInt() == actorId
+
+        if (dataStorage.getMobData().containsKey(actorId) || !isPlayer) {
+            return null
+        }
+        // --------------------------------------------------------------------
+
         logger.debug(
             "Failed to infer skill code: {} (target {}, actor {}, damage {})",
             skillCode,

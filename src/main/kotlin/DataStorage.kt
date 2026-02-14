@@ -21,6 +21,29 @@ class DataStorage {
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
+        // Check if the attacker is a known mob/boss
+        if (mobStorage.containsKey(pdp.getActorId())) {
+
+            // --- NEW: Log the NPC skill before dropping it ---
+            if (logger.isDebugEnabled()) {
+                val skillCode = pdp.getSkillCode1()
+
+                // NPC skills and effects are generally in the 1M to 9M range
+                if (skillCode in 1_000_000..9_999_999) {
+                    // Access the SKILL_MAP safely from the DpsCalculator companion
+                    val skillName = DpsCalculator.SKILL_MAP[skillCode] ?: skillCode.toString()
+
+                    logger.debug("NPC {} attacked {} with {}", pdp.getActorId(), pdp.getTargetId(), skillName)
+                    if (UnifiedLogger.isDebugEnabled()) {
+                        UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", pdp.getActorId(), pdp.getTargetId(), skillName)
+                    }
+                }
+            }
+            // -------------------------------------------------
+
+            return // Safely drop the packet to save memory
+        }
+
         byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         byTargetStorage.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
         applyPendingNickname(pdp.getActorId())

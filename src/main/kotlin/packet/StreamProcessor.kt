@@ -69,7 +69,45 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     fun onPacketReceived(packet: ByteArray): Boolean {
         var parsed = false
+
+        // --- NEW LOGIC: Unzip FF FF Bundle Packets ---
+        if (packet.size >= 10 && packet[2] == 0xff.toByte() && packet[3] == 0xff.toByte()) {
+            val bundlePayload = packet.copyOfRange(10, packet.size)
+            var offset = 0
+
+            while (offset < bundlePayload.size) {
+                // Read the length of the next nested packet
+                val lengthInfo = readVarInt(bundlePayload, offset)
+
+                // Safety check: break if we hit padding or malformed varints
+                if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
+                    break
+                }
+
+                val nestedPacketLength = lengthInfo.value
+
+                // Safety check: break if the nested packet claims to be longer than the remaining buffer
+                if (offset + nestedPacketLength > bundlePayload.size) {
+                    break
+                }
+
+                // Slice out the exact nested packet
+                val nestedPacket = bundlePayload.copyOfRange(offset, offset + nestedPacketLength)
+
+                // Recursively send this standard packet back through the parser!
+                if (onPacketReceived(nestedPacket)) {
+                    parsed = true
+                }
+
+                // Move the offset forward to the start of the next packet in the train
+                offset += nestedPacketLength
+            }
+            return parsed // Return early since we successfully processed the bundle
+        }
+        // ----------------------------------------------
+
         val packetLengthInfo = readVarInt(packet)
+
         if (packet.size == packetLengthInfo.value) {
             logger.trace(
                 "Current byte length matches expected length: {}",
@@ -115,62 +153,59 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             logger.debug("Truncated packet skipped: {}", toHex(packet))
             return parsed
         }
-        if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
-            logger.trace("Remaining packet buffer: {}", toHex(packet))
-            val target = dataStorage.getCurrentTarget()
-            var processed = false
-            if (target != 0) {
-                val targetBytes = convertVarInt(target)
-                val damageOpcodes = byteArrayOf(0x04, 0x38)
-                val dotOpcodes = byteArrayOf(0x05, 0x38)
-                val damageKeyword = damageOpcodes + targetBytes
-                val dotKeyword = dotOpcodes + targetBytes
-                val damageIdx = findArrayIndex(packet, damageKeyword)
-                val dotIdx = findArrayIndex(packet,dotKeyword)
-                val (idx, isDamage) = when {
-                    damageIdx > 0 && dotIdx > 0 -> {
-                        if (damageIdx < dotIdx) damageIdx to true
-                        else dotIdx to false
-                    }
-                    damageIdx > 0 -> damageIdx to true
-                    dotIdx > 0 -> dotIdx to false
-                    else -> -1 to false
+
+        logger.trace("Remaining packet buffer: {}", toHex(packet))
+        val target = dataStorage.getCurrentTarget()
+        var processed = false
+
+        if (target != 0) {
+            val targetBytes = convertVarInt(target)
+            val damageOpcodes = byteArrayOf(0x04, 0x38)
+            val dotOpcodes = byteArrayOf(0x05, 0x38)
+            val damageKeyword = damageOpcodes + targetBytes
+            val dotKeyword = dotOpcodes + targetBytes
+            val damageIdx = findArrayIndex(packet, damageKeyword)
+            val dotIdx = findArrayIndex(packet, dotKeyword)
+
+            val (idx, isDamage) = when {
+                damageIdx > 0 && dotIdx > 0 -> {
+                    if (damageIdx < dotIdx) damageIdx to true
+                    else dotIdx to false
                 }
-                if (idx > 0) {
-                    val packetLengthInfo = readVarInt(packet, idx - 1)
-                    if (packetLengthInfo.length == 1) {
-                        val startIdx = idx - 1
-                        val endIdx = idx - 1 + packetLengthInfo.value - 3
-                        if (startIdx in 0..<endIdx && endIdx <= packet.size) {
-                            val extractedPacket = packet.copyOfRange(startIdx, endIdx)
-                            if (isDamage) {
-                                if (parsingDamage(extractedPacket)) parsed = true
-                            } else {
-                                parseDoTPacket(extractedPacket)
-                            }
-                            processed = true
-                            if (endIdx < packet.size) {
-                                val remainingPacket = packet.copyOfRange(endIdx, packet.size)
-                                if (parseBrokenLengthPacket(remainingPacket, false)) parsed = true
-                            }
+                damageIdx > 0 -> damageIdx to true
+                dotIdx > 0 -> dotIdx to false
+                else -> -1 to false
+            }
+
+            if (idx > 0) {
+                val packetLengthInfo = readVarInt(packet, idx - 1)
+                if (packetLengthInfo.length == 1) {
+                    val startIdx = idx - 1
+                    val endIdx = idx - 1 + packetLengthInfo.value - 3
+                    if (startIdx in 0..<endIdx && endIdx <= packet.size) {
+                        val extractedPacket = packet.copyOfRange(startIdx, endIdx)
+                        if (isDamage) {
+                            if (parsingDamage(extractedPacket)) parsed = true
+                        } else {
+                            parseDoTPacket(extractedPacket)
+                        }
+                        processed = true
+                        if (endIdx < packet.size) {
+                            val remainingPacket = packet.copyOfRange(endIdx, packet.size)
+                            if (parseBrokenLengthPacket(remainingPacket, false)) parsed = true
                         }
                     }
                 }
             }
-            if (flag && !processed) {
-                logger.trace("Remaining packet {}", toHex(packet))
-                if (parseActorNameBindingRules(packet)) parsed = true
-                if (parseLootAttributionActorName(packet)) parsed = true
-                if (castNicknameNet(packet)) parsed = true
-            }
-            return parsed
         }
-        if (packet.size <= 10) {
-            logger.debug("Truncated packet skipped: {}", toHex(packet))
-            return parsed
+
+        if (flag && !processed) {
+            logger.trace("Remaining packet {}", toHex(packet))
+            if (parseActorNameBindingRules(packet)) parsed = true
+            if (parseLootAttributionActorName(packet)) parsed = true
+            if (castNicknameNet(packet)) parsed = true
         }
-        val newPacket = packet.copyOfRange(10, packet.size)
-        if (onPacketReceived(newPacket)) parsed = true
+
         return parsed
     }
 
