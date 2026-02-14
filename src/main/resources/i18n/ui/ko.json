@@ -17,7 +17,10 @@
     },
     "panelBackground": "패널 배경",
     "fontSize": {
-      "label": "글자 크기"
+      "label": "글꼴 크기"
+    },
+    "iconSize": {
+      "label": "스킬 아이콘 크기"
     },
     "screenshots": {
       "label": "스크린샷",

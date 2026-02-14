@@ -19,6 +19,9 @@
     "fontSize": {
       "label": "Font size"
     },
+    "iconSize": {
+      "label": "Skill icon size"
+    },
     "screenshots": {
       "label": "Screenshots",
       "includeMeter": "Include main DPS meter",

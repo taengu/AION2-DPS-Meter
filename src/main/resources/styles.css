@@ -939,6 +939,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: none;
   flex-direction: column;
   --details-font-size: var(--font);
+  --details-skill-icon-size: 36px;
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: 372px;
@@ -2280,6 +2281,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSettings .detailsFontSizeInput {
   width: 190px;
 }
+.detailsPanel .detailsSettings .detailsIconSizeInput {
+  width: 190px;
+}
 .detailsPanel .detailsSettings .detailsOpacityValue {
   font-size: 12px;
   opacity: 0.75;
@@ -2287,6 +2291,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   text-align: right;
 }
 .detailsPanel .detailsSettings .detailsFontSizeValue {
+  font-size: 12px;
+  opacity: 0.75;
+  min-width: 44px;
+  text-align: right;
+}
+.detailsPanel .detailsSettings .detailsIconSizeValue {
   font-size: 12px;
   opacity: 0.75;
   min-width: 44px;
@@ -2363,8 +2373,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--isUser-fill);
 }
 .detailsPanel .detailsSkills .cell.name .skillIcon {
-  width: 18px;
-  height: 18px;
+  width: var(--details-skill-icon-size, 36px);
+  height: var(--details-skill-icon-size, 36px);
   border-radius: 3px;
   margin-right: 6px;
   flex: 0 0 auto;
@@ -2873,8 +2883,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 .hoverDetailsTooltipSkill .name .skillIcon {
-  width: 16px;
-  height: 16px;
+  width: var(--tooltip-skill-icon-size, 20px);
+  height: var(--tooltip-skill-icon-size, 20px);
   border-radius: 3px;
   flex: 0 0 auto;
   object-fit: cover;

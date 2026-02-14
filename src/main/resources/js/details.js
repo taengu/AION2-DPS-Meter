@@ -713,6 +713,13 @@ const createDetailsUI = ({
     }
   };
 
+  const getSkillIconReserveWidth = () => {
+    const rawSize = detailsPanel ? window.getComputedStyle(detailsPanel).getPropertyValue("--details-skill-icon-size") : "";
+    const iconSize = Number.parseFloat(rawSize);
+    const resolved = Number.isFinite(iconSize) && iconSize > 0 ? iconSize : 36;
+    return resolved + 8;
+  };
+
   const syncSkillNameColumnWidth = (skills = []) => {
     if (!skillNameMeasureCtx) return;
     const fontSource =
@@ -729,7 +736,7 @@ const createDetailsUI = ({
     for (let i = 0; i < skills.length; i++) {
       const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
       const hasIcon = (window.skillIcons?.getIconCandidates?.(skills[i]) || []).length > 0;
-      const withIcon = hasIcon ? width + 22 : width;
+      const withIcon = hasIcon ? width + getSkillIconReserveWidth() : width;
       if (withIcon > widest) widest = withIcon;
     }
 

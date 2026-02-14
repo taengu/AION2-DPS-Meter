@@ -19,6 +19,9 @@
     "fontSize": {
       "label": "字体大小"
     },
+    "iconSize": {
+      "label": "技能图标大小"
+    },
     "screenshots": {
       "label": "截图",
       "includeMeter": "包含主 DPS 计量器",

@@ -22,6 +22,7 @@ class DpsApp {
       meterFillOpacity: "dpsMeter.meterFillOpacity",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       detailsFontSize: "dpsMeter.detailsFontSize",
+      detailsIconSize: "dpsMeter.detailsIconSize",
       detailsIncludeMeterScreenshot: "dpsMeter.detailsIncludeMeterScreenshot",
       detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
       detailsScreenshotFolder: "dpsMeter.detailsScreenshotFolder",
@@ -89,6 +90,8 @@ class DpsApp {
     this.GRACE_ARM_MS = 3000;
     this.DETAILS_FONT_SIZE_MIN = 11;
     this.DETAILS_FONT_SIZE_MAX = 20;
+    this.DETAILS_ICON_SIZE_MIN = 20;
+    this.DETAILS_ICON_SIZE_MAX = 56;
 
 
     // battleTime 캐시
@@ -2090,6 +2093,8 @@ class DpsApp {
     this.detailsOpacityValue = document.querySelector(".detailsOpacityValue");
     this.detailsFontSizeInput = document.querySelector(".detailsFontSizeInput");
     this.detailsFontSizeValue = document.querySelector(".detailsFontSizeValue");
+    this.detailsIconSizeInput = document.querySelector(".detailsIconSizeInput");
+    this.detailsIconSizeValue = document.querySelector(".detailsIconSizeValue");
     this.detailsSettingsBtn = document.querySelector(".detailsSettingsBtn");
     this.detailsSettingsMenu = document.querySelector(".detailsSettingsMenu");
     this.detailsIncludeMeterCheckbox = document.querySelector(".detailsIncludeMeterCheckbox");
@@ -2106,6 +2111,10 @@ class DpsApp {
     const storedFontSize = this.safeGetSetting(this.storageKeys.detailsFontSize);
     const initialFontSize = this.parseDetailsFontSize(storedFontSize);
     this.setDetailsFontSize(initialFontSize, { persist: false });
+
+    const storedIconSize = this.safeGetSetting(this.storageKeys.detailsIconSize);
+    const initialIconSize = this.parseDetailsIconSize(storedIconSize);
+    this.setDetailsIconSize(initialIconSize, { persist: false });
 
     const storedIncludeMeter =
       this.safeGetSetting(this.storageKeys.detailsIncludeMeterScreenshot) === "true";
@@ -2216,6 +2225,18 @@ class DpsApp {
       });
     }
 
+    if (this.detailsIconSizeInput) {
+      this.detailsIconSizeInput.value = String(Math.round(initialIconSize));
+      const stopDrag = (event) => event.stopPropagation();
+      this.detailsIconSizeInput.addEventListener("mousedown", stopDrag);
+      this.detailsIconSizeInput.addEventListener("touchstart", stopDrag, { passive: true });
+      this.detailsIconSizeInput.addEventListener("input", (event) => {
+        const nextValue = Number(event.target?.value);
+        if (!Number.isFinite(nextValue)) return;
+        this.setDetailsIconSize(nextValue, { persist: true });
+      });
+    }
+
     this.detailsSettingsBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       this.toggleDetailsSettingsMenu(event);
@@ -2308,6 +2329,18 @@ class DpsApp {
     return Math.min(this.DETAILS_FONT_SIZE_MAX, Math.max(this.DETAILS_FONT_SIZE_MIN, parsed));
   }
 
+
+  parseDetailsIconSize(value) {
+    if (value === null || value === undefined || value === "") {
+      return 36;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return 36;
+    }
+    return Math.min(this.DETAILS_ICON_SIZE_MAX, Math.max(this.DETAILS_ICON_SIZE_MIN, parsed));
+  }
+
   setDetailsBackgroundOpacity(opacity, { persist = false } = {}) {
     const clamped = Math.min(1, Math.max(0, opacity));
     if (this.detailsPanel) {
@@ -2337,6 +2370,25 @@ class DpsApp {
     }
     if (persist) {
       this.safeSetSetting(this.storageKeys.detailsFontSize, String(clamped));
+    }
+  }
+
+
+  setDetailsIconSize(size, { persist = false } = {}) {
+    const clamped = Math.min(this.DETAILS_ICON_SIZE_MAX, Math.max(this.DETAILS_ICON_SIZE_MIN, size));
+    if (this.detailsPanel) {
+      this.detailsPanel.style.setProperty("--details-skill-icon-size", `${clamped}px`);
+    }
+    const tooltipSize = Math.round(Math.min(28, Math.max(16, clamped * 0.56)));
+    document.documentElement.style.setProperty("--tooltip-skill-icon-size", `${tooltipSize}px`);
+    if (this.detailsIconSizeValue) {
+      this.detailsIconSizeValue.textContent = `${Math.round(clamped)}px`;
+    }
+    if (this.detailsIconSizeInput && document.activeElement !== this.detailsIconSizeInput) {
+      this.detailsIconSizeInput.value = String(Math.round(clamped));
+    }
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.detailsIconSize, String(clamped));
     }
   }
 
