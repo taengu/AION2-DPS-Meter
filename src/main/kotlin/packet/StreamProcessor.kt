@@ -53,16 +53,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         ((data[start + i + 2].toLong() and 0xFFL) shl 16) or
                         ((data[start + i + 3].toLong() and 0xFFL) shl 24)
 
-                val candidates = mutableListOf<Int>()
-                if (rawUnsigned % 100L == 0L) {
-                    val divided = rawUnsigned / 100L
-                    if (divided in 0L..Int.MAX_VALUE.toLong()) {
-                        candidates.add(divided.toInt())
-                    }
-                }
-                if (rawUnsigned in 0L..Int.MAX_VALUE.toLong()) {
-                    candidates.add(rawUnsigned.toInt())
-                }
+                val candidates = buildSkillCandidates(rawUnsigned)
 
                 for (candidate in candidates) {
                     val normalized = normalizeSkillId(candidate)
@@ -948,6 +939,43 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
         }
         return String(hex)
+    }
+
+    private fun buildSkillCandidates(rawUnsigned: Long): List<Int> {
+        val seedCandidates = mutableListOf<Int>()
+        if (rawUnsigned % 100L == 0L) {
+            val divided = rawUnsigned / 100L
+            if (divided in 0L..Int.MAX_VALUE.toLong()) {
+                seedCandidates.add(divided.toInt())
+            }
+        }
+        if (rawUnsigned in 0L..Int.MAX_VALUE.toLong()) {
+            seedCandidates.add(rawUnsigned.toInt())
+        }
+
+        val expandedCandidates = mutableListOf<Int>()
+        for (candidate in seedCandidates) {
+            val scaledBy10 = candidate.toLong() * 10L
+            if (scaledBy10 in 0L..Int.MAX_VALUE.toLong()) {
+                val scaledInt = scaledBy10.toInt()
+                val scaledPlusOne = scaledBy10 + 1L
+
+                if (scaledPlusOne in 0L..Int.MAX_VALUE.toLong()) {
+                    val scaledPlusOneInt = scaledPlusOne.toInt()
+                    if (DpsCalculator.SKILL_MAP.containsKey(scaledPlusOneInt)) {
+                        expandedCandidates.add(scaledPlusOneInt)
+                    }
+                }
+
+                if (DpsCalculator.SKILL_MAP.containsKey(scaledInt)) {
+                    expandedCandidates.add(scaledInt)
+                }
+            }
+
+            expandedCandidates.add(candidate)
+        }
+
+        return expandedCandidates.distinct()
     }
 
     private fun normalizeSkillId(raw: Int): Int {
