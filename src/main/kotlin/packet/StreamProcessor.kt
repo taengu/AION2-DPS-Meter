@@ -52,19 +52,22 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         ((data[start + i + 2].toInt() and 0xFF) shl 16) or
                         ((data[start + i + 3].toInt() and 0xFF) shl 24)
                 val normalized = normalizeSkillId(raw)
+
+                // --- NEW: Added 1,000,000..9,999,999 to allow NPC skills and Effects ---
                 if (
                     normalized in 11_000_000..19_999_999 ||
                     normalized in 3_000_000..3_999_999 ||
-                    normalized in 100_000..199_999
+                    normalized in 100_000..199_999 ||
+                    normalized in 1_000_000..9_999_999
                 ) {
                     offset = start + i + 5
                     return normalized
                 }
+                // -----------------------------------------------------------------------
             }
 
             throw IllegalStateException("skill not found")
         }
-
     }
 
     fun onPacketReceived(packet: ByteArray): Boolean {
