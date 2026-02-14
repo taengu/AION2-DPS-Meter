@@ -352,7 +352,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             idx++
         }
 
-        if (candidates.isEmpty()) return false
+        if (candidates.isEmpty()) {
+            val boundLocal = bindLocalNameFromLootAttributionPacket(packet)
+            if (boundLocal) return true
+            return false
+        }
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         val allowPrepopulate = candidates.size > 1
         var foundAny = false
@@ -386,6 +390,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             foundAny = true
         }
         return foundAny
+    }
+
+    private fun bindLocalNameFromLootAttributionPacket(packet: ByteArray): Boolean {
+        val localName = LocalPlayer.characterName?.trim().orEmpty()
+        if (localName.isBlank()) return false
+
+        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+        if (keyIdx == -1) return false
+        val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+
+        val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+        if (opcodeIdx == -1) return false
+
+        val actorOffset = keyIdx + opcodeIdx + 11
+        if (actorOffset + 2 > packet.size) return false
+
+        val actorId = parseUInt16le(packet, actorOffset)
+        if (actorId !in 100..99999) return false
+
+        val existingNickname = dataStorage.getNickname()[actorId]
+        if (existingNickname != null && existingNickname.isNotBlank()) return false
+
+        logger.info(
+            "Loot attribution local player binding {} -> {}",
+            actorId,
+            localName
+        )
+        UnifiedLogger.info(
+            logger,
+            "Loot attribution local player binding {} -> {}",
+            actorId,
+            localName
+        )
+        dataStorage.appendNickname(actorId, localName)
+        return true
     }
 
     private fun castNicknameNet(packet: ByteArray): Boolean {
