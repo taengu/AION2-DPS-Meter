@@ -2383,8 +2383,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   object-fit: cover;
 }
 .detailsPanel .detailsSkills .cell.name .skillIcon.isPlaceholder {
-  background: rgba(180, 186, 198, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(16, 18, 22, 0.88);
+  border:     1px solid rgba(22, 24, 28, 0.88);
 }
 .detailsPanel .detailsSkills .cell.name .skillNameText {
   flex: 1 1 auto;
