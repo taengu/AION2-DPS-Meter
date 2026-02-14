@@ -366,7 +366,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val canUpdateExisting = existingNickname != null &&
                     candidate.name.length > existingNickname.length &&
                     candidate.name.startsWith(existingNickname)
-            if (!allowPrepopulate && !isLocalNameMatch && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting) {
+            val hasHanCharacters = candidate.name.any { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.HAN }
+            if (!allowPrepopulate && !isLocalNameMatch && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting && !hasHanCharacters) {
                 if (existingNickname == null) {
                     dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
                 }
