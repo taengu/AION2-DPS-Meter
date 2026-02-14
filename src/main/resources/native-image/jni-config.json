@@ -1,0 +1,11 @@
+[
+  {
+    "name": "com.sun.javafx.font.PrismFontFactory",
+    "methods": [
+      {
+        "name": "getFontPath",
+        "parameterTypes": []
+      }
+    ]
+  }
+]
