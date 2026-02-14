@@ -30,11 +30,11 @@
   /* Player name / primary label shadow (Ember-grade readability) */
   --player-name-shadow:
           -1px  0   0 rgba(0,0,0,0.85),
-           1px  0   0 rgba(0,0,0,0.85),
-           0   -1px 0 rgba(0,0,0,0.85),
-           0    1px 0 rgba(0,0,0,0.85),
-           0    2px 3px rgba(0,0,0,0.70),
-           0    4px 8px rgba(0,0,0,0.45);
+          1px  0   0 rgba(0,0,0,0.85),
+          0   -1px 0 rgba(0,0,0,0.85),
+          0    1px 0 rgba(0,0,0,0.85),
+          0    2px 3px rgba(0,0,0,0.70),
+          0    4px 8px rgba(0,0,0,0.45);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -52,6 +52,10 @@
   --font: 16px;
   --details-bg-opacity: 0.8;
   --cjk-font-stack: "Noto Sans SC", "Noto Sans TC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+
+  /* Fallbacks to resolve IDE warnings */
+  --details-skill-name-width: 144px;
+  --tooltip-skill-icon-size: 20px;
 }
 
 :root[data-theme="aion2"] {
@@ -68,18 +72,18 @@
   --title: rgba(225, 235, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(140,180,255,0.42),
-    0 1px 1px rgba(140,180,255,0.32),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(100,140,255,0.24);
+          0 0 1px rgba(140,180,255,0.42),
+          0 1px 1px rgba(140,180,255,0.32),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(100,140,255,0.24);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.95),
-     1px  0   0 rgba(0,0,0,0.95),
-     0   -1px 0 rgba(0,0,0,0.95),
-     0    1px 0 rgba(0,0,0,0.95),
-     0    3px 6px rgba(0,0,0,0.8),
-     0    6px 12px rgba(0,0,0,0.6);
+          -1px  0   0 rgba(0,0,0,0.95),
+          1px  0   0 rgba(0,0,0,0.95),
+          0   -1px 0 rgba(0,0,0,0.95),
+          0    1px 0 rgba(0,0,0,0.95),
+          0    3px 6px rgba(0,0,0,0.8),
+          0    6px 12px rgba(0,0,0,0.6);
 }
 
 :root[data-theme="ember"] {
@@ -96,10 +100,10 @@
   --title: rgba(255, 240, 220, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(255,180,120,0.48),
-    0 1px 1px rgba(255,160,100,0.36),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(255,120,80,0.26);
+          0 0 1px rgba(255,180,120,0.48),
+          0 1px 1px rgba(255,160,100,0.36),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(255,120,80,0.26);
 }
 
 :root[data-theme="frost"] {
@@ -116,10 +120,10 @@
   --title: rgba(235, 245, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(180,220,255,0.52),
-    0 1px 1px rgba(160,210,255,0.38),
-    0 2px 3px rgba(0,0,0,0.4),
-    0 6px 14px rgba(120,200,255,0.26);
+          0 0 1px rgba(180,220,255,0.52),
+          0 1px 1px rgba(160,210,255,0.38),
+          0 2px 3px rgba(0,0,0,0.4),
+          0 6px 14px rgba(120,200,255,0.26);
 }
 
 :root[data-theme="natura"] {
@@ -136,10 +140,10 @@
   --title: rgba(230, 245, 235, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(160,220,190,0.48),
-    0 1px 1px rgba(140,200,170,0.38),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(120,200,160,0.24);
+          0 0 1px rgba(160,220,190,0.48),
+          0 1px 1px rgba(140,200,170,0.38),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(120,200,160,0.24);
 }
 
 :root[data-theme="asmodian"] {
@@ -156,16 +160,16 @@
   --title: rgba(245, 235, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(200,150,255,0.42),
-    0 1px 1px rgba(200,150,255,0.32),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(176,100,255,0.24);
+          0 0 1px rgba(200,150,255,0.42),
+          0 1px 1px rgba(200,150,255,0.32),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(176,100,255,0.24);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.96),
-    0 1px 2px rgba(0,0,0,0.80),
-    0 2px 8px rgba(0,0,0,0.60),
-    0 0 14px rgba(176,100,255,0.36);
+          0 0 1px rgba(0,0,0,0.96),
+          0 1px 2px rgba(0,0,0,0.80),
+          0 2px 8px rgba(0,0,0,0.60),
+          0 0 14px rgba(176,100,255,0.36);
 }
 
 :root[data-theme="varian"] {
@@ -182,23 +186,23 @@
   --title: rgba(255, 252, 235, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(255,230,140,0.48),
-    0 1px 1px rgba(255,220,120,0.38),
-    0 2px 3px rgba(0,0,0,0.50),
-    0 6px 14px rgba(255,224,98,0.22);
+          0 0 1px rgba(255,230,140,0.48),
+          0 1px 1px rgba(255,220,120,0.38),
+          0 2px 3px rgba(0,0,0,0.50),
+          0 6px 14px rgba(255,224,98,0.22);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.96),
-    0 1px 2px rgba(0,0,0,0.82),
-    0 2px 8px rgba(0,0,0,0.55),
-    0 0 10px rgba(255,230,140,0.30);
+          0 0 1px rgba(0,0,0,0.96),
+          0 1px 2px rgba(0,0,0,0.82),
+          0 2px 8px rgba(0,0,0,0.55),
+          0 0 10px rgba(255,230,140,0.30);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.92),
-     1px  0   0 rgba(0,0,0,0.92),
-     0   -1px 0 rgba(0,0,0,0.92),
-     0    1px 0 rgba(0,0,0,0.92),
-     0    3px 6px rgba(0,0,0,0.80);
+          -1px  0   0 rgba(0,0,0,0.92),
+          1px  0   0 rgba(0,0,0,0.92),
+          0   -1px 0 rgba(0,0,0,0.92),
+          0    1px 0 rgba(0,0,0,0.92),
+          0    3px 6px rgba(0,0,0,0.80);
 }
 
 :root[data-theme="fera"] {
@@ -238,22 +242,22 @@
   --title: rgba(244, 252, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.9),
-    0 2px 6px rgba(0,0,0,0.8);
+          0 0 1px rgba(0,0,0,0.95),
+          0 1px 2px rgba(0,0,0,0.9),
+          0 2px 6px rgba(0,0,0,0.8);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.9),
-    0 2px 6px rgba(0,0,0,0.8);
+          0 0 1px rgba(0,0,0,0.95),
+          0 1px 2px rgba(0,0,0,0.9),
+          0 2px 6px rgba(0,0,0,0.8);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.95),
-     1px  0   0 rgba(0,0,0,0.95),
-     0   -1px 0 rgba(0,0,0,0.95),
-     0    1px 0 rgba(0,0,0,0.95),
-     0    3px 6px rgba(0,0,0,0.8),
-     0    0  12px rgba(140,205,255,0.4);
+          -1px  0   0 rgba(0,0,0,0.95),
+          1px  0   0 rgba(0,0,0,0.95),
+          0   -1px 0 rgba(0,0,0,0.95),
+          0    1px 0 rgba(0,0,0,0.95),
+          0    3px 6px rgba(0,0,0,0.8),
+          0    0  12px rgba(140,205,255,0.4);
 }
 
 :root[data-theme="obsidian"] {
@@ -993,7 +997,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       background: transparent;
       border: none;
       color: inherit;
-      font: inherit;
+      font-family: inherit;
+      font-size: inherit;
       padding: 0;
       cursor: pointer;
       display: inline-flex;
@@ -1198,9 +1203,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
     gap: 12px;
 
     .detailsSettingsLabel {
-      font-size: 12px;
       opacity: 0.8;
-  font-size: 13px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
@@ -1608,7 +1612,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
 }
 .settingsPanel .settingsSelect option,
 .settingsPanel .settingsSelect optgroup {
@@ -1629,7 +1634,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: inherit;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
@@ -1834,7 +1840,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   margin-top: 0;
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
   opacity: 0.8;
   font-size: 13px;
 }
@@ -1848,7 +1853,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: none;
   border: none;
   padding: 0;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
   cursor: pointer;
 }
 .settingsPanel .settingsFooterValue:hover {
@@ -2001,7 +2007,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: transparent;
   border: none;
   color: inherit;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
   padding: 0;
   cursor: pointer;
   display: inline-flex;
@@ -2180,7 +2187,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   gap: 12px;
 }
 .detailsPanel .detailsSettings .detailsSettingsLabel {
-  font-size: 12px;
   opacity: 0.8;
   font-size: 13px;
   text-transform: uppercase;
@@ -2232,16 +2238,16 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   transition: transform 0.2s ease;
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:checked
-  + .detailsSettingsToggleTrack {
++ .detailsSettingsToggleTrack {
   background: var(--isUser-fill);
   border-color: var(--isUser-fill);
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:checked
-  + .detailsSettingsToggleTrack::after {
++ .detailsSettingsToggleTrack::after {
   transform: translateX(16px);
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:focus-visible
-  + .detailsSettingsToggleTrack {
++ .detailsSettingsToggleTrack {
   outline: 2px solid var(--isUser-fill);
   outline-offset: 2px;
 }
@@ -2446,6 +2452,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  /* Scroll Performance Fixes */
+  transform: translateZ(0);
+  will-change: transform;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2460,78 +2469,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar-corner {
   background: transparent;
-}
-.detailsPanel.hide-col-hit .detailsSkills .cell.hit,
-.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
-.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
-.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
-.detailsPanel.hide-col-double .detailsSkills .cell.double,
-.detailsPanel.hide-col-back .detailsSkills .cell.back,
-.detailsPanel.hide-col-heal .detailsSkills .cell.heal,
-.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
-.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg {
-  display: none;
-}
-.detailsPanel .detailsSettings .detailsSettingsColumns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
-}
-.detailsResizeHandle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 14px;
-  height: 14px;
-  cursor: se-resize;
-  opacity: 0.65;
-  z-index: 30;
-}
-.detailsResizeHandle::before {
-  content: "";
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid rgba(255, 255, 255, 0.7);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
-}
-.detailsPanel.hide-col-hit .detailsSkills .cell.hit,
-.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
-.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
-.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
-.detailsPanel.hide-col-double .detailsSkills .cell.double,
-.detailsPanel.hide-col-back .detailsSkills .cell.back,
-.detailsPanel.hide-col-heal .detailsSkills .cell.heal,
-.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
-.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg {
-  display: none;
-}
-.detailsPanel .detailsSettings .detailsSettingsColumns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
-}
-.detailsResizeHandle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 14px;
-  height: 14px;
-  cursor: se-resize;
-  opacity: 0.65;
-  z-index: 30;
-}
-.detailsResizeHandle::before {
-  content: "";
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid rgba(255, 255, 255, 0.7);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar {
   width: 10px;
@@ -2583,18 +2520,18 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 @keyframes combatStatusRipple {
   0% {
     box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 0 var(--indicator-combat);
+            0 0 0 2px rgba(0, 0, 0, 0.25),
+            0 0 0 0 var(--indicator-combat);
   }
   70% {
     box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 10px rgba(0, 0, 0, 0);
+            0 0 0 2px rgba(0, 0, 0, 0.25),
+            0 0 0 10px rgba(0, 0, 0, 0);
   }
   100% {
     box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 0 rgba(0, 0, 0, 0);
+            0 0 0 2px rgba(0, 0, 0, 0.25),
+            0 0 0 0 rgba(0, 0, 0, 0);
   }
 }
 .detailsPanel .detailsSkills .skills .skillRow {
@@ -2603,6 +2540,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   gap: 8px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  /* Render Performance Fixes */
+  content-visibility: auto;
+  contain-intrinsic-height: 25px;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;
