@@ -280,7 +280,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         )
                         if (canBind) {
                             namedActors.add(lastAnchor.actorId)
-                            lastAnchor = null
                             return true
                         }
                     }
@@ -301,7 +300,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (isMarker) {
                 var actorInfo: VarIntOutput? = null
                 val minOffset = maxOf(0, idx - 8)
-                for (actorOffset in idx - 1 downTo minOffset) {
+                for (actorOffset in minOffset..idx - 1) { // Scan forwards to catch multi-byte VarInts
                     if (!canReadVarInt(packet, actorOffset)) continue
                     val candidateInfo = readVarInt(packet, actorOffset)
                     if (candidateInfo.length <= 0 || actorOffset + candidateInfo.length != idx) continue
@@ -1000,11 +999,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val scaledInt = scaledBy10.toInt()
                 val scaledPlusOne = scaledBy10 + 1L
 
-                if (scaledPlusOne in 0L..Int.MAX_VALUE.toLong()) {
-                    val scaledPlusOneInt = scaledPlusOne.toInt()
-                    if (DpsCalculator.SKILL_MAP.containsKey(scaledPlusOneInt)) {
-                        expandedCandidates.add(scaledPlusOneInt)
-                    }
+                val scaledPlusOneInt = scaledPlusOne.toInt()
+                if (DpsCalculator.SKILL_MAP.containsKey(scaledPlusOneInt)) {
+                    expandedCandidates.add(scaledPlusOneInt)
                 }
 
                 if (DpsCalculator.SKILL_MAP.containsKey(scaledInt)) {
@@ -1027,25 +1024,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val base = raw - (raw % 10000)
 
         // 2. Data-Driven Aggregation
-        val rawName = DpsCalculator.SKILL_MAP[raw]
-        val baseName = DpsCalculator.SKILL_MAP[base]
 
-        // If we only know the specific variant, preserve it instead of inventing an unmapped base code.
-        if (rawName != null && baseName == null) {
-            return raw
-        }
+        // If we don't know the base, we have to stick with the raw ID
+        val baseName = DpsCalculator.SKILL_MAP[base] ?: return raw
 
-        // If only the base exists in our dictionary, fall back to it.
-        if (rawName == null && baseName != null) {
-            return base
-        }
+        // If we only know the base name but not the specific variant, use the base
+        val rawName = DpsCalculator.SKILL_MAP[raw] ?: return base
 
-        // If both are unknown, keep raw to avoid over-aggregating into misleading generic IDs.
-        if (rawName == null && baseName == null) {
-            return raw
-        }
-
-        // If the specific variant has a fundamentally different name than the base, preserve it!
+        // If both are known, but the variant has a fundamentally different name than the base, preserve it!
         // (e.g., 11050047 "Wave Attack" != 11050000 "Crushing Wave")
         // (e.g., 16001101 "Fire Spirit: Flame Explosion" != 16000000 "Basic Attack")
         if (rawName != baseName) {

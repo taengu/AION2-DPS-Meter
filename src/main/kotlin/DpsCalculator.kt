@@ -733,6 +733,24 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         damage: Int,
         payloadHex: String?
     ): Int? {
+        // 1. MUST verify if the actor is a player FIRST
+        val isPlayer = dataStorage.getNickname().containsKey(actorId) ||
+                dataStorage.getSummonData().containsKey(actorId) ||
+                LocalPlayer.playerId?.toInt() == actorId
+
+        if (dataStorage.getMobData().containsKey(actorId) || !isPlayer) {
+            // Optional: Keep your NPC debug logging here if desired
+            if (logger.isDebugEnabled && skillCode in 1_000_000..9_999_999) {
+                val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
+                logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
+                if (UnifiedLogger.isDebugEnabled()) {
+                    UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
+                }
+            }
+            return null // Immediately reject, preventing job assignment
+        }
+
+        // 2. Now it's safe to check player skill ranges
         val isValidRange = skillCode in 11_000_000..19_999_999 ||
                 skillCode in 3_000_000..3_999_999 ||
                 skillCode in 100_000..199_999||
@@ -754,31 +772,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
-        // --- NEW: Log NPC skills in debug mode ---
-        if (skillCode in 1_000_000..9_999_999) {
-            if (logger.isDebugEnabled()) {
-                val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
-                logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
-
-                if (UnifiedLogger.isDebugEnabled()) {
-                    UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
-                }
-            }
-            // Return null so the caller safely defaults to the raw ID without throwing a warning
-            return null
-        }
-        // -----------------------------------------
-
-        // --- NEW: Silently ignore non-player entities to prevent log spam ---
-        val isPlayer = dataStorage.getNickname().containsKey(actorId) ||
-                dataStorage.getSummonData().containsKey(actorId) ||
-                LocalPlayer.playerId?.toInt() == actorId
-
-        if (dataStorage.getMobData().containsKey(actorId) || !isPlayer) {
-            return null
-        }
-        // --------------------------------------------------------------------
-
+        // 3. Log unknown player skills
         logger.debug(
             "Failed to infer skill code: {} (target {}, actor {}, damage {})",
             skillCode,
