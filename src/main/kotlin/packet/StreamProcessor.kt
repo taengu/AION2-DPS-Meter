@@ -52,22 +52,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         ((data[start + i + 1].toInt() and 0xFF) shl 8) or
                         ((data[start + i + 2].toInt() and 0xFF) shl 16) or
                         ((data[start + i + 3].toInt() and 0xFF) shl 24)
-                val normalized = normalizeSkillId(raw)
 
-                // --- NEW: Added 1,000,000..9,999,999 to allow NPC skills and Effects ---
-                // --- NEW: Added 30,000,000 range to allow Theostone Procs ---
-                if (
-                    normalized in 11_000_000..19_999_999 ||
-                    normalized in 3_000_000..3_999_999 ||
-                    normalized in 100_000..199_999 ||
-                    normalized in 1_000_000..9_999_999 ||
-                    normalized in 30_000_000..30_999_999
-                ) {
-                    offset = start + i + 5
-                    return normalized
+                val candidates = if (raw % 100 == 0) {
+                    intArrayOf(raw / 100, raw)
+                } else {
+                    intArrayOf(raw)
                 }
 
-                // -----------------------------------------------------------------------
+                for (candidate in candidates) {
+                    val normalized = normalizeSkillId(candidate)
+                    if (isValidSkillCode(normalized)) {
+                        offset = start + i + 5
+                        return normalized
+                    }
+                }
             }
 
             throw IllegalStateException("skill not found")
@@ -969,6 +967,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // If the names are identical, safely crush it to the base for clean UI aggregation.
         // (e.g., 11020047 "Keen Strike" == 11020000 "Keen Strike")
         return base
+    }
+
+    private fun isValidSkillCode(skillCode: Int): Boolean {
+        return (
+            skillCode in 11_000_000..19_999_999 ||
+                    skillCode in 3_000_000..3_999_999 ||
+                    skillCode in 100_000..199_999 ||
+                    skillCode in 1_000_000..9_999_999 ||
+                    skillCode in 30_000_000..30_999_999
+                )
     }
 
 
