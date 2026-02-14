@@ -300,6 +300,7 @@ html, body {
   font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
 }
 
+/* noinspection CssNoGenericFontName */
 button,
 input,
 select,
@@ -997,6 +998,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       background: transparent;
       border: none;
       color: inherit;
+      /* noinspection CssNoGenericFontName */
       font-family: inherit;
       font-size: inherit;
       padding: 0;
@@ -1612,6 +1614,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
+  /* noinspection CssNoGenericFontName */
   font-family: inherit;
   font-size: inherit;
 }
@@ -1634,6 +1637,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: inherit;
+  /* noinspection CssNoGenericFontName */
   font-family: inherit;
   font-size: inherit;
   border-radius: 8px;
@@ -1853,6 +1857,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: none;
   border: none;
   padding: 0;
+  /* noinspection CssNoGenericFontName */
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
@@ -2460,7 +2465,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   height: 10px;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar-thumb {
@@ -2474,7 +2479,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   width: 10px;
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
   margin-top: 8px;
   margin-bottom: -8px;
@@ -2490,7 +2495,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   width: 10px;
 }
 .detailsPanel .detailsBody::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
   margin-top: 8px;
   margin-bottom: 8px;
