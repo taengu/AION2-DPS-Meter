@@ -48,15 +48,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val start = offset
             for (i in 0..5) {
                 if (start + i + 4 > data.size) break
-                val raw = (data[start + i].toInt() and 0xFF) or
-                        ((data[start + i + 1].toInt() and 0xFF) shl 8) or
-                        ((data[start + i + 2].toInt() and 0xFF) shl 16) or
-                        ((data[start + i + 3].toInt() and 0xFF) shl 24)
+                val rawUnsigned = (data[start + i].toLong() and 0xFFL) or
+                        ((data[start + i + 1].toLong() and 0xFFL) shl 8) or
+                        ((data[start + i + 2].toLong() and 0xFFL) shl 16) or
+                        ((data[start + i + 3].toLong() and 0xFFL) shl 24)
 
-                val candidates = if (raw % 100 == 0) {
-                    intArrayOf(raw / 100, raw)
-                } else {
-                    intArrayOf(raw)
+                val candidates = mutableListOf<Int>()
+                if (rawUnsigned % 100L == 0L) {
+                    val divided = rawUnsigned / 100L
+                    if (divided in 0L..Int.MAX_VALUE.toLong()) {
+                        candidates.add(divided.toInt())
+                    }
+                }
+                if (rawUnsigned in 0L..Int.MAX_VALUE.toLong()) {
+                    candidates.add(rawUnsigned.toInt())
                 }
 
                 for (candidate in candidates) {
