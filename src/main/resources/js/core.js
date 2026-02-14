@@ -608,7 +608,12 @@ class DpsApp {
         const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
         const skillColor = this.getJobColor(skill?.job || row?.job);
         const skillStyle = skillColor ? ` style="color:${skillColor}"` : "";
-        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name"${skillStyle}>${name}</span><span class="dmg">${dmg}</span></div>`;
+        const iconCandidates = window.skillIcons?.getIconCandidates?.(skill) || [];
+        const encodedCandidates = encodeURIComponent(JSON.stringify(iconCandidates));
+        const iconHtml = iconCandidates.length
+          ? `<img class="skillIcon" alt="" src="${iconCandidates[0]}" data-icon-candidates="${encodedCandidates}" data-icon-index="0" onerror="window.skillIcons&&window.skillIcons.handleImgError&&window.skillIcons.handleImgError(this)">`
+          : "";
+        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name">${iconHtml}<span class="skillName"${skillStyle}>${name}</span></span><span class="dmg">${dmg}</span></div>`;
       })
       .join("");
 

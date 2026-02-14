@@ -2362,7 +2362,17 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   white-space: nowrap;
   color: var(--isUser-fill);
 }
+.detailsPanel .detailsSkills .cell.name .skillIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  margin-right: 6px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
 .detailsPanel .detailsSkills .cell.name .skillNameText {
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2853,6 +2863,24 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 .hoverDetailsTooltipSkill .name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.hoverDetailsTooltipSkill .name .skillIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+
+.hoverDetailsTooltipSkill .name .skillName {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

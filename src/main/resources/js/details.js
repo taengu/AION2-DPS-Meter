@@ -403,9 +403,18 @@ const createDetailsUI = ({
     const nameEl = document.createElement("div");
     nameEl.className = "cell name";
 
+    const iconEl = document.createElement("img");
+    iconEl.className = "skillIcon";
+    iconEl.alt = "";
+    iconEl.loading = "lazy";
+    iconEl.decoding = "async";
+    iconEl.referrerPolicy = "no-referrer";
+    iconEl.addEventListener("error", () => window.skillIcons?.handleImgError?.(iconEl));
+
     const nameTextEl = document.createElement("span");
     nameTextEl.className = "skillNameText";
 
+    nameEl.appendChild(iconEl);
     nameEl.appendChild(nameTextEl);
 
     const hitEl = document.createElement("div");
@@ -463,6 +472,7 @@ const createDetailsUI = ({
     return {
       rowEl,
       nameEl,
+      iconEl,
       nameTextEl,
       hitEl,
       multiHitEl,
@@ -718,7 +728,9 @@ const createDetailsUI = ({
     let widest = 0;
     for (let i = 0; i < skills.length; i++) {
       const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
-      if (width > widest) widest = width;
+      const hasIcon = (window.skillIcons?.getIconCandidates?.(skills[i]) || []).length > 0;
+      const withIcon = hasIcon ? width + 22 : width;
+      if (withIcon > widest) widest = withIcon;
     }
 
     const panelRect = detailsPanel?.getBoundingClientRect?.();
@@ -806,6 +818,7 @@ const createDetailsUI = ({
       if (!skill) {
         view.rowEl.style.display = "none";
         view.dmgFillEl.style.transform = "scaleX(0)";
+        if (view.iconEl) view.iconEl.style.display = "none";
         continue;
       }
 
@@ -835,6 +848,7 @@ const createDetailsUI = ({
 
       view.nameTextEl.textContent = skill.name ?? "";
       const resolvedJob = skill.job || getActorJob(skill.actorId);
+      window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
       const skillColor = resolvedJob ? getJobColor(resolvedJob) : "";
       view.nameTextEl.style.color = skillColor || "";
       view.hitEl.textContent = `${hits}`;
