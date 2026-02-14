@@ -943,14 +943,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun buildSkillCandidates(rawUnsigned: Long): List<Int> {
         val seedCandidates = mutableListOf<Int>()
+        if (rawUnsigned in 0L..Int.MAX_VALUE.toLong()) {
+            seedCandidates.add(rawUnsigned.toInt())
+        }
         if (rawUnsigned % 100L == 0L) {
             val divided = rawUnsigned / 100L
             if (divided in 0L..Int.MAX_VALUE.toLong()) {
                 seedCandidates.add(divided.toInt())
             }
-        }
-        if (rawUnsigned in 0L..Int.MAX_VALUE.toLong()) {
-            seedCandidates.add(rawUnsigned.toInt())
         }
 
         val expandedCandidates = mutableListOf<Int>()
@@ -990,10 +990,25 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val rawName = DpsCalculator.SKILL_MAP[raw]
         val baseName = DpsCalculator.SKILL_MAP[base]
 
+        // If we only know the specific variant, preserve it instead of inventing an unmapped base code.
+        if (rawName != null && baseName == null) {
+            return raw
+        }
+
+        // If only the base exists in our dictionary, fall back to it.
+        if (rawName == null && baseName != null) {
+            return base
+        }
+
+        // If both are unknown, keep raw to avoid over-aggregating into misleading generic IDs.
+        if (rawName == null && baseName == null) {
+            return raw
+        }
+
         // If the specific variant has a fundamentally different name than the base, preserve it!
         // (e.g., 11050047 "Wave Attack" != 11050000 "Crushing Wave")
         // (e.g., 16001101 "Fire Spirit: Flame Explosion" != 16000000 "Basic Attack")
-        if (rawName != null && baseName != null && rawName != baseName) {
+        if (rawName != baseName) {
             return raw
         }
 
