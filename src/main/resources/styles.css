@@ -2364,6 +2364,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell.name {
   font-weight: 700;
+  white-space: normal;
+  align-items: flex-start;
 }
 .detailsPanel .detailsSkills .cell.name {
   flex: 0 0 var(--details-skill-name-width, 144px);
@@ -2386,6 +2388,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.2;
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
