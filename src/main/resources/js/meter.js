@@ -85,7 +85,7 @@ const createMeterUI = ({
       hoverRippleTimer: null,
     };
 
-    rowEl.addEventListener("mouseenter", () => {
+    rowEl.addEventListener("mouseenter", (event) => {
       if (!view.hoverRipplePlayed) {
         view.rowEl.classList.add("hoverRippleOnce");
         view.hoverRipplePlayed = true;
@@ -97,9 +97,13 @@ const createMeterUI = ({
           view.hoverRippleTimer = null;
         }, 950);
       }
-      onHoverUserRow?.(view.currentRow);
+      onHoverUserRow?.(view.currentRow, event);
     });
 
+
+    rowEl.addEventListener("mousemove", (event) => {
+      onHoverUserRow?.(view.currentRow, event);
+    });
     rowEl.addEventListener("mouseleave", () => {
       view.hoverRipplePlayed = false;
       if (view.hoverRippleTimer) {

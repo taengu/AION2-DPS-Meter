@@ -107,6 +107,8 @@ class DpsApp {
     this.hoverTooltipCacheByRowId = new Map();
     this.hoverTooltipRequestSeqByRowId = new Map();
     this.hoverTooltipEl = null;
+    this.hoverMousePos = { x: 0, y: 0 };
+    this.hoverTooltipPendingRowIds = new Set();
 
     DpsApp.instance = this;
   }
@@ -183,9 +185,9 @@ class DpsApp {
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
-      onHoverUserRow: (row) => {
+      onHoverUserRow: (row, event) => {
         if (this.shouldSuppressRowInteractions()) return;
-        this.openHoverDetailsRow(row);
+        this.openHoverDetailsRow(row, event);
       },
       onLeaveUserRow: () => {
         this.hoveredDetailsRowId = null;
@@ -557,21 +559,33 @@ class DpsApp {
     this.hoverTooltipEl.innerHTML = "";
   }
 
-  openHoverDetailsRow(row) {
+  openHoverDetailsRow(row, event = null) {
     if (!row || this.pinnedDetailsRowId !== null || this.shouldSuppressRowInteractions()) return;
     const rowId = Number(row?.id);
     if (!Number.isFinite(rowId) || rowId <= 0) return;
-    if (this.hoveredDetailsRowId === rowId) return;
+    if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      this.hoverMousePos = { x: event.clientX, y: event.clientY };
+    }
+    const isSameRow = this.hoveredDetailsRowId === rowId;
     this.hoveredDetailsRowId = rowId;
     this.detailsUI?.close?.({ keepPinned: false });
-    this.applyHoverTooltip(row);
+    this.applyHoverTooltip(row, { forceRefresh: !isSameRow });
   }
 
   renderHoverTooltip(details, row, rowEl) {
     if (!this.hoverTooltipEl || !rowEl) return;
     const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
-    const top = rowEl.offsetTop + rowEl.offsetHeight + 8;
-    const left = rowEl.offsetLeft + 8;
+    const containerRect = this.elList?.getBoundingClientRect?.();
+    const mouseX = Number(this.hoverMousePos?.x);
+    const mouseY = Number(this.hoverMousePos?.y);
+    const fallbackTop = rowEl.offsetTop + rowEl.offsetHeight + 8;
+    const fallbackLeft = rowEl.offsetLeft + rowEl.offsetWidth + 12;
+    let top = fallbackTop;
+    let left = fallbackLeft;
+    if (containerRect && Number.isFinite(mouseX) && Number.isFinite(mouseY)) {
+      left = mouseX - containerRect.left + 16;
+      top = mouseY - containerRect.top + 6;
+    }
     const dpsText = this.getMetricForRow(row).text;
     const totalDamageText = this.dpsFormatter.format(Number(row?.totalDamage) || 0);
 
@@ -579,7 +593,9 @@ class DpsApp {
       .map((skill, index) => {
         const name = String(skill?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
-        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name">${name}</span><span class="dmg">${dmg}</span></div>`;
+        const hue = (index * 47 + 195) % 360;
+        const skillColor = `hsl(${hue} 90% 76%)`;
+        return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name" style="color:${skillColor}">${name}</span><span class="dmg">${dmg}</span></div>`;
       })
       .join("");
 
@@ -591,12 +607,17 @@ class DpsApp {
       </div>
       <div class="hoverDetailsTooltipSkills">${skillsHtml || `<div class="hoverDetailsTooltipSkill muted">${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}</div>`}</div>
     `;
+    const maxLeft = Math.max(8, (this.elList?.clientWidth || 0) - (this.hoverTooltipEl.offsetWidth || 0) - 8);
+    const maxTop = Math.max(8, (this.elList?.clientHeight || 0) - (this.hoverTooltipEl.offsetHeight || 0) - 8);
+    left = Math.max(8, Math.min(maxLeft, left));
+    top = Math.max(8, Math.min(maxTop, top));
+
     this.hoverTooltipEl.style.left = `${left}px`;
     this.hoverTooltipEl.style.top = `${top}px`;
     this.hoverTooltipEl.classList.add("isVisible");
   }
 
-  applyHoverTooltip(row) {
+  applyHoverTooltip(row, { forceRefresh = false } = {}) {
     const rowId = Number(row?.id);
     if (!Number.isFinite(rowId) || rowId <= 0) return;
     const rowEl = this.elList?.querySelector?.(`.item[data-row-id="${rowId}"]`);
@@ -605,15 +626,20 @@ class DpsApp {
     const cached = this.hoverTooltipCacheByRowId.get(rowId);
     if (cached) {
       this.renderHoverTooltip(cached, row, rowEl);
-      return;
+      if (!forceRefresh) return;
     }
 
     this.renderHoverTooltip({ skills: [] }, row, rowEl);
+    if (!forceRefresh && this.hoverTooltipPendingRowIds.has(rowId)) {
+      return;
+    }
     const requestSeq = (this.hoverTooltipRequestSeqByRowId.get(rowId) || 0) + 1;
     this.hoverTooltipRequestSeqByRowId.set(rowId, requestSeq);
+    this.hoverTooltipPendingRowIds.add(rowId);
 
     this.getDetails(row, { maxSkills: 5, showSkillIcons: false })
       .then((details) => {
+        this.hoverTooltipPendingRowIds.delete(rowId);
         const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
         if (currentSeq !== requestSeq || this.hoveredDetailsRowId !== rowId) return;
         const lightweightDetails = { skills: Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [] };
@@ -621,6 +647,7 @@ class DpsApp {
         this.renderHoverTooltip(lightweightDetails, row, rowEl);
       })
       .catch(() => {
+        this.hoverTooltipPendingRowIds.delete(rowId);
         const currentSeq = this.hoverTooltipRequestSeqByRowId.get(rowId);
         if (currentSeq !== requestSeq || this.hoveredDetailsRowId !== rowId) return;
         this.renderHoverTooltip({ skills: [] }, row, rowEl);

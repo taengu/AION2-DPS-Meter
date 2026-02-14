@@ -413,7 +413,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     align-items: center;
     font-weight: bold;
     color: white;
-    gap: 6px;
+    gap: 8px;
     text-shadow: var(--text-shadow);
     cursor: pointer;
     .headerBtn {
@@ -430,7 +430,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       border: none;
       background: transparent;
       color: inherit;
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -464,7 +464,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       border: none;
       background: transparent;
       color: inherit;
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -558,13 +558,13 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 
   .settingsValue {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     font-weight: 700;
   }
 
   .lockedIp {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
   .lockedPort::before {
@@ -589,7 +589,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     padding: 6px 10px;
     background: var(--panel-field-bg);
     color: var(--text-color);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -878,7 +878,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
     color: var(--text-color);
     text-shadow: var(--text-shadow);
     font-weight: 700;
-    font-size: 14px;
+    font-size: 17px;
   }
 
   .analysisStatus {
@@ -997,7 +997,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .detailsDropdownCaret {
@@ -1092,7 +1092,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       background: transparent;
       color: inherit;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       padding: 2px 6px;
       border-radius: 999px;
       cursor: pointer;
@@ -1198,7 +1198,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 
     .detailsSettingsLabel {
       font-size: 12px;
-      opacity: 0.7;
+      opacity: 0.8;
+  font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
@@ -1442,7 +1443,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   text-align: center;
@@ -1455,7 +1456,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   text-align: right;
@@ -1552,7 +1553,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   margin: 4px 0 2px;
 }
 .settingsPanel .settingsMiniTitle {
-  font-size: 14px;
+  font-size: 17px;
   letter-spacing: 0.02em;
   opacity: 0.9;
   font-weight: 700;
@@ -1573,7 +1574,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .settingsPanel .settingsValue {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   font-weight: 700;
 }
 .settingsPanel .lockedPort::before {
@@ -1596,7 +1597,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 6px 10px;
   background: var(--panel-field-bg);
   color: var(--text-color);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 .settingsPanel .settingsSelect {
@@ -1737,14 +1738,14 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 18px;
   cursor: pointer;
   color: #ffffff;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 17px;
   border-radius: 6px;
   background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .settingsPanel .supportButton:hover {
@@ -1803,7 +1804,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
   background: linear-gradient(90deg, rgba(185, 53, 53, 0.85), rgba(146, 44, 44, 0.85));
@@ -1833,7 +1834,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 13px;
 }
 .settingsPanel .settingsFooterLabel {
   letter-spacing: 0.04em;
@@ -1944,7 +1946,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--text-color);
   text-shadow: var(--text-shadow);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 17px;
 }
 .battleTime .status {
   width: 10px;
@@ -2003,7 +2005,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .detailsPanel .detailsHeader .detailsDropdownCaret {
   opacity: 0.6;
@@ -2096,7 +2098,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: transparent;
   color: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 999px;
   cursor: pointer;
@@ -2178,7 +2180,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsSettings .detailsSettingsLabel {
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -2264,7 +2267,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--text-color);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .detailsPanel .detailsSettings .detailsSettingsControl {
   display: flex;
@@ -2388,7 +2391,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSkills .skillHeader {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
@@ -2565,7 +2568,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSkills .skills .skillRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -2708,8 +2711,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: 10px;
   padding: 10px 8px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2795,9 +2798,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .hoverDetailsTooltip {
   position: absolute;
   z-index: 40;
-  min-width: 220px;
-  max-width: 320px;
-  padding: 8px 10px;
+  min-width: 280px;
+  max-width: 380px;
+  padding: 10px 12px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: rgba(12, 22, 40, 0.88);
@@ -2816,36 +2819,37 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 .hoverDetailsTooltipHeader {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
-  margin-bottom: 5px;
+  margin-bottom: 7px;
 }
 
 .hoverDetailsTooltipStats {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 14px;
   opacity: 0.95;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .hoverDetailsTooltipSkills {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 14px;
 }
 
 .hoverDetailsTooltipSkill {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .hoverDetailsTooltipSkill .idx {
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 13px;
 }
 
 .hoverDetailsTooltipSkill .name {
@@ -2855,7 +2859,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 .hoverDetailsTooltipSkill .dmg {
-  font-weight: 600;
+  font-weight: 700;
   opacity: 0.95;
 }
 
