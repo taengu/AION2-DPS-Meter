@@ -733,46 +733,41 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         damage: Int,
         payloadHex: String?
     ): Int? {
-        // 1. MUST verify if the actor is a player FIRST
-        val isPlayer = dataStorage.getNickname().containsKey(actorId) ||
-                dataStorage.getSummonData().containsKey(actorId) ||
-                LocalPlayer.playerId?.toInt() == actorId
-
-        if (dataStorage.getMobData().containsKey(actorId) || !isPlayer) {
-            // Optional: Keep your NPC debug logging here if desired
-            if (logger.isDebugEnabled && skillCode in 1_000_000..9_999_999) {
-                val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
-                logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
-                if (UnifiedLogger.isDebugEnabled()) {
-                    UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
-                }
-            }
-            return null // Immediately reject, preventing job assignment
+        fun isLikelyPlayerSkill(code: Int): Boolean {
+            return code in 11_000_000..19_999_999 ||
+                    code in 3_000_000..3_999_999 ||
+                    code in 100_000..199_999 ||
+                    code in 30_000_000..30_999_999
         }
 
-        // 2. Now it's safe to check player skill ranges
-        val isValidRange = skillCode in 11_000_000..19_999_999 ||
-                skillCode in 3_000_000..3_999_999 ||
-                skillCode in 100_000..199_999||
-                skillCode in 30_000_000..30_999_999
+        val isKnownPlayer = dataStorage.getNickname().containsKey(actorId) ||
+                dataStorage.getSummonData().containsKey(actorId) ||
+                LocalPlayer.playerId?.toInt() == actorId
+        val isKnownMob = dataStorage.getMobData().containsKey(actorId)
 
-        if (isValidRange) {
+        // Prefer player-skill ranges first so meter rows can appear even before local identity
+        // and nickname binding finish. This prevents "parsed but invisible" damage.
+        if (isLikelyPlayerSkill(skillCode)) {
             return skillCode
         }
 
         for (offset in POSSIBLE_OFFSETS) {
             val possibleOrigin = skillCode - offset
-            val isInferredValid = possibleOrigin in 11_000_000..19_999_999 ||
-                    possibleOrigin in 3_000_000..3_999_999 ||
-                    possibleOrigin in 100_000..199_999||
-                    possibleOrigin in 30_000_000..30_999_999
-            if (isInferredValid) {
+            if (isLikelyPlayerSkill(possibleOrigin)) {
                 logger.debug("Inferred original skill code: {}", possibleOrigin)
                 return possibleOrigin
             }
         }
 
-        // 3. Log unknown player skills
+        // Keep NPC diagnostics for known mob/non-player actors when the skill code looks NPC-like.
+        if ((isKnownMob || !isKnownPlayer) && logger.isDebugEnabled && skillCode in 1_000_000..9_999_999) {
+            val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
+            logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
+            if (UnifiedLogger.isDebugEnabled()) {
+                UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
+            }
+        }
+
         logger.debug(
             "Failed to infer skill code: {} (target {}, actor {}, damage {})",
             skillCode,
