@@ -38,11 +38,18 @@ class DataStorage {
         }
         // ---------------------------------------------------------
 
-        // --- FIXED: Drop the packet if it's a boss/mob, UNLESS it's a player's summon ---
-        if (mobStorage.containsKey(pdp.getActorId()) && !summonStorage.containsKey(pdp.getActorId())) {
-            return // Safely drop the packet to save memory
+        // Drop packets from known mobs to save memory, but only when the skill id also
+        // looks like an NPC skill. False-positive mob mappings can happen during noisy
+        // stream recovery, and we must not discard valid player damage in that case.
+        val skillCode = pdp.getSkillCode1()
+        val usesLikelyNpcSkill = skillCode in 1_000_000..9_999_999
+        if (
+            mobStorage.containsKey(pdp.getActorId()) &&
+            !summonStorage.containsKey(pdp.getActorId()) &&
+            usesLikelyNpcSkill
+        ) {
+            return // Safely drop likely-NPC packets to save memory
         }
-        // --------------------------------------------------------------------------------
 
         byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         byTargetStorage.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)

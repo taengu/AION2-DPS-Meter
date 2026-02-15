@@ -72,8 +72,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var parsed = false
 
         // --- NEW LOGIC: Unzip FF FF Bundle Packets ---
-        if (packet.size >= 10 && packet[2] == 0xff.toByte() && packet[3] == 0xff.toByte()) {
-            val bundlePayload = packet.copyOfRange(10, packet.size)
+        if (packet.size >= 8 && packet[2] == 0xff.toByte() && packet[3] == 0xff.toByte()) {
+            // FF-FF transport bundles use an 8-byte envelope header. Starting from byte 10
+            // skips the nested length varint and causes us to desync and miss damage packets.
+            val bundlePayload = packet.copyOfRange(8, packet.size)
             var offset = 0
 
             while (offset < bundlePayload.size) {
