@@ -245,26 +245,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     dpsData.map[uid] = next
                 }
             }
-            pdp.setSkillCode(
-                inferOriginalSkillCode(
-                    pdp.getSkillCode1(),
-                    pdp.getTargetId(),
-                    pdp.getActorId(),
-                    pdp.getDamage(),
-                    pdp.getHexPayload()
-                ) ?: pdp.getSkillCode1()
+            val inferredSkillCode = inferOriginalSkillCode(
+                pdp.getSkillCode1(),
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getDamage(),
+                pdp.getHexPayload()
             )
+            pdp.setSkillCode(inferredSkillCode ?: pdp.getSkillCode1())
 
             dpsData.map[uid]!!.processPdp(pdp)
 
             if (dpsData.map[uid]!!.job == "") {
-                val origSkillCode = inferOriginalSkillCode(
-                    pdp.getSkillCode1(),
-                    pdp.getTargetId(),
-                    pdp.getActorId(),
-                    pdp.getDamage(),
-                    pdp.getHexPayload()
-                ) ?: -1
+                val origSkillCode = inferredSkillCode ?: -1
                 val job = JobClass.convertFromSkill(origSkillCode)
                 if (job != null) {
                     dpsData.map[uid]!!.job = job.className
@@ -751,11 +744,29 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return skillCode
         }
 
+        // Some captures report skill ids scaled down by 10 (e.g. 1801620 instead of 18016200).
+        // Recover those early so class inference can still classify players.
+        val scaledSkillCode = skillCode * 10
+        if (isLikelyPlayerSkill(scaledSkillCode)) {
+            logger.debug("Inferred original skill code by x10 scaling: {} -> {}", skillCode, scaledSkillCode)
+            return scaledSkillCode
+        }
+
         for (offset in POSSIBLE_OFFSETS) {
             val possibleOrigin = skillCode - offset
             if (isLikelyPlayerSkill(possibleOrigin)) {
                 logger.debug("Inferred original skill code: {}", possibleOrigin)
                 return possibleOrigin
+            }
+
+            val scaledPossibleOrigin = possibleOrigin * 10
+            if (isLikelyPlayerSkill(scaledPossibleOrigin)) {
+                logger.debug(
+                    "Inferred original skill code by x10 scaling: {} -> {}",
+                    possibleOrigin,
+                    scaledPossibleOrigin
+                )
+                return scaledPossibleOrigin
             }
         }
 
