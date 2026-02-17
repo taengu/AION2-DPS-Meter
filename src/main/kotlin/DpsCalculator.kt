@@ -95,6 +95,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     @Volatile private var allTargetsWindowMs = 120_000L
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
     private val nicknameJobCache = mutableMapOf<String, String>()
+    private val loggedInferFailures = mutableSetOf<Int>()
 
     fun setTargetSelectionModeById(id: String?) {
         targetSelectionMode = TargetSelectionMode.fromId(id)
@@ -770,37 +771,45 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
+        val npcLikeSkill = skillCode in 1_000_000..9_999_999
+
         // Keep NPC diagnostics for known mob/non-player actors when the skill code looks NPC-like.
-        if ((isKnownMob || !isKnownPlayer) && logger.isDebugEnabled && skillCode in 1_000_000..9_999_999) {
+        if ((isKnownMob || !isKnownPlayer) && logger.isDebugEnabled && npcLikeSkill) {
             val skillName = SKILL_MAP[skillCode] ?: skillCode.toString()
             logger.debug("NPC {} attacked {} with {}", actorId, targetId, skillName)
             if (UnifiedLogger.isDebugEnabled()) {
                 UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", actorId, targetId, skillName)
             }
+
+            // These are frequently repeated mob/system skills; avoid noisy infer-failure spam.
+            return null
         }
 
-        logger.debug(
-            "Failed to infer skill code: {} (target {}, actor {}, damage {})",
-            skillCode,
-            targetId,
-            actorId,
-            damage
-        )
-        if (!payloadHex.isNullOrBlank()) {
+        val shouldLogFailure = synchronized(loggedInferFailures) { loggedInferFailures.add(skillCode) }
+        if (shouldLogFailure) {
             logger.debug(
-                "Failed to infer skill code payload={}",
-                payloadHex
+                "Failed to infer skill code: {} (target {}, actor {}, damage {})",
+                skillCode,
+                targetId,
+                actorId,
+                damage
+            )
+            if (!payloadHex.isNullOrBlank()) {
+                logger.debug(
+                    "Failed to infer skill code payload={}",
+                    payloadHex
+                )
+            }
+            UnifiedLogger.debug(
+                logger,
+                "Failed to infer skill code: {} (target {}, actor {}, damage {}) payload={}",
+                skillCode,
+                targetId,
+                actorId,
+                damage,
+                payloadHex ?: "<omitted>"
             )
         }
-        UnifiedLogger.debug(
-            logger,
-            "Failed to infer skill code: {} (target {}, actor {}, damage {}) payload={}",
-            skillCode,
-            targetId,
-            actorId,
-            damage,
-            payloadHex ?: "<omitted>"
-        )
         return null
     }
 
@@ -810,6 +819,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         lastLocalHitTime = -1L
         currentTarget = 0
         lastDpsSnapshot = null
+        synchronized(loggedInferFailures) { loggedInferFailures.clear() }
         dataStorage.setCurrentTarget(0)
         logger.info("Target damage accumulation reset")
     }
