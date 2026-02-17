@@ -18,6 +18,8 @@ class DataStorage {
     private val mobCodeData = ConcurrentHashMap<Int, String>()
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val currentTarget = AtomicInteger(0)
+    private val packetOrder = ArrayDeque<ParsedDamagePacket>()
+    private val maxStoredPackets = 120_000
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
@@ -53,7 +55,32 @@ class DataStorage {
 
         byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         byTargetStorage.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
+        packetOrder.addLast(pdp)
+        trimStoredDamageIfNeeded()
         applyPendingNickname(pdp.getActorId())
+    }
+
+    private fun trimStoredDamageIfNeeded() {
+        while (packetOrder.size > maxStoredPackets) {
+            if (packetOrder.isEmpty()) break
+            val oldest = packetOrder.removeFirst()
+            removePacketReferences(oldest)
+        }
+    }
+
+    private fun removePacketReferences(pdp: ParsedDamagePacket) {
+        byActorStorage[pdp.getActorId()]?.let { actorPackets ->
+            actorPackets.removeIf { it.getId() == pdp.getId() }
+            if (actorPackets.isEmpty()) {
+                byActorStorage.remove(pdp.getActorId())
+            }
+        }
+        byTargetStorage[pdp.getTargetId()]?.let { targetPackets ->
+            targetPackets.removeIf { it.getId() == pdp.getId() }
+            if (targetPackets.isEmpty()) {
+                byTargetStorage.remove(pdp.getTargetId())
+            }
+        }
     }
 
     fun setCurrentTarget(targetId: Int){
@@ -134,6 +161,7 @@ class DataStorage {
     fun flushDamageStorage() {
         byActorStorage.clear()
         byTargetStorage.clear()
+        packetOrder.clear()
         summonStorage.clear()
         currentTarget.set(0)
         logger.info("Damage packets reset")

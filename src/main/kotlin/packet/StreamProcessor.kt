@@ -647,9 +647,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val damageInfo = readVarInt(packet,offset)
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
-        if (UnifiedLogger.isDebugEnabled()) {
-            pdp.setHexPayload(toHex(packet))
-        }
 
         if (logger.isDebugEnabled) {
             logger.debug("{}", toHex(packet))
@@ -939,9 +936,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pdp.setMultiHitDamage(multiHitDamage)
         pdp.setHealAmount(healAmount)
         pdp.setDamage(VarIntOutput(finalDamage, 1))
-        if (UnifiedLogger.isDebugEnabled()) {
-            pdp.setHexPayload(toHex(packet))
-        }
 
         if (logger.isTraceEnabled) {
             logger.trace("{}", toHex(packet))

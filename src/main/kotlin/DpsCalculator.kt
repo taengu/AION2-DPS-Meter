@@ -96,6 +96,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
     private val nicknameJobCache = mutableMapOf<String, String>()
     private val loggedInferFailures = mutableSetOf<Int>()
+    private val maxLoggedInferFailures = 2_048
 
     fun setTargetSelectionModeById(id: String?) {
         targetSelectionMode = TargetSelectionMode.fromId(id)
@@ -785,7 +786,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             return null
         }
 
-        val shouldLogFailure = synchronized(loggedInferFailures) { loggedInferFailures.add(skillCode) }
+        val shouldLogFailure = synchronized(loggedInferFailures) {
+            if (loggedInferFailures.size >= maxLoggedInferFailures) {
+                loggedInferFailures.clear()
+            }
+            loggedInferFailures.add(skillCode)
+        }
         if (shouldLogFailure) {
             logger.debug(
                 "Failed to infer skill code: {} (target {}, actor {}, damage {})",
