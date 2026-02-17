@@ -223,7 +223,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
 
-            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
             if (uid <= 0) return@forEach
 
             val nickname = resolveNickname(uid, nicknameData)
@@ -296,10 +296,24 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return dpsData
     }
 
+    private fun resolveSummonerUid(actorId: Int, summonData: Map<Int, Int>): Int {
+        if (actorId <= 0) return actorId
+        var resolved = actorId
+        val visited = mutableSetOf<Int>()
+        var hops = 0
+        while (hops < 16 && visited.add(resolved)) {
+            val parent = summonData[resolved] ?: break
+            if (parent <= 0) break
+            resolved = parent
+            hops++
+        }
+        return resolved
+    }
+
     private fun resolveNickname(uid: Int, nicknameData: Map<Int, String>): String {
         val summonData = dataStorage.getSummonData()
         return nicknameData[uid]
-            ?: nicknameData[summonData[uid] ?: uid]
+            ?: nicknameData[resolveSummonerUid(uid, summonData)]
             ?: uid.toString()
     }
 
@@ -338,7 +352,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val actorDamage = mutableMapOf<Int, Int>()
 
             pdps.forEach { pdp ->
-                val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+                val uid = resolveSummonerUid(pdp.getActorId(), summonData)
                 if (uid <= 0) return@forEach
                 val damage = pdp.getDamage()
                 totalDamage += damage
@@ -394,7 +408,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         var endTime: Long? = null
 
         pdps.forEach { pdp ->
-            val uid = summonData[pdp.getActorId()] ?: pdp.getActorId()
+            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
             if (uid <= 0) return@forEach
             val damage = pdp.getDamage()
             totalTargetDamage += damage
