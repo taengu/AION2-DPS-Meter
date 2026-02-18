@@ -2401,6 +2401,22 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   flex: 0 0 auto;
   object-fit: cover;
 }
+.detailsPanel .detailsSkills .cell.name .skillIcon.isTheostoneIcon {
+  box-sizing: border-box;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background-origin: border-box;
+  background-clip: padding-box;
+}
+.detailsPanel .detailsSkills .cell.name .skillIcon.isTheostoneQualityGreen {
+  background: linear-gradient(145deg, rgba(106, 159, 50, 0.95), rgba(37, 84, 23, 0.92));
+}
+.detailsPanel .detailsSkills .cell.name .skillIcon.isTheostoneQualityBlue {
+  background: linear-gradient(145deg, rgba(68, 140, 209, 0.95), rgba(20, 77, 142, 0.92));
+}
+.detailsPanel .detailsSkills .cell.name .skillIcon.isTheostoneQualityYellow {
+  background: linear-gradient(145deg, rgba(186, 148, 41, 0.96), rgba(108, 81, 15, 0.93));
+}
 .detailsPanel .detailsSkills .cell.name .skillIcon.isPlaceholder {
   background: rgba(16, 18, 22, 0.88);
   border:     1px solid rgba(22, 24, 28, 0.88);
@@ -2853,6 +2869,22 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: 3px;
   flex: 0 0 auto;
   object-fit: cover;
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isTheostoneIcon {
+  box-sizing: border-box;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background-origin: border-box;
+  background-clip: padding-box;
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isTheostoneQualityGreen {
+  background: linear-gradient(145deg, rgba(106, 159, 50, 0.95), rgba(37, 84, 23, 0.92));
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isTheostoneQualityBlue {
+  background: linear-gradient(145deg, rgba(68, 140, 209, 0.95), rgba(20, 77, 142, 0.92));
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isTheostoneQualityYellow {
+  background: linear-gradient(145deg, rgba(186, 148, 41, 0.96), rgba(108, 81, 15, 0.93));
 }
 .hoverDetailsTooltipSkill .name .skillIcon.isPlaceholder {
   background: rgba(180, 186, 198, 0.35);

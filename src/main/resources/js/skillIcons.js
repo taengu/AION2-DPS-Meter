@@ -33,6 +33,14 @@
     호법성: "CH",
   };
 
+  const THEOSTONE_PREFIX = "30";
+  const THEOSTONE_ICON_BASE = "Icon_Item_Usable_Godstone_WP_r_";
+  const THEOSTONE_QUALITY_CLASS_BY_CODE = {
+    0: "isTheostoneQualityGreen",
+    1: "isTheostoneQualityBlue",
+    2: "isTheostoneQualityYellow",
+  };
+
   const pad3 = (value) => String(Math.max(0, Number(value) || 0)).padStart(3, "0");
 
   const normalizeCode = (rawCode) => {
@@ -66,7 +74,39 @@
     return `${BASE_URL}/ICON_${classCode}_SKILL${suffix}${pad3(idx)}.png`;
   };
 
+  const parseTheostone = (skill = {}) => {
+    const code = normalizeCode(skill.code);
+    if (!code.startsWith(THEOSTONE_PREFIX) || code.length < 7) return null;
+
+    const qualityCode = Number(code.charAt(4));
+    const iconCode = Number(code.slice(5, 7));
+    if (!Number.isFinite(iconCode) || iconCode <= 0) return null;
+
+    const iconHex = iconCode.toString(16).padStart(3, "0");
+    return {
+      qualityClass: THEOSTONE_QUALITY_CLASS_BY_CODE[qualityCode] || "",
+      iconUrl: `${BASE_URL}/${THEOSTONE_ICON_BASE}${iconHex}.png`,
+    };
+  };
+
+  const getTheostoneQualityClass = (skill = {}) => parseTheostone(skill)?.qualityClass || "";
+
+  const setTheostoneQualityClass = (imgEl, qualityClass = "") => {
+    if (!imgEl) return;
+    imgEl.classList.remove("isTheostoneQualityGreen", "isTheostoneQualityBlue", "isTheostoneQualityYellow");
+    if (qualityClass) {
+      imgEl.classList.add(qualityClass);
+      return;
+    }
+    imgEl.classList.remove("isTheostoneIcon");
+  };
+
   const getIconCandidates = (skill = {}) => {
+    const theostone = parseTheostone(skill);
+    if (theostone) {
+      return [theostone.iconUrl];
+    }
+
     const classCode = resolveClassCode(skill);
     if (!classCode) return [];
 
@@ -84,11 +124,17 @@
 
   const applyIconToImage = (imgEl, skill = {}) => {
     if (!imgEl) return;
+    const qualityClass = getTheostoneQualityClass(skill);
+    imgEl.classList.toggle("isTheostoneIcon", Boolean(qualityClass));
+    setTheostoneQualityClass(imgEl, qualityClass);
+
     const candidates = getIconCandidates(skill);
     if (!candidates.length) {
       imgEl.dataset.iconCandidates = "[]";
       imgEl.dataset.iconIndex = "0";
       imgEl.classList.add("isPlaceholder");
+      imgEl.classList.remove("isTheostoneIcon");
+      setTheostoneQualityClass(imgEl, "");
       imgEl.src = TRANSPARENT_PIXEL;
       imgEl.style.display = "";
       return;
@@ -113,6 +159,8 @@
     const idx = Number(imgEl.dataset.iconIndex || 0) + 1;
     if (!Array.isArray(candidates) || idx >= candidates.length) {
       imgEl.classList.add("isPlaceholder");
+      imgEl.classList.remove("isTheostoneIcon");
+      setTheostoneQualityClass(imgEl, "");
       imgEl.src = TRANSPARENT_PIXEL;
       imgEl.style.display = "";
       return;
@@ -124,6 +172,7 @@
 
   global.skillIcons = {
     getIconCandidates,
+    getTheostoneQualityClass,
     applyIconToImage,
     handleImgError,
   };
