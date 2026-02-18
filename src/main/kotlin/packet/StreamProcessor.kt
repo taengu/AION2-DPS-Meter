@@ -18,6 +18,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private val mask = 0x0f
     private val actorIdFilterKey = "dpsMeter.actorIdFilter"
+    private val skipLogWindowMs = 1_000L
+    private val skipLogMaxPerWindow = 40
+    private val maxLoggedPacketBytes = 256
+
+    private var skipLogWindowStartMs = 0L
+    private var skipLogCountInWindow = 0
+    private var skipLogSuppressedInWindow = 0
 
     private fun isActorAllowed(actorId: Int): Boolean {
         val rawFilter = PropertyHandler.getProperty(actorIdFilterKey)?.trim().orEmpty()
@@ -46,18 +53,47 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return false
     }
 
-    private fun logSkippedOrPartialPacket(reason: String, packet: ByteArray) {
-        val hex = toHex(packet)
+    private fun logSkippedOrPartialPacket(reason: String, packet: ByteArray, startOffset: Int = 0, length: Int = packet.size - startOffset) {
+        val now = System.currentTimeMillis()
+        if (now - skipLogWindowStartMs >= skipLogWindowMs) {
+            if (skipLogSuppressedInWindow > 0) {
+                val summary = "Suppressed ${skipLogSuppressedInWindow} skip/partial packet logs in previous window"
+                logger.debug(summary)
+                UnifiedLogger.debug(logger, summary)
+            }
+            skipLogWindowStartMs = now
+            skipLogCountInWindow = 0
+            skipLogSuppressedInWindow = 0
+        }
+
+        if (skipLogCountInWindow >= skipLogMaxPerWindow) {
+            skipLogSuppressedInWindow++
+            return
+        }
+        skipLogCountInWindow++
+
+        val start = startOffset.coerceIn(0, packet.size)
+        val maxLen = (packet.size - start).coerceAtLeast(0)
+        val requestedLen = length.coerceAtLeast(0).coerceAtMost(maxLen)
+        val endExclusive = start + requestedLen
+        val bytesToLog = minOf(requestedLen, maxLoggedPacketBytes)
+        val hex = toHexRange(packet, start, start + bytesToLog)
+        val truncated = requestedLen > bytesToLog
         val marker0438 = has0438Marker(packet)
         val markerFfFf = hasFfFfMarker(packet)
-        logger.debug("{}: {}", reason, hex)
+        logger.debug("{}: {}", reason, if (truncated) "$hex ..." else hex)
         UnifiedLogger.debug(
             logger,
-            "{} marker0438={} markerFfFf={} hex={}",
+            "{} marker0438={} markerFfFf={} range=[{}..{}) loggedBytes={} totalBytes={} truncated={} hex={}",
             reason,
             marker0438,
             markerFfFf,
-            hex
+            start,
+            endExclusive,
+            bytesToLog,
+            requestedLen,
+            truncated,
+            if (truncated) "$hex ..." else hex
         )
     }
 
@@ -134,7 +170,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
                         // Safety check: break if we hit padding or malformed varints
                         if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
-                            logSkippedOrPartialPacket("FF-FF bundle nested packet length malformed", bundlePayload.copyOfRange(offset, bundlePayload.size))
+                            logSkippedOrPartialPacket("FF-FF bundle nested packet length malformed", bundlePayload, offset, bundlePayload.size - offset)
                             break
                         }
 
@@ -142,7 +178,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
                         // Safety check: break if the nested packet claims to be longer than the remaining buffer
                         if (offset + nestedPacketLength > bundlePayload.size) {
-                            logSkippedOrPartialPacket("FF-FF bundle nested packet truncated", bundlePayload.copyOfRange(offset, bundlePayload.size))
+                            logSkippedOrPartialPacket("FF-FF bundle nested packet truncated", bundlePayload, offset, bundlePayload.size - offset)
                             break
                         }
 
@@ -1075,22 +1111,28 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     }
 
-    private fun toHex(bytes: ByteArray): String {
+    private fun toHexRange(bytes: ByteArray, startInclusive: Int, endExclusive: Int): String {
         if (bytes.isEmpty()) return ""
-        val hex = CharArray(bytes.size * 3 - 1)
+        val start = startInclusive.coerceIn(0, bytes.size)
+        val end = endExclusive.coerceIn(start, bytes.size)
+        val length = end - start
+        if (length <= 0) return ""
+        val hex = CharArray(length * 3 - 1)
         var pos = 0
-        bytes.forEachIndexed { index, b ->
-            val value = b.toInt() and 0xFF
+        for (index in 0 until length) {
+            val value = bytes[start + index].toInt() and 0xFF
             val high = value ushr 4
             val low = value and 0x0F
             hex[pos++] = HEX_DIGITS[high]
             hex[pos++] = HEX_DIGITS[low]
-            if (index != bytes.lastIndex) {
+            if (index != length - 1) {
                 hex[pos++] = ' '
             }
         }
         return String(hex)
     }
+
+    private fun toHex(bytes: ByteArray): String = toHexRange(bytes, 0, bytes.size)
 
     private fun buildSkillCandidates(rawUnsigned: Long): List<Int> {
         val seedCandidates = mutableListOf<Int>()
@@ -1190,7 +1232,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (shift >= 32) {
                 logger.trace(
                     "Varint overflow, packet {} offset {} shift {}",
-                    toHex(bytes.copyOfRange(offset, offset + 4)),
+                    toHexRange(bytes, offset, minOf(offset + 4, bytes.size)),
                     offset,
                     shift
                 )

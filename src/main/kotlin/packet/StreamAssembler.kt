@@ -7,6 +7,7 @@ class StreamAssembler(private val processor: StreamProcessor) {
     private val buffer = PacketAccumulator()
 
     private val MAGIC_PACKET = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
+    private val MAX_BUFFER_WITHOUT_DELIMITER = 512 * 1024
 
     suspend fun processChunk(chunk: ByteArray): Boolean {
         var parsed = false
@@ -14,7 +15,18 @@ class StreamAssembler(private val processor: StreamProcessor) {
 
         while (true) {
             val suffixIndex = buffer.indexOf(MAGIC_PACKET)
-            if (suffixIndex == -1) break
+            if (suffixIndex == -1) {
+                val buffered = buffer.size()
+                if (buffered > MAX_BUFFER_WITHOUT_DELIMITER) {
+                    logger.warn(
+                        "{} : assembler buffer exceeded {} bytes without delimiter, trimming tail",
+                        logger.name,
+                        MAX_BUFFER_WITHOUT_DELIMITER
+                    )
+                    buffer.trimToTail(MAGIC_PACKET.size - 1)
+                }
+                break
+            }
 
             val cutPoint = suffixIndex + MAGIC_PACKET.size
             val fullPacket = buffer.getRange(0, cutPoint)
