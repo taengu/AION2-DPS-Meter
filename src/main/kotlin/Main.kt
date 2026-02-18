@@ -128,8 +128,8 @@ private fun configureJavaFxPipeline() {
     val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
     if (!isWindows || !isNativeImage) return
     if (!System.getProperty("prism.order").isNullOrBlank()) return
+    System.setProperty("javafx.animation.pulse", "30")
 
-    System.setProperty("prism.order", "sw")
 }
 
 private fun ensureAdminOnWindows() {

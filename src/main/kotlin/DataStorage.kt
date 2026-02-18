@@ -19,8 +19,15 @@ class DataStorage {
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val currentTarget = AtomicInteger(0)
     private val packetOrder = ArrayDeque<ParsedDamagePacket>()
-    private val maxStoredPackets = 60_000
-    private val maxSnapshotPackets = 20_000
+
+    // --- UPDATED LIMITS ---
+    // Increased from 60,000 -> 200,000 (Approx 60 mins of heavy data)
+    // Since we are now using Hardware Acceleration, the Heap has plenty of space for this.
+    private val maxStoredPackets = 200_000
+
+    // Increased from 20,000 -> 100,000 (Ensures long fights don't get truncated in the UI)
+    private val maxSnapshotPackets = 100_000
+    // ----------------------
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {

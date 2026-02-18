@@ -1900,11 +1900,18 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -40%;
+  left: 0; /* Changed from -40% to 0 */
   width: 40%;
   opacity: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(
+          110deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.35) 50%,
+          rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%); /* Use transform for initial position */
+  will-change: transform, opacity; /* Hint to browser to promote to GPU layer */
 }
 .list .item.hoverRippleOnce .fill::after {
   opacity: 1;
@@ -2511,14 +2518,14 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 
 @keyframes meterBarHoverRipple {
   0% {
-    left: -40%;
+    transform: translateX(-100%); /* GPU optimized */
     opacity: 0;
   }
   20% {
     opacity: 1;
   }
   100% {
-    left: 110%;
+    transform: translateX(350%); /* GPU optimized (moves across the bar) */
     opacity: 0;
   }
 }
