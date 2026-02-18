@@ -609,15 +609,14 @@ class DpsApp {
       .map((skill, index) => {
         const name = String(skill?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const dmg = this.dpsFormatter.format(Number(skill?.dmg) || 0);
-        const skillColor = this.getJobColor(skill?.job || row?.job);
+        const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
+        const skillColor = theostoneNameColor || this.getJobColor(skill?.job || row?.job);
         const skillStyle = skillColor ? ` style="color:${skillColor}"` : "";
         const iconCandidates = window.skillIcons?.getIconCandidates?.(skill) || [];
         const encodedCandidates = encodeURIComponent(JSON.stringify(iconCandidates));
         const iconSrc = iconCandidates[0] || "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
         const iconPlaceholderClass = iconCandidates.length ? "" : " isPlaceholder";
-        const theostoneQualityClass = window.skillIcons?.getTheostoneQualityClass?.(skill) || "";
-        const theostoneIconClass = theostoneQualityClass ? ` isTheostoneIcon ${theostoneQualityClass}` : "";
-        const iconHtml = `<img class="skillIcon${iconPlaceholderClass}${theostoneIconClass}" alt="" src="${iconSrc}" data-icon-candidates="${encodedCandidates}" data-icon-index="0" onerror="window.skillIcons&&window.skillIcons.handleImgError&&window.skillIcons.handleImgError(this)">`;
+        const iconHtml = `<img class="skillIcon${iconPlaceholderClass}" alt="" src="${iconSrc}" data-icon-candidates="${encodedCandidates}" data-icon-index="0" onerror="window.skillIcons&&window.skillIcons.handleImgError&&window.skillIcons.handleImgError(this)">`;
         return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name">${iconHtml}<span class="skillName"${skillStyle}>${name}</span></span><span class="dmg">${dmg}</span></div>`;
       })
       .join("");

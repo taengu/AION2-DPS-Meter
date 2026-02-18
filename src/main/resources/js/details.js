@@ -897,7 +897,8 @@ const createDetailsUI = ({
       view.nameTextEl.textContent = skill.name ?? "";
       const resolvedJob = skill.job || getActorJob(skill.actorId);
       window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
-      const skillColor = resolvedJob ? getJobColor(resolvedJob) : "";
+      const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
+      const skillColor = theostoneNameColor || (resolvedJob ? getJobColor(resolvedJob) : "");
       view.nameTextEl.style.color = skillColor || "";
       view.hitEl.textContent = `${hits}`;
       view.critEl.textContent = `${critRate}%`;
