@@ -19,7 +19,8 @@ class DataStorage {
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val currentTarget = AtomicInteger(0)
     private val packetOrder = ArrayDeque<ParsedDamagePacket>()
-    private val maxStoredPackets = 120_000
+    private val maxStoredPackets = 60_000
+    private val maxSnapshotPackets = 20_000
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
@@ -167,20 +168,32 @@ class DataStorage {
         logger.info("Damage packets reset")
     }
 
+    private fun recentPacketsForSnapshot(): List<ParsedDamagePacket> {
+        if (packetOrder.isEmpty()) return emptyList()
+        val skip = (packetOrder.size - maxSnapshotPackets).coerceAtLeast(0)
+        val recent = ArrayList<ParsedDamagePacket>(packetOrder.size - skip)
+        var idx = 0
+        packetOrder.forEach { pdp ->
+            if (idx >= skip) recent.add(pdp)
+            idx++
+        }
+        return recent
+    }
+
     @Synchronized
     fun getBossModeDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
-        val snapshot = HashMap<Int, List<ParsedDamagePacket>>()
-        byTargetStorage.forEach { (k, v) ->
-            snapshot[k] = ArrayList(v)
+        val snapshot = HashMap<Int, MutableList<ParsedDamagePacket>>()
+        recentPacketsForSnapshot().forEach { pdp ->
+            snapshot.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
         }
         return snapshot
     }
 
     @Synchronized
     fun getActorDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
-        val snapshot = HashMap<Int, List<ParsedDamagePacket>>()
-        byActorStorage.forEach { (k, v) ->
-            snapshot[k] = ArrayList(v)
+        val snapshot = HashMap<Int, MutableList<ParsedDamagePacket>>()
+        recentPacketsForSnapshot().forEach { pdp ->
+            snapshot.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         }
         return snapshot
     }
