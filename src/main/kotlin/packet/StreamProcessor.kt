@@ -71,46 +71,62 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     fun onPacketReceived(packet: ByteArray): Boolean {
         var parsed = false
 
-        // --- NEW LOGIC: Unzip FF FF Bundle Packets ---
-        if (packet.size >= 8 && packet[2] == 0xff.toByte() && packet[3] == 0xff.toByte()) {
-            // FF-FF transport bundles use an 8-byte envelope header. Starting from byte 10
-            // skips the nested length varint and causes us to desync and miss damage packets.
-            val bundlePayload = packet.copyOfRange(8, packet.size)
-            var offset = 0
+        // 1. Read the packet length first. We need this for both Bundle detection and Standard processing.
+        val packetLengthInfo = readVarInt(packet)
 
-            while (offset < bundlePayload.size) {
-                // Read the length of the next nested packet
-                val lengthInfo = readVarInt(bundlePayload, offset)
+        // --- FIXED LOGIC: Unzip FF FF Bundle Packets ---
+        // Bundles start with a standard VarInt length, followed by FF FF, then 6 bytes of padding.
+        if (packetLengthInfo.length > 0 && packetLengthInfo.value > 0) {
+            val payloadStart = packetLengthInfo.length
 
-                // Safety check: break if we hit padding or malformed varints
-                if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
-                    break
+            // Check if this is a bundle packet (starts with FF FF at the payload position)
+            if (packet.size >= payloadStart + 8 &&
+                packet[payloadStart] == 0xff.toByte() &&
+                packet[payloadStart + 1] == 0xff.toByte()
+            ) {
+                // FF-FF transport bundles use an 8-byte envelope header AFTER the length varint.
+                // Structure: [VarInt Length] [FF FF] [6 Bytes Padding] [Nested Packets...]
+                // We must skip: payloadStart + 2 (FFFF) + 6 (Padding) = payloadStart + 8
+                val bundleDataStart = payloadStart + 8
+
+                if (bundleDataStart < packet.size) {
+                    val bundlePayload = packet.copyOfRange(bundleDataStart, packet.size)
+                    var offset = 0
+
+                    while (offset < bundlePayload.size) {
+                        // Read the length of the next nested packet
+                        val lengthInfo = readVarInt(bundlePayload, offset)
+
+                        // Safety check: break if we hit padding or malformed varints
+                        if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
+                            break
+                        }
+
+                        val nestedPacketLength = lengthInfo.value
+
+                        // Safety check: break if the nested packet claims to be longer than the remaining buffer
+                        if (offset + nestedPacketLength > bundlePayload.size) {
+                            break
+                        }
+
+                        // Slice out the exact nested packet
+                        val nestedPacket = bundlePayload.copyOfRange(offset, offset + nestedPacketLength)
+
+                        // Recursively send this standard packet back through the parser!
+                        if (onPacketReceived(nestedPacket)) {
+                            parsed = true
+                        }
+
+                        // Move the offset forward to the start of the next packet in the train
+                        offset += nestedPacketLength
+                    }
+                    return parsed // Return early since we successfully processed the bundle
                 }
-
-                val nestedPacketLength = lengthInfo.value
-
-                // Safety check: break if the nested packet claims to be longer than the remaining buffer
-                if (offset + nestedPacketLength > bundlePayload.size) {
-                    break
-                }
-
-                // Slice out the exact nested packet
-                val nestedPacket = bundlePayload.copyOfRange(offset, offset + nestedPacketLength)
-
-                // Recursively send this standard packet back through the parser!
-                if (onPacketReceived(nestedPacket)) {
-                    parsed = true
-                }
-
-                // Move the offset forward to the start of the next packet in the train
-                offset += nestedPacketLength
             }
-            return parsed // Return early since we successfully processed the bundle
         }
         // ----------------------------------------------
 
-        val packetLengthInfo = readVarInt(packet)
-
+        // Standard processing (unchanged, but uses the packetLengthInfo read at the top)
         if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
             logger.debug("Malformed packet length header skipped: {}", toHex(packet))
             return parsed
@@ -713,44 +729,75 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 
+        if (offset + 1 >= packet.size) return false
 
-        if (packet[offset] != 0x40.toByte()) return false
-        if (packet[offset + 1] != 0x36.toByte()) return false
-        offset += 2
+        val opcode1 = packet[offset].toInt() and 0xFF
+        val opcode2 = packet[offset + 1].toInt() and 0xFF
 
-        val summonInfo = readVarInt(packet, offset)
-        if (summonInfo.length < 0) return false
-        offset += summonInfo.length + 28
-        if (packet.size > offset) {
-            val mobInfo = readVarInt(packet, offset)
-            if (mobInfo.length < 0) return false
-            offset += mobInfo.length
+        // Case 1: Standard/Old Summon Packet (0x40 0x36)
+        if (opcode1 == 0x40 && opcode2 == 0x36) {
+            offset += 2
+            val summonInfo = readVarInt(packet, offset)
+            if (summonInfo.length < 0) return false
+            offset += summonInfo.length + 28
+
             if (packet.size > offset) {
-                val mobInfo2 = readVarInt(packet, offset)
-                if (mobInfo2.length < 0) return false
-                if (mobInfo.value == mobInfo2.value) {
-                    logger.trace("mid: {}, code: {}", summonInfo.value, mobInfo.value)
-                    dataStorage.appendMob(summonInfo.value, mobInfo.value)
+                val mobInfo = readVarInt(packet, offset)
+                if (mobInfo.length < 0) return false
+                offset += mobInfo.length
+                if (packet.size > offset) {
+                    val mobInfo2 = readVarInt(packet, offset)
+                    if (mobInfo2.length < 0) return false
+                    if (mobInfo.value == mobInfo2.value) {
+                        logger.trace("mid: {}, code: {}", summonInfo.value, mobInfo.value)
+                        dataStorage.appendMob(summonInfo.value, mobInfo.value)
+                    }
                 }
+            }
+
+            val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+            if (keyIdx == -1) return false
+            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+
+            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+            if (opcodeIdx == -1) return false
+            offset = keyIdx + opcodeIdx + 11
+
+            if (offset + 2 > packet.size) return false
+            val realActorId = parseUInt16le(packet, offset)
+
+            logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
+            UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
+            dataStorage.appendSummon(realActorId, summonInfo.value)
+            return true
+        }
+        // Case 2: Compact/Local Summon Packet (0x4A 0x36)
+        else if (opcode1 == 0x4A && opcode2 == 0x36) {
+            offset += 2
+
+            // The first VarInt is the Summon ID (e.g. 8C 8D 05 -> 83596)
+            val summonInfo = readVarInt(packet, offset)
+            if (summonInfo.length <= 0) return false
+
+            val summonId = summonInfo.value
+
+            // This packet type usually implies the summon belongs to the local player.
+            // We use the LocalPlayer ID if available.
+            val localPlayerId = LocalPlayer.playerId
+            if (localPlayerId != null && localPlayerId > 0) {
+                logger.debug("Local summon mapping found: Owner {} -> Summon {}", localPlayerId, summonId)
+                UnifiedLogger.debug(logger, "Local summon mapping found: Owner {} -> Summon {}", localPlayerId, summonId)
+                dataStorage.appendSummon(localPlayerId.toInt(), summonId)
+                return true
+            } else {
+                // Fallback: If we don't know the local player ID yet, we might want to cache this
+                // or try to infer it from the previous packet's context (rare).
+                logger.debug("Found local summon packet for {} but LocalPlayer ID is unknown", summonId)
+                return false
             }
         }
 
-
-        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-        if (keyIdx == -1) return false
-        val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-
-        val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
-        if (opcodeIdx == -1) return false
-        offset = keyIdx + opcodeIdx + 11
-
-        if (offset + 2 > packet.size) return false
-        val realActorId = parseUInt16le(packet, offset)
-
-        logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-        UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-        dataStorage.appendSummon(realActorId, summonInfo.value)
-        return true
+        return false
     }
 
     private fun parseUInt16le(packet: ByteArray, offset: Int = 0): Int {
