@@ -26,6 +26,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return actorId == filterValue
     }
 
+    private fun has0438Marker(packet: ByteArray): Boolean {
+        if (packet.size < 2) return false
+        for (idx in 0 until packet.size - 1) {
+            if (packet[idx] == 0x04.toByte() && packet[idx + 1] == 0x38.toByte()) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun hasFfFfMarker(packet: ByteArray): Boolean {
+        if (packet.size < 2) return false
+        for (idx in 0 until packet.size - 1) {
+            if (packet[idx] == 0xff.toByte() && packet[idx + 1] == 0xff.toByte()) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun logSkippedOrPartialPacket(reason: String, packet: ByteArray) {
+        val hex = toHex(packet)
+        val marker0438 = has0438Marker(packet)
+        val markerFfFf = hasFfFfMarker(packet)
+        logger.debug("{}: {}", reason, hex)
+        UnifiedLogger.debug(
+            logger,
+            "{} marker0438={} markerFfFf={} hex={}",
+            reason,
+            marker0438,
+            markerFfFf,
+            hex
+        )
+    }
+
     private inner class DamagePacketReader(private val data: ByteArray, var offset: Int = 0) {
         fun readVarInt(): Int {
             if (offset >= data.size) return -1
@@ -99,6 +134,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
                         // Safety check: break if we hit padding or malformed varints
                         if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
+                            logSkippedOrPartialPacket("FF-FF bundle nested packet length malformed", bundlePayload.copyOfRange(offset, bundlePayload.size))
                             break
                         }
 
@@ -106,6 +142,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
                         // Safety check: break if the nested packet claims to be longer than the remaining buffer
                         if (offset + nestedPacketLength > bundlePayload.size) {
+                            logSkippedOrPartialPacket("FF-FF bundle nested packet truncated", bundlePayload.copyOfRange(offset, bundlePayload.size))
                             break
                         }
 
@@ -120,22 +157,26 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                         // Move the offset forward to the start of the next packet in the train
                         offset += nestedPacketLength
                     }
+                    if (!parsed) {
+                        logSkippedOrPartialPacket("FF-FF bundle had no fully parsed nested packets", packet)
+                    }
                     return parsed // Return early since we successfully processed the bundle
                 }
+                logSkippedOrPartialPacket("FF-FF bundle payload missing after header", packet)
             }
         }
         // ----------------------------------------------
 
         // Standard processing (unchanged, but uses the packetLengthInfo read at the top)
         if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
-            logger.debug("Malformed packet length header skipped: {}", toHex(packet))
+            logSkippedOrPartialPacket("Malformed packet length header skipped", packet)
             return parsed
         }
 
         if (packet.size == packetLengthInfo.value) {
             val payloadEnd = packet.size - 3
             if (payloadEnd <= 0) {
-                logger.debug("Short packet with no payload skipped: {}", toHex(packet))
+                logSkippedOrPartialPacket("Short packet with no payload skipped", packet)
                 return parsed
             }
             logger.trace(
@@ -159,7 +200,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val payloadEnd = packetLengthInfo.value - 3
         if (payloadEnd <= 0 || payloadEnd > packet.size) {
-            logger.debug("Invalid payload boundary skipped: length={}, packet={}", packetLengthInfo.value, toHex(packet))
+            logSkippedOrPartialPacket("Invalid payload boundary skipped: length=${packetLengthInfo.value}", packet)
             return parsed
         }
 
@@ -177,7 +218,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             if (onPacketReceived(packet.copyOfRange(payloadEnd, packet.size))) parsed = true
         } catch (_: IndexOutOfBoundsException) {
-            logger.debug("Truncated tail packet skipped: {}", toHex(packet))
+            logSkippedOrPartialPacket("Truncated tail packet skipped", packet)
             return parsed
         }
         return parsed
@@ -186,7 +227,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
         var parsed = false
         if (packet.size < 4) {
-            logger.debug("Truncated packet skipped: {}", toHex(packet))
+            logSkippedOrPartialPacket("Truncated packet skipped", packet)
             return parsed
         }
 
@@ -867,48 +908,59 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0) return false
         val reader = DamagePacketReader(packet, packetLengthInfo.length)
 
-        if (reader.offset >= packet.size) return false
-        if (packet[reader.offset] != 0x04.toByte()) return false
-        if (packet[reader.offset + 1] != 0x38.toByte()) return false
-        reader.offset += 2
-        fun logUnparsedDamage(): Boolean {
-            UnifiedLogger.debug(logger, "Unparsed damage packet hex={}", toHex(packet))
+        if (reader.offset >= packet.size) {
+            logSkippedOrPartialPacket("Damage packet skipped: payload offset out of bounds", packet)
             return false
         }
-        if (reader.offset >= packet.size) return logUnparsedDamage()
-        val targetValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
+        if (reader.offset + 1 >= packet.size) {
+            logSkippedOrPartialPacket("Damage packet skipped: incomplete opcode", packet)
+            return false
+        }
+        if (packet[reader.offset] != 0x04.toByte() || packet[reader.offset + 1] != 0x38.toByte()) {
+            if (has0438Marker(packet)) {
+                logSkippedOrPartialPacket("Damage packet skipped: 04 38 marker present but not at opcode position", packet)
+            }
+            return false
+        }
+        reader.offset += 2
+        fun logUnparsedDamage(reason: String): Boolean {
+            logSkippedOrPartialPacket("Unparsed damage packet: $reason", packet)
+            return false
+        }
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
+        val targetValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val targetInfo = VarIntOutput(targetValue, 1)
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
-        val switchValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
+        val switchValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
 
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
         val andResult = switchValue and mask
         if (andResult !in 4..7) {
             return true
         }
 
-        reader.tryReadVarInt() ?: return logUnparsedDamage() // Consume Unused flag value
+        reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure") // Consume Unused flag value
 
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
-        val actorValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
+        val actorValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val actorInfo = VarIntOutput(actorValue, 1)
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
         if (actorInfo.value == targetInfo.value) return true
         if (!isActorAllowed(actorInfo.value)) return true
 
-        if (reader.offset + 5 >= packet.size) return logUnparsedDamage()
+        if (reader.offset + 5 >= packet.size) return logUnparsedDamage("field decode failure")
 
         val skillCode = try {
             reader.readSkillCode()
         } catch (_: IllegalStateException) {
-            return logUnparsedDamage()
+            return logUnparsedDamage("field decode failure")
         }
 
-        val typeValue = reader.tryReadVarInt() ?: return logUnparsedDamage()
+        val typeValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val typeInfo = VarIntOutput(typeValue, 1)
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
         val damageType = typeInfo.value.toByte()
 
@@ -919,9 +971,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             5 -> 12
             6 -> 10
             7 -> 14
-            else -> return logUnparsedDamage()
+            else -> return logUnparsedDamage("field decode failure")
         }
-        if (start + tempV > packet.size) return logUnparsedDamage()
+        if (start + tempV > packet.size) return logUnparsedDamage("field decode failure")
         var specialByte = 0
         val hasSpecialByte = reader.offset + 1 < packet.size && packet[reader.offset + 1] == 0x00.toByte()
         if (hasSpecialByte) {
@@ -934,11 +986,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         reader.offset += (tempV - (if (hasSpecialByte) 2 else 0))
 
-        if (reader.offset >= packet.size) return logUnparsedDamage()
+        if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
-        reader.tryReadVarInt() ?: return logUnparsedDamage() // Consume Unused Unknown value
+        reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure") // Consume Unused Unknown value
 
-        val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage()
+        val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         var multiHitCount = 0
         var multiHitDamage = 0
         var healAmount = 0
@@ -1121,7 +1173,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         while (true) {
             if (offset + count >= bytes.size) {
-                logger.debug("Truncated packet skipped: {} offset {} count {}", toHex(bytes), offset, count)
+                logSkippedOrPartialPacket("Truncated packet skipped at varint decode (offset=$offset count=$count)", bytes)
                 return VarIntOutput(-1, -1)
             }
 
