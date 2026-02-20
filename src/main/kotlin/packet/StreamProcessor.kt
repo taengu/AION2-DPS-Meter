@@ -922,7 +922,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (lengthInfo.length <= 0) continue
                 if (start + lengthInfo.length != opcodeOffset) continue
 
-                for (inflation in intArrayOf(3, 0)) {
+                val inflationCandidates = if (hasFfFfMarker(packet)) intArrayOf(3, 0) else intArrayOf(3)
+                for (inflation in inflationCandidates) {
                     val totalPacketBytes = lengthInfo.value - inflation
                     if (totalPacketBytes !in 8..maxCandidateSize) continue
                     val endExclusive = start + totalPacketBytes
@@ -990,6 +991,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
         val targetValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val targetInfo = VarIntOutput(targetValue, 1)
+        if (targetInfo.value <= 0) return logUnparsedDamage("invalid target id")
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
         val switchValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
@@ -1006,6 +1008,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val actorValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val actorInfo = VarIntOutput(actorValue, 1)
+        if (actorInfo.value <= 0) return logUnparsedDamage("invalid actor id")
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
         if (actorInfo.value == targetInfo.value) return !requireMeterEvent
         if (!isActorAllowed(actorInfo.value)) return !requireMeterEvent
@@ -1019,6 +1022,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         val typeValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
+        if (typeValue !in 0..7) return logUnparsedDamage("invalid damage type")
         val typeInfo = VarIntOutput(typeValue, 1)
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
 
