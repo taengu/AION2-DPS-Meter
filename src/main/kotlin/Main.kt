@@ -38,6 +38,9 @@ class AionMeterApp : Application() {
     override fun start(primaryStage: Stage) {
         // We initialize the logic inside start() to ensure the toolkit is ready
         val replayLogFile = PropertyHandler.getProperty("capture.replayFilePath")?.trim().orEmpty()
+        val replayAccelerate = PropertyHandler.getProperty("capture.replayAccelerate")
+            ?.trim()
+            ?.equals("true", ignoreCase = true) == true
         val isReplayMode = replayLogFile.isNotBlank()
 
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
@@ -82,7 +85,7 @@ class AionMeterApp : Application() {
             // Offline Replay Mode
             appScope.launch(Dispatchers.IO) {
                 uiReady.await()
-                val fileCapturer = FilePacketCapturer(replayLogFile, channel, playbackSpeed = 1.0)
+                val fileCapturer = FilePacketCapturer(replayLogFile, channel, playbackSpeed = 1.0, replayAccelerate = replayAccelerate)
                 fileCapturer.start()
             }
         } else {

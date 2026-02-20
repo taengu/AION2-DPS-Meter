@@ -912,9 +912,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         for (opcodeOffset in 0 until packet.size - 1) {
             if (packet[opcodeOffset] != op0 || packet[opcodeOffset + 1] != op1) continue
+            var parsedForOpcode = false
 
             val minStart = (opcodeOffset - 5).coerceAtLeast(0)
             for (start in minStart..opcodeOffset) {
+                if (parsedForOpcode) break
+
                 val lengthInfo = readVarInt(packet, start)
                 if (lengthInfo.length <= 0) continue
                 if (start + lengthInfo.length != opcodeOffset) continue
@@ -931,6 +934,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val candidate = packet.copyOfRange(start, endExclusive)
                     if (parsingDamage(candidate, allowEmbeddedScan = false)) {
                         parsedAny = true
+                        parsedForOpcode = true
                         logger.debug(
                             "Recovered embedded damage packet from offset {} (len={}, parentLen={}, inflation={})",
                             start,
@@ -946,6 +950,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             packet.size,
                             inflation
                         )
+                        break
                     }
                 }
             }

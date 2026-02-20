@@ -13,7 +13,8 @@ import kotlin.coroutines.coroutineContext
 class FilePacketCapturer(
     private val filePath: String,
     private val channel: Channel<CapturedPayload>,
-    private val playbackSpeed: Double = 1.0
+    private val playbackSpeed: Double = 1.0,
+    private val replayAccelerate: Boolean = false
 ) {
     private val logger = LoggerFactory.getLogger(FilePacketCapturer::class.java)
     private val running = AtomicBoolean(false)
@@ -43,7 +44,7 @@ class FilePacketCapturer(
                     val streamKey = parts[1]
                     val hexData = parts[2]
 
-                    if (previousTimestamp != null) {
+                    if (!replayAccelerate && previousTimestamp != null) {
                         val delayMs = ChronoUnit.MILLIS.between(previousTimestamp, timestamp)
                         if (delayMs > 0) {
                             delay((delayMs / playbackSpeed).toLong())
