@@ -901,7 +901,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return true
     }
 
-    private fun tryParseEmbeddedDamagePacket(packet: ByteArray): Boolean {
+    private fun tryParseEmbeddedDamagePacket(packet: ByteArray, requireMeterEvent: Boolean = false): Boolean {
         if (packet.size < 6) return false
 
         val maxCandidateSize = 256
@@ -932,7 +932,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     if (!processedRanges.add(rangeKey)) continue
 
                     val candidate = packet.copyOfRange(start, endExclusive)
-                    if (parsingDamage(candidate, allowEmbeddedScan = false)) {
+                    if (parsingDamage(candidate, allowEmbeddedScan = false, requireMeterEvent = requireMeterEvent)) {
                         parsedAny = true
                         parsedForOpcode = true
                         logger.debug(
@@ -958,7 +958,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return parsedAny
     }
 
-    private fun parsingDamage(packet: ByteArray, allowEmbeddedScan: Boolean = true): Boolean {
+    private fun parsingDamage(packet: ByteArray, allowEmbeddedScan: Boolean = true, requireMeterEvent: Boolean = false): Boolean {
         // The 3 hardcoded filters that blocked 30, 31, and 32-byte packets have been removed!
 
         val packetLengthInfo = readVarInt(packet)
@@ -974,7 +974,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return false
         }
         if (packet[reader.offset] != 0x04.toByte() || packet[reader.offset + 1] != 0x38.toByte()) {
-            if (allowEmbeddedScan && tryParseEmbeddedDamagePacket(packet)) {
+            if (allowEmbeddedScan && tryParseEmbeddedDamagePacket(packet, requireMeterEvent = true)) {
                 return true
             }
             if (has0438Marker(packet)) {
@@ -997,7 +997,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
         val andResult = switchValue and mask
         if (andResult !in 4..7) {
-            return true
+            return !requireMeterEvent
         }
 
         reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure") // Consume Unused flag value
@@ -1007,8 +1007,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val actorValue = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         val actorInfo = VarIntOutput(actorValue, 1)
         if (reader.offset >= packet.size) return logUnparsedDamage("field decode failure")
-        if (actorInfo.value == targetInfo.value) return true
-        if (!isActorAllowed(actorInfo.value)) return true
+        if (actorInfo.value == targetInfo.value) return !requireMeterEvent
+        if (!isActorAllowed(actorInfo.value)) return !requireMeterEvent
 
         if (reader.offset + 5 >= packet.size) return logUnparsedDamage("field decode failure")
 
@@ -1138,10 +1138,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             )
         }
 
-        if (pdp.getActorId() != pdp.getTargetId()) {
+        val appendedToMeter = pdp.getActorId() != pdp.getTargetId()
+        if (appendedToMeter) {
             dataStorage.appendDamage(pdp)
         }
-        return true
+        return if (requireMeterEvent) appendedToMeter else true
 
     }
 
