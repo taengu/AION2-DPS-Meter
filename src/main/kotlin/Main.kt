@@ -120,6 +120,9 @@ fun main(args: Array<String>) {
     AionMeterApp.memoryProfilerConfig = MemoryProfiler.fromArgs(args)
     configureJavaFxPipeline()
 
+    // Load debug logging setting from properties before startup logging.
+    UnifiedLogger.loadDebugFromSettings()
+
     // 1. Check Admin
     ensureAdminOnWindows()
 

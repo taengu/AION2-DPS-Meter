@@ -27,8 +27,10 @@ object UnifiedLogger {
     }
 
     fun loadDebugFromSettings() {
-        setDebugEnabled(false)
-        PropertyHandler.setProperty(DEBUG_SETTING_KEY, false.toString())
+        val enabled = PropertyHandler.getProperty(DEBUG_SETTING_KEY)
+            ?.trim()
+            ?.equals("true", ignoreCase = true) == true
+        setDebugEnabled(enabled)
     }
 
     fun isDebugEnabled(): Boolean = debugEnabled
