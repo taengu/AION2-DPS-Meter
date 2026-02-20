@@ -141,122 +141,60 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     fun onPacketReceived(packet: ByteArray): Boolean {
         var parsed = false
+        var offset = 0
 
-        // 1. Read the packet length first. We need this for both Bundle detection and Standard processing.
-        val packetLengthInfo = readVarInt(packet)
+        while (offset < packet.size) {
+            // 1. Smoothly skip stream padding bytes between chunks
+            if (packet[offset] == 0x00.toByte()) {
+                offset++
+                continue
+            }
 
-        // --- FIXED LOGIC: Unzip FF FF Bundle Packets ---
-        // Bundles start with a standard VarInt length, followed by FF FF, then 6 bytes of padding.
-        if (packetLengthInfo.length > 0 && packetLengthInfo.value > 0) {
+            val packetLengthInfo = readVarInt(packet, offset)
+            if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
+                offset++
+                continue
+            }
+
+            // 2. CRITICAL AION 2 QUIRK: Varint lengths are inflated by 3 bytes
+            // The true physical size of the payload is ALWAYS length - 3.
+            val actualLength = packetLengthInfo.value - 3
+
+            if (actualLength <= 0) {
+                offset++
+                continue
+            }
+
+            if (offset + actualLength > packet.size) {
+                // 3. Fragmented stream chunk. Let the fallback scanner brute-force the remainder
+                if (parseBrokenLengthPacket(packet.copyOfRange(offset, packet.size))) parsed = true
+                break
+            }
+
+            // 4. Slice the perfectly aligned packet
+            val nestedPacket = packet.copyOfRange(offset, offset + actualLength)
+
+            // 5. Detect FF FF Bundles vs Standard Packets
             val payloadStart = packetLengthInfo.length
-
-            // Check if this is a bundle packet (starts with FF FF at the payload position)
-            if (packet.size >= payloadStart + 8 &&
-                packet[payloadStart] == 0xff.toByte() &&
-                packet[payloadStart + 1] == 0xff.toByte()
+            if (nestedPacket.size >= payloadStart + 8 &&
+                nestedPacket[payloadStart] == 0xff.toByte() &&
+                nestedPacket[payloadStart + 1] == 0xff.toByte()
             ) {
-                // FF-FF transport bundles use an 8-byte envelope header AFTER the length varint.
-                // Structure: [VarInt Length] [FF FF] [6 Bytes Padding] [Nested Packets...]
-                // We must skip: payloadStart + 2 (FFFF) + 6 (Padding) = payloadStart + 8
                 val bundleDataStart = payloadStart + 8
-
-                if (bundleDataStart < packet.size) {
-                    val bundlePayload = packet.copyOfRange(bundleDataStart, packet.size)
-                    var offset = 0
-
-                    while (offset < bundlePayload.size) {
-                        // Read the length of the next nested packet
-                        val lengthInfo = readVarInt(bundlePayload, offset)
-
-                        // Safety check: break if we hit padding or malformed varints
-                        if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
-                            logSkippedOrPartialPacket("FF-FF bundle nested packet length malformed", bundlePayload, offset, bundlePayload.size - offset)
-                            break
-                        }
-
-                        val nestedPacketLength = lengthInfo.value
-
-                        // Safety check: break if the nested packet claims to be longer than the remaining buffer
-                        if (offset + nestedPacketLength > bundlePayload.size) {
-                            logSkippedOrPartialPacket("FF-FF bundle nested packet truncated", bundlePayload, offset, bundlePayload.size - offset)
-                            break
-                        }
-
-                        // Slice out the exact nested packet
-                        val nestedPacket = bundlePayload.copyOfRange(offset, offset + nestedPacketLength)
-
-                        // Recursively send this standard packet back through the parser!
-                        if (onPacketReceived(nestedPacket)) {
-                            parsed = true
-                        }
-
-                        // Move the offset forward to the start of the next packet in the train
-                        offset += nestedPacketLength
-                    }
-                    if (!parsed) {
-                        logSkippedOrPartialPacket("FF-FF bundle had no fully parsed nested packets", packet)
-                    }
-                    return parsed // Return early since we successfully processed the bundle
+                if (bundleDataStart < nestedPacket.size) {
+                    val bundlePayload = nestedPacket.copyOfRange(bundleDataStart, nestedPacket.size)
+                    // Bundles contain standard packets, so we recursively send them back into this stream loop!
+                    if (onPacketReceived(bundlePayload)) parsed = true
                 }
-                logSkippedOrPartialPacket("FF-FF bundle payload missing after header", packet)
-            }
-        }
-        // ----------------------------------------------
-
-        // Standard processing (unchanged, but uses the packetLengthInfo read at the top)
-        if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
-            logSkippedOrPartialPacket("Malformed packet length header skipped", packet)
-            return parsed
-        }
-
-        if (packet.size == packetLengthInfo.value) {
-            val payloadEnd = packet.size - 3
-            if (payloadEnd <= 0) {
-                logSkippedOrPartialPacket("Short packet with no payload skipped", packet)
-                return parsed
-            }
-            logger.trace(
-                "Current byte length matches expected length: {}",
-                toHex(packet.copyOfRange(0, payloadEnd))
-            )
-            if (parsePerfectPacket(packet.copyOfRange(0, payloadEnd))) parsed = true
-            return parsed
-        }
-        if (packet.size <= 3) return parsed
-
-        if (packetLengthInfo.value > packet.size) {
-            logger.trace("Current byte length is shorter than expected: {}", toHex(packet))
-            if (parseBrokenLengthPacket(packet)) parsed = true
-            return parsed
-        }
-        if (packetLengthInfo.value <= 3) {
-            if (onPacketReceived(packet.copyOfRange(1, packet.size))) parsed = true
-            return parsed
-        }
-
-        val payloadEnd = packetLengthInfo.value - 3
-        if (payloadEnd <= 0 || payloadEnd > packet.size) {
-            logSkippedOrPartialPacket("Invalid payload boundary skipped: length=${packetLengthInfo.value}", packet)
-            return parsed
-        }
-
-        try {
-            val headPacket = packet.copyOfRange(0, payloadEnd)
-            if (headPacket.size != 3) {
-                if (headPacket.isNotEmpty()) {
-                    logger.trace(
-                        "Packet split succeeded: {}",
-                        toHex(headPacket)
-                    )
-                    if (parsePerfectPacket(headPacket)) parsed = true
-                }
+            } else {
+                // Parse standard packets (Damage, DoTs, Summons, Names)
+                if (parsePerfectPacket(nestedPacket)) parsed = true
             }
 
-            if (onPacketReceived(packet.copyOfRange(payloadEnd, packet.size))) parsed = true
-        } catch (_: IndexOutOfBoundsException) {
-            logSkippedOrPartialPacket("Truncated tail packet skipped", packet)
-            return parsed
+            // 6. Advance the stream EXACTLY to the next packet boundary
+            offset += actualLength
         }
+
         return parsed
     }
 
@@ -365,6 +303,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val namedActors = mutableSetOf<Int>()
         while (i < packet.size) {
             if (packet[i] == 0x36.toByte()) {
+                if (i + 1 >= packet.size) {
+                    i++
+                    continue
+                }
                 val actorInfo = readVarInt(packet, i + 1)
                 lastAnchor = if (actorInfo.length > 0 && actorInfo.value >= 100) {
                     ActorAnchor(actorInfo.value, i, i + 1 + actorInfo.length)
@@ -542,9 +484,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun castNicknameNet(packet: ByteArray): Boolean {
         var originOffset = 0
         while (originOffset < packet.size) {
+            if (!canReadVarInt(packet, originOffset)) {
+                originOffset++
+                continue
+            }
+
             val info = readVarInt(packet, originOffset)
             if (info.length == -1) {
-                return false
+                originOffset++
+                continue // DO NOT return false here, just skip the byte!
             }
             val innerOffset = originOffset + info.length
 
@@ -1215,7 +1163,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         while (true) {
             if (offset + count >= bytes.size) {
-                logSkippedOrPartialPacket("Truncated packet skipped at varint decode (offset=$offset count=$count)", bytes)
+                // logSkippedOrPartialPacket("Truncated packet skipped at varint decode (offset=$offset count=$count)", bytes)
                 return VarIntOutput(-1, -1)
             }
 
