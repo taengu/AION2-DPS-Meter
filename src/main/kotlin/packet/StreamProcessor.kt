@@ -902,35 +902,47 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun tryParseEmbeddedDamagePacket(packet: ByteArray): Boolean {
-        if (packet.size < 4) return false
-        for (start in 0 until packet.size - 2) {
-            val lengthInfo = readVarInt(packet, start)
-            if (lengthInfo.length <= 0) continue
-            val opcodeOffset = start + lengthInfo.length
-            if (opcodeOffset + 1 >= packet.size) continue
-            if (packet[opcodeOffset] != 0x04.toByte() || packet[opcodeOffset + 1] != 0x38.toByte()) continue
+        if (packet.size < 6) return false
 
-            val totalPacketBytes = lengthInfo.value - 3
-            if (totalPacketBytes <= 0) continue
-            val endExclusive = start + totalPacketBytes
-            if (endExclusive > packet.size) continue
+        val maxCandidateSize = 256
+        val op0 = 0x04.toByte()
+        val op1 = 0x38.toByte()
 
-            val candidate = packet.copyOfRange(start, endExclusive)
-            if (parsingDamage(candidate, allowEmbeddedScan = false)) {
-                logger.debug(
-                    "Recovered embedded damage packet from offset {} (len={}, parentLen={})",
-                    start,
-                    candidate.size,
-                    packet.size
-                )
-                UnifiedLogger.debug(
-                    logger,
-                    "Recovered embedded damage packet from offset {} (len={}, parentLen={})",
-                    start,
-                    candidate.size,
-                    packet.size
-                )
-                return true
+        for (opcodeOffset in 0 until packet.size - 1) {
+            if (packet[opcodeOffset] != op0 || packet[opcodeOffset + 1] != op1) continue
+
+            val minStart = (opcodeOffset - 5).coerceAtLeast(0)
+            for (start in minStart..opcodeOffset) {
+                val lengthInfo = readVarInt(packet, start)
+                if (lengthInfo.length <= 0) continue
+                if (start + lengthInfo.length != opcodeOffset) continue
+
+                for (inflation in intArrayOf(3, 0)) {
+                    val totalPacketBytes = lengthInfo.value - inflation
+                    if (totalPacketBytes !in 8..maxCandidateSize) continue
+                    val endExclusive = start + totalPacketBytes
+                    if (endExclusive > packet.size) continue
+
+                    val candidate = packet.copyOfRange(start, endExclusive)
+                    if (parsingDamage(candidate, allowEmbeddedScan = false)) {
+                        logger.debug(
+                            "Recovered embedded damage packet from offset {} (len={}, parentLen={}, inflation={})",
+                            start,
+                            candidate.size,
+                            packet.size,
+                            inflation
+                        )
+                        UnifiedLogger.debug(
+                            logger,
+                            "Recovered embedded damage packet from offset {} (len={}, parentLen={}, inflation={})",
+                            start,
+                            candidate.size,
+                            packet.size,
+                            inflation
+                        )
+                        return true
+                    }
+                }
             }
         }
         return false

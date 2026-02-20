@@ -37,7 +37,7 @@ class AionMeterApp : Application() {
 
     override fun start(primaryStage: Stage) {
         // We initialize the logic inside start() to ensure the toolkit is ready
-        val replayLogFile = "C:/Users/maxw2/Aion2-DPS-Meter-TW/packets_Dramata2_b3.txt"
+        val replayLogFile = PropertyHandler.getProperty("capture.replayFilePath")?.trim().orEmpty()
         val isReplayMode = replayLogFile.isNotBlank()
 
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
