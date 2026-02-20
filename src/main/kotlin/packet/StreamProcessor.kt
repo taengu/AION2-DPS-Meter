@@ -907,6 +907,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val maxCandidateSize = 256
         val op0 = 0x04.toByte()
         val op1 = 0x38.toByte()
+        val processedRanges = mutableSetOf<Pair<Int, Int>>()
+        var parsedAny = false
 
         for (opcodeOffset in 0 until packet.size - 1) {
             if (packet[opcodeOffset] != op0 || packet[opcodeOffset + 1] != op1) continue
@@ -923,8 +925,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val endExclusive = start + totalPacketBytes
                     if (endExclusive > packet.size) continue
 
+                    val rangeKey = start to endExclusive
+                    if (!processedRanges.add(rangeKey)) continue
+
                     val candidate = packet.copyOfRange(start, endExclusive)
                     if (parsingDamage(candidate, allowEmbeddedScan = false)) {
+                        parsedAny = true
                         logger.debug(
                             "Recovered embedded damage packet from offset {} (len={}, parentLen={}, inflation={})",
                             start,
@@ -940,12 +946,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             packet.size,
                             inflation
                         )
-                        return true
                     }
                 }
             }
         }
-        return false
+        return parsedAny
     }
 
     private fun parsingDamage(packet: ByteArray, allowEmbeddedScan: Boolean = true): Boolean {
