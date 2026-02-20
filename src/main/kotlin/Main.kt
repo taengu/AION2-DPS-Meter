@@ -37,12 +37,15 @@ class AionMeterApp : Application() {
 
     override fun start(primaryStage: Stage) {
         // We initialize the logic inside start() to ensure the toolkit is ready
+        val replayLogFile = "C:/Users/maxw2/Aion2-DPS-Meter-TW/packets_Dramata2_b3.txt"
+        val isReplayMode = replayLogFile.isNotBlank()
+
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
         val config = PcapCapturerConfig.loadFromProperties()
         val dataStorage = DataStorage()
         val calculator = DpsCalculator(dataStorage)
         val capturer = PcapCapturer(config, channel)
-        val dispatcher = CaptureDispatcher(channel, dataStorage)
+        val dispatcher = CaptureDispatcher(channel, dataStorage, isReplayMode)
         val uiReady = CompletableDeferred<Unit>()
         val markUiReady = {
             if (!uiReady.isCompleted) {
@@ -75,21 +78,31 @@ class AionMeterApp : Application() {
             }
         }
 
-        appScope.launch(Dispatchers.IO) {
-            uiReady.await()
-            var running = false
-            while (true) {
-                val detected = WindowTitleDetector.findAion2WindowTitle() != null
-                if (detected != running) {
-                    running = detected
-                    if (running) {
-                        capturer.start()
-                    } else {
-                        capturer.stop()
+        if (isReplayMode) {
+            // Offline Replay Mode
+            appScope.launch(Dispatchers.IO) {
+                uiReady.await()
+                val fileCapturer = FilePacketCapturer(replayLogFile, channel, playbackSpeed = 1.0)
+                fileCapturer.start()
+            }
+        } else {
+            // Standard Live PCAP Mode
+            appScope.launch(Dispatchers.IO) {
+                uiReady.await()
+                var running = false
+                while (true) {
+                    val detected = WindowTitleDetector.findAion2WindowTitle() != null
+                    if (detected != running) {
+                        running = detected
+                        if (running) {
+                            capturer.start()
+                        } else {
+                            capturer.stop()
+                        }
                     }
+                    val delayMs = if (running) 60_000L else 10_000L
+                    delay(delayMs)
                 }
-                val delayMs = if (running) 60_000L else 10_000L
-                delay(delayMs)
             }
         }
     }

@@ -1,44 +1,28 @@
 package com.tbread.packet
 
-import org.slf4j.LoggerFactory
-
 class StreamAssembler(private val processor: StreamProcessor) {
-    private val logger = LoggerFactory.getLogger(StreamAssembler::class.java)
-    private val buffer = PacketAccumulator()
+    private val accumulator = PacketAccumulator()
 
-    private val MAGIC_PACKET = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
-    private val MAX_BUFFER_WITHOUT_DELIMITER = 512 * 1024
+    fun processChunk(data: ByteArray): Boolean {
+        accumulator.append(data)
+        var parsedAny = false
 
-    suspend fun processChunk(chunk: ByteArray): Boolean {
-        var parsed = false
-        buffer.append(chunk)
+        while (accumulator.size() > 0) {
+            val snapshot = accumulator.snapshot()
 
-        while (true) {
-            val suffixIndex = buffer.indexOf(MAGIC_PACKET)
-            if (suffixIndex == -1) {
-                val buffered = buffer.size()
-                if (buffered > MAX_BUFFER_WITHOUT_DELIMITER) {
-                    logger.warn(
-                        "{} : assembler buffer exceeded {} bytes without delimiter, trimming tail",
-                        logger.name,
-                        MAX_BUFFER_WITHOUT_DELIMITER
-                    )
-                    buffer.trimToTail(MAGIC_PACKET.size - 1)
-                }
-                break
+            // Ask the processor exactly how many bytes it successfully parsed
+            val consumed = processor.consumeStream(snapshot)
+
+            if (consumed > 0) {
+                // Only discard the safely parsed bytes, keeping fragments in the buffer!
+                accumulator.discardBytes(consumed)
+                parsedAny = true
+            } else {
+                break // Fragmented chunk reached, wait for more TCP data
             }
-
-            val cutPoint = suffixIndex + MAGIC_PACKET.size
-            val fullPacket = buffer.getRange(0, cutPoint)
-
-            if (fullPacket.isNotEmpty()) {
-                parsed = processor.onPacketReceived(fullPacket) || parsed
-            }
-
-            buffer.discardBytes(cutPoint)
         }
-        return parsed
+        return parsedAny
     }
 
-    fun bufferedBytes(): Int = buffer.size()
+    fun bufferedBytes(): Int = accumulator.size()
 }

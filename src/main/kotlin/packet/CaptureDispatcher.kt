@@ -8,7 +8,8 @@ import org.slf4j.LoggerFactory
 
 class CaptureDispatcher(
     private val channel: Channel<CapturedPayload>,
-    dataStorage: DataStorage
+    dataStorage: DataStorage,
+    private val isOfflineReplay: Boolean = false
 ) {
     private val logger = LoggerFactory.getLogger(CaptureDispatcher::class.java)
 
@@ -35,7 +36,7 @@ class CaptureDispatcher(
                 }
 
                 val lockedDevice = CombatPortDetector.currentDevice()
-                if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
+                if (!isOfflineReplay && lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
 
@@ -157,6 +158,7 @@ class CaptureDispatcher(
     }
 
     private fun ensureAionRunning(): Boolean {
+        if (isOfflineReplay) return true
         val now = System.currentTimeMillis()
         val intervalMs = if (isAionRunning) WINDOW_CHECK_RUNNING_INTERVAL_MS else WINDOW_CHECK_STOPPED_INTERVAL_MS
         if (now - lastWindowCheckMs >= intervalMs) {

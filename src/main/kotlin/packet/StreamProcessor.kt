@@ -139,63 +139,105 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
     }
 
-    fun onPacketReceived(packet: ByteArray): Boolean {
-        var parsed = false
+    fun consumeStream(buffer: ByteArray): Int {
         var offset = 0
 
-        while (offset < packet.size) {
-            // 1. Smoothly skip stream padding bytes between chunks
-            if (packet[offset] == 0x00.toByte()) {
+        while (offset < buffer.size) {
+            // 1. Skip zero padding
+            if (buffer[offset] == 0x00.toByte()) {
                 offset++
                 continue
             }
 
-            val packetLengthInfo = readVarInt(packet, offset)
-            if (packetLengthInfo.length <= 0 || packetLengthInfo.value <= 0) {
+            val lengthInfo = readVarInt(buffer, offset)
+            if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
+                // End of buffer reached, wait for more data
+                if (offset + 5 > buffer.size) break
                 offset++
                 continue
             }
 
-            // 2. CRITICAL AION 2 QUIRK: Varint lengths are inflated by 3 bytes
-            // The true physical size of the payload is ALWAYS length - 3.
-            val actualLength = packetLengthInfo.value - 3
+            // 2. Peek ahead to check if this is an FF FF Bundle
+            val payloadStart = offset + lengthInfo.length
+            if (payloadStart + 1 >= buffer.size) {
+                break // Wait for more data to safely read the signature
+            }
+            val isBundle = buffer[payloadStart] == 0xff.toByte() && buffer[payloadStart + 1] == 0xff.toByte()
 
-            if (actualLength <= 0) {
+            // 3. THE AION 2 QUIRK:
+            // Bundles have NO inflation (length == exact physical size).
+            // Standard packets have 3 bytes inflation (length - 3 == physical size).
+            val inflation = if (isBundle) 0 else 3
+            val totalPacketBytes = lengthInfo.value - inflation
+
+            if (totalPacketBytes <= 0 || totalPacketBytes > 1048576) { // 1MB sanity check
+                offset++ // Force resync
+                continue
+            }
+
+            // 4. TCP Fragmentation Check
+            if (offset + totalPacketBytes > buffer.size) {
+                // Safety check against massive corrupted varints swallowing the stream
+                if (totalPacketBytes > 65535 && buffer.size > 65535) {
+                    offset++
+                    continue
+                }
+                break // Fragmented chunk, wait for the rest
+            }
+
+            // 5. Extract the perfectly aligned packet
+            val fullPacket = buffer.copyOfRange(offset, offset + totalPacketBytes)
+
+            if (isBundle) {
+                // Extract everything after the VarInt and the 8-byte Bundle Header
+                val bundleDataStart = lengthInfo.length + 8
+                if (bundleDataStart < fullPacket.size) {
+                    parseBundle(fullPacket.copyOfRange(bundleDataStart, fullPacket.size))
+                }
+            } else {
+                parsePerfectPacket(fullPacket)
+            }
+
+            // 6. Advance exactly to the next boundary
+            offset += totalPacketBytes
+        }
+
+        return offset
+    }
+
+    private fun parseBundle(bundleData: ByteArray) {
+        var offset = 0
+        while (offset < bundleData.size) {
+            if (bundleData[offset] == 0x00.toByte()) {
                 offset++
                 continue
             }
 
-            if (offset + actualLength > packet.size) {
-                // 3. Fragmented stream chunk. Let the fallback scanner brute-force the remainder
-                if (parseBrokenLengthPacket(packet.copyOfRange(offset, packet.size))) parsed = true
+            val lengthInfo = readVarInt(bundleData, offset)
+            if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
+                offset++
+                continue
+            }
+
+            // Nested packets are always standard packets, so they always use - 3
+            val totalPacketBytes = lengthInfo.value - 3
+
+            if (totalPacketBytes <= 0 || totalPacketBytes > 65535) {
+                offset++
+                continue
+            }
+
+            if (offset + totalPacketBytes > bundleData.size) {
+                // Fallback scanner for corrupted nested packets
+                parseBrokenLengthPacket(bundleData.copyOfRange(offset, bundleData.size))
                 break
             }
 
-            // 4. Slice the perfectly aligned packet
-            val nestedPacket = packet.copyOfRange(offset, offset + actualLength)
+            val nestedPacket = bundleData.copyOfRange(offset, offset + totalPacketBytes)
+            parsePerfectPacket(nestedPacket)
 
-            // 5. Detect FF FF Bundles vs Standard Packets
-            val payloadStart = packetLengthInfo.length
-            if (nestedPacket.size >= payloadStart + 8 &&
-                nestedPacket[payloadStart] == 0xff.toByte() &&
-                nestedPacket[payloadStart + 1] == 0xff.toByte()
-            ) {
-                val bundleDataStart = payloadStart + 8
-                if (bundleDataStart < nestedPacket.size) {
-                    val bundlePayload = nestedPacket.copyOfRange(bundleDataStart, nestedPacket.size)
-                    // Bundles contain standard packets, so we recursively send them back into this stream loop!
-                    if (onPacketReceived(bundlePayload)) parsed = true
-                }
-            } else {
-                // Parse standard packets (Damage, DoTs, Summons, Names)
-                if (parsePerfectPacket(nestedPacket)) parsed = true
-            }
-
-            // 6. Advance the stream EXACTLY to the next packet boundary
-            offset += actualLength
+            offset += totalPacketBytes
         }
-
-        return parsed
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true): Boolean {
