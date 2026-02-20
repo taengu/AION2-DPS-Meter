@@ -187,7 +187,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 targetDecision.trackingTargetId == 0 &&
                 targetDecision.targetIds.isNotEmpty()
         val isTrainCombined = targetDecision.mode == TargetSelectionMode.TRAIN_TARGETS
-        val battleTime = when {
+
+        var battleTime = when {
             isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
             isTrainCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
             localActorsForBattleTime != null ->
@@ -196,9 +197,26 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
+
+        // 1. Collect the packets BEFORE checking if battleTime is 0
+        val pdps = when {
+            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+            isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
+                collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+            else -> pdpMap[currentTarget] ?: emptyList()
+        }
+
+        // 2. Force a 1-second minimum combat time for the very first hit!
+        if (battleTime == 0L && pdps.isNotEmpty()) {
+            battleTime = 1000L
+        }
+
         val nicknameData = dataStorage.getNickname()
         var totalDamage = 0.0
-        if (battleTime == 0L) {
+
+        // 3. Now safely abort only if there are actually no packets or time is strictly 0
+        if (battleTime == 0L || pdps.isEmpty()) {
             val snapshot = lastDpsSnapshot
             if (snapshot != null) {
                 refreshNicknameSnapshot(snapshot, nicknameData)
@@ -209,13 +227,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 return snapshot
             }
             return dpsData
-        }
-        val pdps = when {
-            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
-            isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
-            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
-                collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
-            else -> pdpMap[currentTarget] ?: return dpsData
         }
 
         val summonData = dataStorage.getSummonData()

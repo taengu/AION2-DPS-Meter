@@ -980,7 +980,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var healAmount = 0
         val hitCount = if (
             reader.remainingBytes() >= 2 &&
-            packet[reader.offset] == 0x03.toByte() &&
+            (packet[reader.offset] == 0x03.toByte() || packet[reader.offset] == 0x02.toByte()) &&
             packet[reader.offset + 1] == 0x00.toByte()
         ) {
             null
@@ -1002,7 +1002,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         if (
             reader.remainingBytes() >= 2 &&
-            packet[reader.offset] == 0x03.toByte() &&
+            (packet[reader.offset] == 0x03.toByte() || packet[reader.offset] == 0x02.toByte()) &&
             packet[reader.offset + 1] == 0x00.toByte()
         ) {
             reader.offset += 2
