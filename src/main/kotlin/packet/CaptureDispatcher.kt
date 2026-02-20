@@ -33,19 +33,20 @@ class CaptureDispatcher(
                     logUnlockedPacketSkip(cap, "AION window not detected")
                     continue
                 }
+
                 val lockedDevice = CombatPortDetector.currentDevice()
                 if (lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
-                val a = minOf(cap.srcPort, cap.dstPort)
-                val b = maxOf(cap.srcPort, cap.dstPort)
-                val key = a to b
 
-                val assembler = assemblers.getOrPut(key) {
-                    StreamAssembler(StreamProcessor(sharedDataStorage))
+                // 1. If we are securely locked to AION, completely ignore all other background ports
+                val currentLockedPort = CombatPortDetector.currentPort()
+                if (currentLockedPort != null && cap.srcPort != currentLockedPort && cap.dstPort != currentLockedPort) {
+                    continue
                 }
 
-                val unlocked = CombatPortDetector.currentPort() == null
+                // 2. Run all the filters FIRST before creating any memory-heavy assemblers!
+                val unlocked = currentLockedPort == null
                 val tlsPayload = looksLikeTlsPayload(cap.data)
 
                 if (unlocked && tlsPayload) {
@@ -64,7 +65,16 @@ class CaptureDispatcher(
                     continue
                 }
 
-                if (unlocked && hasCombatMagic) {
+                // 3. NOW it is safe to create or retrieve the StreamAssembler
+                val a = minOf(cap.srcPort, cap.dstPort)
+                val b = maxOf(cap.srcPort, cap.dstPort)
+                val key = a to b
+
+                val assembler = assemblers.getOrPut(key) {
+                    StreamAssembler(StreamProcessor(sharedDataStorage))
+                }
+
+                if (unlocked) {
                     // Choose srcPort for now (since magic typically comes from the sender)
                     CombatPortDetector.registerCandidate(cap.srcPort, key, cap.deviceName)
                     logger.info(
@@ -80,7 +90,13 @@ class CaptureDispatcher(
                 val parsed = assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
+
+                    // 4. Garbage collect any orphaned assemblers from false-positives once locked
+                    synchronized(assemblers) {
+                        assemblers.keys.retainAll { it == key }
+                    }
                 }
+
                 if (parsed) {
                     CombatPortDetector.markPacketParsed()
                 } else {

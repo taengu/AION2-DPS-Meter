@@ -796,32 +796,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             dataStorage.appendSummon(realActorId, summonInfo.value)
             return true
         }
-        // Case 2: Compact/Local Summon Packet (0x4A 0x36)
-        else if (opcode1 == 0x4A && opcode2 == 0x36) {
-            offset += 2
-
-            // The first VarInt is the Summon ID (e.g. 8C 8D 05 -> 83596)
-            val summonInfo = readVarInt(packet, offset)
-            if (summonInfo.length <= 0) return false
-
-            val summonId = summonInfo.value
-
-            // This packet type usually implies the summon belongs to the local player.
-            // We use the LocalPlayer ID if available.
-            val localPlayerId = LocalPlayer.playerId
-            if (localPlayerId != null && localPlayerId > 0) {
-                logger.debug("Local summon mapping found: Owner {} -> Summon {}", localPlayerId, summonId)
-                UnifiedLogger.debug(logger, "Local summon mapping found: Owner {} -> Summon {}", localPlayerId, summonId)
-                dataStorage.appendSummon(localPlayerId.toInt(), summonId)
-                return true
-            } else {
-                // Fallback: If we don't know the local player ID yet, we might want to cache this
-                // or try to infer it from the previous packet's context (rare).
-                logger.debug("Found local summon packet for {} but LocalPlayer ID is unknown", summonId)
-                return false
-            }
-        }
-
         return false
     }
 
@@ -974,7 +948,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure") // Consume Unused Unknown value
 
-        val finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
+        var finalDamage = reader.tryReadVarInt() ?: return logUnparsedDamage("field decode failure")
         var multiHitCount = 0
         var multiHitDamage = 0
         var healAmount = 0
@@ -1006,7 +980,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             packet[reader.offset + 1] == 0x00.toByte()
         ) {
             reader.offset += 2
-            healAmount = reader.tryReadVarInt() ?: 0
+            val parsedHeal = reader.tryReadVarInt()
+
+            if (parsedHeal != null) {
+                // If there's a number after the marker, it's a Vampiric attack! (Damage + Heal)
+                healAmount = parsedHeal
+            } else {
+                // If the packet ends abruptly after the marker, it's a Pure Heal!
+                // This means the 'finalDamage' we read earlier was actually the heal amount.
+                healAmount = finalDamage
+                finalDamage = 0
+            }
         }
 
         val pdp = ParsedDamagePacket()
