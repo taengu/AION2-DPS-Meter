@@ -901,7 +901,42 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return true
     }
 
-    private fun parsingDamage(packet: ByteArray): Boolean {
+    private fun tryParseEmbeddedDamagePacket(packet: ByteArray): Boolean {
+        if (packet.size < 4) return false
+        for (start in 0 until packet.size - 2) {
+            val lengthInfo = readVarInt(packet, start)
+            if (lengthInfo.length <= 0) continue
+            val opcodeOffset = start + lengthInfo.length
+            if (opcodeOffset + 1 >= packet.size) continue
+            if (packet[opcodeOffset] != 0x04.toByte() || packet[opcodeOffset + 1] != 0x38.toByte()) continue
+
+            val totalPacketBytes = lengthInfo.value - 3
+            if (totalPacketBytes <= 0) continue
+            val endExclusive = start + totalPacketBytes
+            if (endExclusive > packet.size) continue
+
+            val candidate = packet.copyOfRange(start, endExclusive)
+            if (parsingDamage(candidate, allowEmbeddedScan = false)) {
+                logger.debug(
+                    "Recovered embedded damage packet from offset {} (len={}, parentLen={})",
+                    start,
+                    candidate.size,
+                    packet.size
+                )
+                UnifiedLogger.debug(
+                    logger,
+                    "Recovered embedded damage packet from offset {} (len={}, parentLen={})",
+                    start,
+                    candidate.size,
+                    packet.size
+                )
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun parsingDamage(packet: ByteArray, allowEmbeddedScan: Boolean = true): Boolean {
         // The 3 hardcoded filters that blocked 30, 31, and 32-byte packets have been removed!
 
         val packetLengthInfo = readVarInt(packet)
@@ -917,6 +952,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return false
         }
         if (packet[reader.offset] != 0x04.toByte() || packet[reader.offset + 1] != 0x38.toByte()) {
+            if (allowEmbeddedScan && tryParseEmbeddedDamagePacket(packet)) {
+                return true
+            }
             if (has0438Marker(packet)) {
                 logSkippedOrPartialPacket("Damage packet skipped: 04 38 marker present but not at opcode position", packet)
             }
