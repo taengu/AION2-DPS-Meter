@@ -420,7 +420,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.0-pre1"
+    private val version = "0.1.7-pre"
 
     @Volatile
     private var cachedWindowTitle: String? = null
