@@ -1120,13 +1120,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (UnifiedLogger.isDebugEnabled()) {
                 UnifiedLogger.debug(
                     logger,
-                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}",
+                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}, payload={}",
                     pdp.getTargetId(),
                     pdp.getActorId(),
                     pdp.getSkillCode1(),
                     pdp.getType(),
                     pdp.getDamage(),
-                    pdp.getMultiHitCount()
+                    pdp.getMultiHitCount(),
+                    pdp.getHexPayload()
                 )
             }
 
