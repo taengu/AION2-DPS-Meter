@@ -1039,13 +1039,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             multiHitDamage = hitSum
         }
 
-        // Parse Heals/Shields if present
+        // --- STEP 2: Parse Heals / Shields / Vampiric ---
         var healAmount = 0
-        if (reader.remainingBytes() >= 2 && packet[reader.offset + 1] == 0x00.toByte() && packet[reader.offset] in 1..3) {
+        if (reader.remainingBytes() >= 2 && packet[reader.offset + 1] == 0x00.toByte()) {
             val marker = packet[reader.offset]
-            reader.offset += 2
-            val trailingValue = reader.tryReadVarInt()
-            healAmount = trailingValue ?: finalDamage
+            if (marker in 1..3) {
+                reader.offset += 2
+                val trailingValue = reader.tryReadVarInt()
+
+                if (trailingValue != null) {
+                    // Only assign a heal if the server explicitly sent a value for it
+                    healAmount = trailingValue
+                } else if (marker == 0x01.toByte()) {
+                    // 01 00 with NO trailing value is NOT a heal.
+                    // It is just a hit-count terminator for standard attacks.
+                    healAmount = 0
+                } else {
+                    // For 02 (Vampiric) or 03 (Shield), if no trailing value is found,
+                    // the main damage value is often the shield/vamp amount.
+                    healAmount = finalDamage
+                }
+            }
         }
 
         val pdp = ParsedDamagePacket()
