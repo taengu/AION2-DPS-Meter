@@ -968,8 +968,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val switchValue = reader.tryReadVarInt() ?: break
             val andResult = switchValue and mask
 
-            // Allow strict original masks (4..7) plus the new AoE masks we discovered (2, 8, 12)
-            if (andResult !in 4..7 && andResult != 2 && andResult != 8 && andResult != 12) {
+            // Allow strict original masks (4..7) plus additional masks seen in live captures.
+            // `0` appears in valid Heart Gore hits where the wire layout is still compatible with
+            // the existing parser branch (same payload span / damage varint position).
+            if (andResult !in 4..7 && andResult != 0 && andResult != 2 && andResult != 8 && andResult != 12) {
                 reader.offset = checkpoint; break
             }
 
@@ -1000,6 +1002,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 5 -> 12
                 6 -> 10
                 7 -> 14
+                0 -> 8
                 2 -> 8
                 8 -> 8
                 12 -> 8
