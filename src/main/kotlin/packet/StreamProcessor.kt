@@ -945,209 +945,130 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return false
         }
         reader.offset += 2
+        val targetValue = reader.tryReadVarInt() ?: return false
+        val targetInfo = VarIntOutput(targetValue, 1)
+        if (targetInfo.value <= 0) return false
 
-        var parsedAny = false
+        val switchValue = reader.tryReadVarInt() ?: return false
+        val andResult = switchValue and mask
+        if (andResult !in 4..7) {
+            return true
+        }
 
-        // ADDITIVE RULE: Loop to catch chained AoE targets appended to the valid 04 38 packet
-        while (reader.remainingBytes() > 0) {
-            val checkpoint = reader.offset
+        reader.tryReadVarInt() ?: return false // consume flag
 
-            // Safety guard: after the first parsed hit, only continue if an explicit chained-hit
-            // delimiter is present. This prevents trailing packet sections from being reinterpreted
-            // as fake target/actor/skill tuples (e.g., impossible actor/target ids and nonsense damage).
-            if (parsedAny) {
-                val hasChainedMarker = reader.remainingBytes() >= 2 &&
-                        packet[reader.offset] == 0x01.toByte() &&
-                        packet[reader.offset + 1] == 0x00.toByte()
-                if (!hasChainedMarker) {
-                    break
-                }
+        val actorValue = reader.tryReadVarInt() ?: return false
+        val actorInfo = VarIntOutput(actorValue, 1)
+        if (actorInfo.value <= 0) return false
+        if (actorInfo.value == targetInfo.value) return true
+        if (!isActorAllowed(actorInfo.value)) return true
+
+        val skillCode = try {
+            reader.readSkillCode()
+        } catch (_: IllegalStateException) {
+            return false
+        }
+
+        val typeValue = reader.tryReadVarInt() ?: return false
+        if (typeValue !in 0..7) return false
+        val typeInfo = VarIntOutput(typeValue, 1)
+        val damageType = typeInfo.value.toByte()
+
+        val start = reader.offset
+        val tempV = when (andResult) {
+            4 -> 8
+            5 -> 12
+            6 -> 10
+            7 -> 14
+            else -> return false
+        }
+        if (start + tempV > packet.size) return false
+
+        var specialByte = 0
+        val hasSpecialByte = reader.offset + 1 < packet.size && packet[reader.offset + 1] == 0x00.toByte()
+        if (hasSpecialByte) {
+            specialByte = packet[reader.offset].toInt() and 0xFF
+            reader.offset += 2
+        }
+        val specials = parseSpecialDamageFlags(byteArrayOf(specialByte.toByte())).toMutableList()
+        if (damageType.toInt() == 3) {
+            specials.add(SpecialDamage.CRITICAL)
+        }
+        reader.offset += (tempV - (if (hasSpecialByte) 2 else 0))
+        if (reader.offset >= packet.size) return false
+
+        val unknownValue = reader.tryReadVarInt() ?: return false
+        val finalDamage = reader.tryReadVarInt() ?: return false
+
+        var multiHitCount = 0
+        var multiHitDamage = 0
+        var healAmount = 0
+
+        val hitCount = if (
+            reader.remainingBytes() >= 2 &&
+            packet[reader.offset] == 0x03.toByte() &&
+            packet[reader.offset + 1] == 0x00.toByte()
+        ) {
+            null
+        } else {
+            reader.tryReadVarInt()
+        }
+
+        if (hitCount != null && hitCount > 0 && reader.remainingBytes() > 0) {
+            var hitSum = 0
+            var hitsRead = 0
+            while (hitsRead < hitCount && reader.remainingBytes() > 0) {
+                val hitValue = reader.tryReadVarInt() ?: break
+                hitSum += hitValue
+                hitsRead++
             }
-
-            // Skip chained AoE hit markers if they exist
-            if (reader.remainingBytes() >= 2 && packet[reader.offset] == 0x01.toByte() && packet[reader.offset + 1] == 0x00.toByte()) {
-                reader.offset += 2
-            }
-
-            val targetValue = reader.tryReadVarInt() ?: break
-            val targetInfo = VarIntOutput(targetValue, 1)
-            // If the next bytes aren't a valid target, it's just packet trailing noise. Break safely!
-            if (targetInfo.value <= 0) { reader.offset = checkpoint; break }
-
-            val switchValue = reader.tryReadVarInt() ?: break
-            val andResult = switchValue and mask
-
-            // Allow strict original masks (4..7) plus additional masks seen in live captures.
-            // `0` appears in valid Heart Gore hits where the wire layout is still compatible with
-            // the existing parser branch (same payload span / damage varint position).
-            if (andResult !in 4..7 && andResult != 0 && andResult != 2 && andResult != 8 && andResult != 12) {
-                reader.offset = checkpoint; break
-            }
-
-            reader.tryReadVarInt() ?: break // Consume Unused flag value
-
-            val actorValue = reader.tryReadVarInt() ?: break
-            val actorInfo = VarIntOutput(actorValue, 1)
-            if (actorInfo.value <= 0) { reader.offset = checkpoint; break }
-
-            val isAllowed = isActorAllowed(actorInfo.value)
-
-            val skillCode = try {
-                reader.readSkillCode()
-            } catch (_: IllegalStateException) {
-                reader.offset = checkpoint; break
-            }
-
-            val typeValue = reader.tryReadVarInt() ?: break
-            if (typeValue !in 0..7) { reader.offset = checkpoint; break }
-            val typeInfo = VarIntOutput(typeValue, 1)
-
-            val damageType = typeInfo.value.toByte()
-
-            val start = reader.offset
-            var tempV = 0
-            tempV += when (andResult) {
-                4 -> 8
-                5 -> 12
-                6 -> 10
-                7 -> 14
-                0 -> 8
-                2 -> 8
-                8 -> 8
-                12 -> 8
-                else -> 8
-            }
-            if (start + tempV > packet.size) { reader.offset = checkpoint; break }
-
-            var specialByte = 0
-            val hasSpecialByte = reader.offset + 1 < packet.size && packet[reader.offset + 1] == 0x00.toByte()
-            if (hasSpecialByte) {
-                specialByte = packet[reader.offset].toInt() and 0xFF
-                reader.offset += 2
-            }
-            val specials = parseSpecialDamageFlags(byteArrayOf(specialByte.toByte())).toMutableList()
-            if (damageType.toInt() == 3) {
-                specials.add(SpecialDamage.CRITICAL)
-            }
-            reader.offset += (tempV - (if (hasSpecialByte) 2 else 0))
-
-            if (reader.offset >= packet.size) { reader.offset = checkpoint; break }
-
-            val varint1 = reader.tryReadVarInt() ?: break
-            val varint2 = reader.tryReadVarInt() ?: break
-
-            var finalDamage = 0
-            var hitCount = 0
-
-            if (varint2 in 1..10 && varint1 > varint2) {
-                finalDamage = varint1
-                hitCount = varint2
-            } else {
-                finalDamage = varint2
-                val preHitOffset = reader.offset
-
-                if (reader.remainingBytes() > 0) {
-                    val isMarkerNext = reader.remainingBytes() >= 2 &&
-                            packet[reader.offset + 1] == 0x00.toByte() &&
-                            packet[reader.offset] in 1..3
-
-                    if (!isMarkerNext) {
-                        val peekCount = reader.tryReadVarInt()
-                        if (peekCount != null && peekCount in 1..25) {
-                            hitCount = peekCount
-                        } else {
-                            reader.offset = preHitOffset
-                        }
-                    }
-                }
-            }
-
-            if (finalDamage < 0 || finalDamage > 99_999_999) { reader.offset = checkpoint; break }
-
-            var multiHitCount = 0
-            var multiHitDamage = 0
-
-            if (hitCount > 0 && reader.remainingBytes() > 0) {
-                var hitSum = 0
-                var hitsRead = 0
-                val safeMaxHits = minOf(hitCount, 25)
-
-                while (hitsRead < safeMaxHits && reader.remainingBytes() > 0) {
-                    val isMarkerNext = reader.remainingBytes() >= 2 &&
-                            packet[reader.offset + 1] == 0x00.toByte() &&
-                            packet[reader.offset] in 1..3
-
-                    var isNextPacket = false
-                    val lookahead = minOf(15, reader.remainingBytes() - 1)
-                    for (scan in 0..lookahead) {
-                        if (packet[reader.offset + scan] == 0x04.toByte() && packet[reader.offset + scan + 1] == 0x38.toByte()) {
-                            isNextPacket = true
-                            break
-                        }
-                    }
-
-                    if (isMarkerNext || isNextPacket) break
-
-                    val hitValue = reader.tryReadVarInt() ?: break
-                    hitSum += hitValue
-                    hitsRead++
-                }
+            if (hitsRead == hitCount) {
                 multiHitCount = hitsRead
                 multiHitDamage = hitSum
             }
-
-            var healAmount = 0
-            if (reader.remainingBytes() >= 2 && packet[reader.offset + 1] == 0x00.toByte()) {
-                val marker = packet[reader.offset]
-                if (marker in 1..3) {
-                    reader.offset += 2
-                    val trailingValue = reader.tryReadVarInt()
-
-                    if (trailingValue != null) {
-                        healAmount = trailingValue
-                    } else if (marker == 0x01.toByte()) {
-                        healAmount = 0
-                    } else {
-                        healAmount = finalDamage
-                    }
-                }
-            }
-
-            val pdp = ParsedDamagePacket()
-            pdp.setTargetId(targetInfo)
-            pdp.setActorId(actorInfo)
-            pdp.setSkillCode(skillCode)
-            pdp.setType(typeInfo)
-            pdp.setSpecials(specials)
-            pdp.setMultiHitCount(multiHitCount)
-            pdp.setMultiHitDamage(multiHitDamage)
-            pdp.setHealAmount(healAmount)
-            pdp.setDamage(VarIntOutput(finalDamage, 1))
-            pdp.setHexPayload(toHex(packet))
-
-            if (UnifiedLogger.isDebugEnabled()) {
-                UnifiedLogger.debug(
-                    logger,
-                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}, payload={}",
-                    pdp.getTargetId(),
-                    pdp.getActorId(),
-                    pdp.getSkillCode1(),
-                    pdp.getType(),
-                    pdp.getDamage(),
-                    pdp.getMultiHitCount(),
-                    pdp.getHexPayload()
-                )
-            }
-
-            val appendedToMeter = pdp.getActorId() != pdp.getTargetId()
-            if (isAllowed && appendedToMeter) {
-                dataStorage.appendDamage(pdp)
-            }
-
-            parsedAny = true
         }
 
-        return parsedAny
+        if (
+            reader.remainingBytes() >= 2 &&
+            packet[reader.offset] == 0x03.toByte() &&
+            packet[reader.offset + 1] == 0x00.toByte()
+        ) {
+            reader.offset += 2
+            healAmount = reader.tryReadVarInt() ?: 0
+        }
+
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(targetInfo)
+        pdp.setActorId(actorInfo)
+        pdp.setSkillCode(skillCode)
+        pdp.setType(typeInfo)
+        pdp.setSpecials(specials)
+        pdp.setMultiHitCount(multiHitCount)
+        pdp.setMultiHitDamage(multiHitDamage)
+        pdp.setHealAmount(healAmount)
+        pdp.setDamage(VarIntOutput(finalDamage, 1))
+        pdp.setHexPayload(toHex(packet))
+
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(
+                logger,
+                "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}, unknown: {}, payload={}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getSkillCode1(),
+                pdp.getType(),
+                pdp.getDamage(),
+                pdp.getMultiHitCount(),
+                unknownValue,
+                pdp.getHexPayload()
+            )
+        }
+
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            dataStorage.appendDamage(pdp)
+        }
+
+        return true
     }
 
     private fun toHexRange(bytes: ByteArray, startInclusive: Int, endExclusive: Int): String {
