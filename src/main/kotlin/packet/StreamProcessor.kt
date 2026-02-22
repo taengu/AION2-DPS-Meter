@@ -930,6 +930,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     private fun parsingDamage(packet: ByteArray, allowEmbeddedScan: Boolean = true): Boolean {
+        fun rejectOrRescan(): Boolean {
+            return if (allowEmbeddedScan) tryParseEmbeddedDamagePacket(packet) else false
+        }
+
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         val reader = DamagePacketReader(packet, packetLengthInfo.length)
@@ -952,7 +956,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val switchValue = reader.tryReadVarInt() ?: return false
         val andResult = switchValue and mask
         if (andResult !in 4..7 && andResult != 0 && andResult != 2 && andResult != 8 && andResult != 12) {
-            return true
+            return rejectOrRescan()
         }
 
         reader.tryReadVarInt() ?: return false // consume flag
@@ -960,8 +964,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val actorValue = reader.tryReadVarInt() ?: return false
         val actorInfo = VarIntOutput(actorValue, 1)
         if (actorInfo.value <= 0) return false
-        if (actorInfo.value == targetInfo.value) return true
-        if (!isActorAllowed(actorInfo.value)) return true
+        if (actorInfo.value == targetInfo.value) return rejectOrRescan()
+        if (!isActorAllowed(actorInfo.value)) return rejectOrRescan()
 
         val skillCode = try {
             reader.readSkillCode()
