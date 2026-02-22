@@ -125,16 +125,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             // Fix 3: Consume exactly 4 bytes first, like the Python script
             offset += 4
 
-            // Dynamic Padding Check: Some packets include one extra non-varint byte between
-            // skill id and type. Only skip when that byte is in 8..127 (single-byte, non-type).
-            // If the byte has continuation bit set (>= 128), it's likely part of a varint field
-            // and must NOT be skipped, otherwise we can misparse buff/status packets as damage.
-            if (offset < data.size) {
-                val nextByte = data[offset].toInt() and 0xFF
-                if (nextByte in 8..127) {
-                    offset += 1
-                }
-            }
+            // Important: do NOT auto-skip a post-skill byte.
+            // That heuristic can desync decoding and reinterpret buff/status packets as damage
+            // (e.g., skill 18190000 where the next byte is a real varint field, not padding).
 
             val candidates = buildSkillCandidates(rawUnsigned)
             for (candidate in candidates) {
