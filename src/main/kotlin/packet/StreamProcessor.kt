@@ -951,7 +951,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val switchValue = reader.tryReadVarInt() ?: return false
         val andResult = switchValue and mask
-        if (andResult !in 4..7) {
+        if (andResult !in 4..7 && andResult != 0 && andResult != 2 && andResult != 8 && andResult != 12) {
             return true
         }
 
@@ -980,6 +980,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             5 -> 12
             6 -> 10
             7 -> 14
+            0 -> 8
+            2 -> 8
+            8 -> 8
+            12 -> 8
             else -> return false
         }
         if (start + tempV > packet.size) return false
