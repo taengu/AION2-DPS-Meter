@@ -633,7 +633,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
-        val parsedDamage = parsingDamage(packet)
+        // Prefer marker-driven extraction so mixed packets can yield multiple valid 04 38
+        // damage segments without depending on a single leading tuple alignment.
+        val parsedDamage = tryParseEmbeddedDamagePacket(packet) || parsingDamage(packet)
         val parsedName = parseActorNameBindingRules(packet) ||
                 parseLootAttributionActorName(packet) ||
                 parsingNickname(packet)
