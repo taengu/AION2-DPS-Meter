@@ -956,6 +956,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (reader.remainingBytes() > 0) {
             val checkpoint = reader.offset
 
+            // Safety guard: after the first parsed hit, only continue if an explicit chained-hit
+            // delimiter is present. This prevents trailing packet sections from being reinterpreted
+            // as fake target/actor/skill tuples (e.g., impossible actor/target ids and nonsense damage).
+            if (parsedAny) {
+                val hasChainedMarker = reader.remainingBytes() >= 2 &&
+                        packet[reader.offset] == 0x01.toByte() &&
+                        packet[reader.offset + 1] == 0x00.toByte()
+                if (!hasChainedMarker) {
+                    break
+                }
+            }
+
             // Skip chained AoE hit markers if they exist
             if (reader.remainingBytes() >= 2 && packet[reader.offset] == 0x01.toByte() && packet[reader.offset + 1] == 0x00.toByte()) {
                 reader.offset += 2
