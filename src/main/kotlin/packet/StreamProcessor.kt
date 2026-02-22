@@ -184,19 +184,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             // Standard packets have 3 bytes inflation (length - 3 == physical size).
             val totalPacketBytes = lengthInfo.value - 3
 
-            if (totalPacketBytes <= 0 || totalPacketBytes > 1048576) { // 1MB sanity check
-                offset++ // Force resync
+            // INSTANT RESYNC: Combat packets are extremely small (usually < 200 bytes).
+            // If we read a length over 8KB, it is a desynchronization or a massive
+            // background zone update we do not want to block the thread for.
+            if (totalPacketBytes <= 0 || totalPacketBytes > 8192) {
+                offset++ // Force immediate 1-byte resync
                 continue
             }
 
-            // 5. TCP Fragmentation Check
+            // 5. TCP Fragmentation Check (Aggressive Anti-Stall Gate)
             if (offset + totalPacketBytes > buffer.size) {
-                // Safety check against massive corrupted varints swallowing the stream
-                if (totalPacketBytes > 65535 && buffer.size > 65535) {
-                    offset++
+                // We need more data. But are we actually fragmented, or just stalled on garbage?
+                // True fragmented damage packets will only be waiting for a few dozen bytes.
+                // If the parser wants to stall and wait for more than 2KB, it's a trap.
+                if (totalPacketBytes > 2048) {
+                    offset++ // Break the stall, slide forward to find real hits instantly
                     continue
                 }
-                break // Fragmented chunk, wait for the rest
+                break // Legitimate tiny fragment, wait for the next TCP chunk
             }
 
             // 6. Extract the perfectly aligned packet
