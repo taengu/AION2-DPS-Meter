@@ -799,60 +799,119 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var parsedAny = false
         var searchOffset = 0
 
-        while (searchOffset < packet.size - 1) {
+        while (searchOffset < packet.size - 2) {
+
+            // PATTERN A: The "E2 07" Anchor (Perfectly catches 黑雪姬 -> 1181)
+            // Aion strictly places E2 07 between the VarInt ID and the name length.
+            if (packet[searchOffset] == 0xE2.toByte() && packet[searchOffset + 1] == 0x07.toByte()) {
+                val lenIdx = searchOffset + 2
+                if (lenIdx < packet.size) {
+                    val nameLen = packet[lenIdx].toInt() and 0xFF
+                    if (nameLen in 2..32 && lenIdx + 1 + nameLen <= packet.size) {
+                        val np = packet.copyOfRange(lenIdx + 1, lenIdx + 1 + nameLen)
+                        val possibleName = decodeUtf8Strict(np)
+
+                        if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
+                            val sanitizedName = sanitizeNickname(possibleName)
+                            if (sanitizedName != null && sanitizedName.length >= 2) {
+                                // Name is valid! Look strictly backwards for the VarInt ID
+                                for (vLen in 1..3) {
+                                    val vStart = searchOffset - vLen
+                                    if (vStart >= 0 && canReadVarInt(packet, vStart)) {
+                                        val v = readVarInt(packet, vStart)
+                                        if (v.length == vLen && v.value in 100..9999999) {
+                                            logger.debug("Confirmed Pattern A nickname {} -> {}", v.value, sanitizedName)
+                                            UnifiedLogger.debug(logger, "Confirmed Pattern A nickname {} -> {}", v.value, sanitizedName)
+                                            dataStorage.appendNickname(v.value, sanitizedName)
+                                            parsedAny = true
+                                            searchOffset = lenIdx + nameLen
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // PATTERN B: The "0F 1D 37" Block Anchor (Perfectly catches 业火红莲 -> 108)
+            // Massive property update blocks that contain the string hundreds of bytes away from the ID.
+            if (searchOffset + 2 < packet.size &&
+                packet[searchOffset] == 0x0F.toByte() &&
+                packet[searchOffset + 1] == 0x1D.toByte() &&
+                packet[searchOffset + 2] == 0x37.toByte()) {
+
+                val idOffset = searchOffset + 3
+                if (canReadVarInt(packet, idOffset)) {
+                    val blockActor = readVarInt(packet, idOffset)
+                    if (blockActor.value in 100..9999999) {
+
+                        var blockScan = idOffset + blockActor.length
+                        val blockEnd = minOf(packet.size, blockScan + 500)
+
+                        while (blockScan < blockEnd - 3) {
+                            // Stop if we hit the Aion block termination marker
+                            if (packet[blockScan] == 0x06.toByte() && packet[blockScan+1] == 0x00.toByte() && packet[blockScan+2] == 0x36.toByte()) {
+                                break
+                            }
+
+                            // STRICT REQUIREMENT: The name length byte must be preceded by 00 00.
+                            // This instantly prevents random coordinates from being parsed as "zaF".
+                            if (packet[blockScan] == 0x00.toByte() && packet[blockScan + 1] == 0x00.toByte()) {
+                                val lenIdx = blockScan + 2
+                                val nameLen = packet[lenIdx].toInt() and 0xFF
+                                if (nameLen in 2..32 && lenIdx + 1 + nameLen <= packet.size) {
+                                    val np = packet.copyOfRange(lenIdx + 1, lenIdx + 1 + nameLen)
+                                    val possibleName = decodeUtf8Strict(np)
+                                    if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
+                                        val sanitizedName = sanitizeNickname(possibleName)
+                                        if (sanitizedName != null && sanitizedName.length >= 2) {
+                                            logger.debug("Confirmed Pattern B nickname {} -> {}", blockActor.value, sanitizedName)
+                                            UnifiedLogger.debug(logger, "Confirmed Pattern B nickname {} -> {}", blockActor.value, sanitizedName)
+                                            dataStorage.appendNickname(blockActor.value, sanitizedName)
+                                            parsedAny = true
+                                            blockScan = lenIdx + nameLen
+                                            continue
+                                        }
+                                    }
+                                }
+                            }
+                            blockScan++
+                        }
+                    }
+                }
+            }
+
+            // PATTERN C: The Legacy Gatekeeper Net
+            // Catches names immediately following standard 04 8D spawn opcodes if E2 07 is missing
             val b0 = packet[searchOffset].toInt() and 0xFF
             val b1 = packet[searchOffset + 1].toInt() and 0xFF
-
-            // STRICT GATEKEEPERS: Only scan for names if we see a known name-bearing opcode
-            // 04 8D = Login / Area Enter Event
-            // 04 4C = Embedded Combat Event
-            // F2 04 = Loot / System Attribution Event (Catches the new name structures)
             if ((b0 == 0x04 && (b1 == 0x8D || b1 == 0x4C)) || (b0 == 0xF2 && b1 == 0x04)) {
-
-                val maxLookahead = minOf(packet.size, searchOffset + 64)
-                var maxNameEndIdx = -1
-                var stopScanningAt = maxLookahead
-
                 var idx = searchOffset + 2
+                val stopScanningAt = minOf(packet.size, idx + 64)
+
                 while (idx < stopScanningAt - 2) {
-                    if (!canReadVarInt(packet, idx)) {
-                        idx++
-                        continue
-                    }
-
-                    val playerInfo = readVarInt(packet, idx)
-                    if (playerInfo.length <= 0) {
-                        idx++
-                        continue
-                    }
-
-                    if (playerInfo.value in 100..9999999) {
-                        // Tight leash: 0 to 4 bytes of mystery padding before the length byte
-                        // (e.g. F2 04 uses exactly 2 bytes of padding before the name length)
-                        for (padding in 0..4) {
-                            val lenIdx = idx + playerInfo.length + padding
-                            if (lenIdx >= packet.size) continue
-
-                            val nameLen = packet[lenIdx].toInt() and 0xFF
-                            // Sanity check length: Names are usually 2 to 32 bytes
-                            if (nameLen in 2..32 && lenIdx + 1 + nameLen <= packet.size) {
-                                val np = packet.copyOfRange(lenIdx + 1, lenIdx + 1 + nameLen)
-                                val possibleName = decodeUtf8Strict(np)
-
-                                if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
-                                    val sanitizedName = sanitizeNickname(possibleName)
-                                    if (sanitizedName != null && sanitizedName.length >= 2) {
-                                        logger.debug("Confirmed dynamic nickname {} -> {}", playerInfo.value, sanitizedName)
-                                        UnifiedLogger.debug(logger, "Confirmed dynamic nickname {} -> {}", playerInfo.value, sanitizedName)
-                                        dataStorage.appendNickname(playerInfo.value, sanitizedName)
-
-                                        parsedAny = true
-                                        // Safely jump past the extracted string to prevent double-parsing
-                                        maxNameEndIdx = maxOf(maxNameEndIdx, lenIdx + 1 + nameLen)
-
-                                        // Set a hard boundary at the length byte to prevent reading
-                                        // VarInts from inside the UTF-8 string itself
-                                        stopScanningAt = minOf(stopScanningAt, lenIdx)
+                    if (canReadVarInt(packet, idx)) {
+                        val playerInfo = readVarInt(packet, idx)
+                        if (playerInfo.length > 0 && playerInfo.value in 100..9999999) {
+                            for (padding in 0..2) {
+                                val lenIdx = idx + playerInfo.length + padding
+                                if (lenIdx >= packet.size) continue
+                                val nameLen = packet[lenIdx].toInt() and 0xFF
+                                if (nameLen in 2..32 && lenIdx + 1 + nameLen <= packet.size) {
+                                    val np = packet.copyOfRange(lenIdx + 1, lenIdx + 1 + nameLen)
+                                    val possibleName = decodeUtf8Strict(np)
+                                    if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
+                                        val sanitizedName = sanitizeNickname(possibleName)
+                                        if (sanitizedName != null && sanitizedName.length >= 2) {
+                                            logger.debug("Confirmed Pattern C nickname {} -> {}", playerInfo.value, sanitizedName)
+                                            UnifiedLogger.debug(logger, "Confirmed Pattern C nickname {} -> {}", playerInfo.value, sanitizedName)
+                                            dataStorage.appendNickname(playerInfo.value, sanitizedName)
+                                            parsedAny = true
+                                            searchOffset = lenIdx + nameLen
+                                            break
+                                        }
                                     }
                                 }
                             }
@@ -860,15 +919,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     }
                     idx++
                 }
-
-                if (maxNameEndIdx != -1) {
-                    searchOffset = maxNameEndIdx
-                } else {
-                    searchOffset += 2
-                }
-            } else {
-                searchOffset++
             }
+            searchOffset++
         }
         return parsedAny
     }
