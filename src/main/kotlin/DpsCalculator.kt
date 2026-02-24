@@ -65,9 +65,30 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             loadSkillMapFromResource()
         }
 
+        val NPC_MAP: Map<Int, String> by lazy {
+            loadNpcMapFromResource()
+        }
+
         private fun loadSkillMapFromResource(): Map<Int, String> {
             val stream = DpsCalculator::class.java.classLoader
                 .getResourceAsStream("i18n/skills/en.json") ?: return emptyMap()
+            val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            val entryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
+            return entryRegex.findAll(text)
+                .mapNotNull { match ->
+                    val code = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+                    val rawName = match.groupValues.getOrNull(2) ?: return@mapNotNull null
+                    val name = rawName
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                    code to name
+                }
+                .toMap()
+        }
+
+        private fun loadNpcMapFromResource(): Map<Int, String> {
+            val stream = DpsCalculator::class.java.classLoader
+                .getResourceAsStream("i18n/npcs/en.json") ?: return emptyMap()
             val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
             val entryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
             return entryRegex.findAll(text)
@@ -743,7 +764,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun resolveTargetName(target: Int): String {
         if (!dataStorage.getMobData().containsKey(target)) return ""
         val mobCode = dataStorage.getMobData()[target] ?: return ""
-        return dataStorage.getMobCodeData()[mobCode] ?: ""
+
+        // Check our new static NPC map first, then fallback to dynamic data storage
+        return NPC_MAP[mobCode] ?: dataStorage.getMobCodeData()[mobCode] ?: ""
     }
 
     private fun inferOriginalSkillCode(

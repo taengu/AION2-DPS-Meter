@@ -733,42 +733,70 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val opcode1 = packet[offset].toInt() and 0xFF
         val opcode2 = packet[offset + 1].toInt() and 0xFF
 
-        // Case 1: Standard/Old Summon Packet (0x40 0x36)
+        // Opcode 40 36: Standard Spawn/Update Packet
         if (opcode1 == 0x40 && opcode2 == 0x36) {
             offset += 2
-            val summonInfo = readVarInt(packet, offset)
-            if (summonInfo.length < 0) return false
-            offset += summonInfo.length + 28
+            val targetInfo = readVarInt(packet, offset)
+            if (targetInfo.length < 0) return false
+            offset += targetInfo.length
 
-            if (packet.size > offset) {
-                val mobInfo = readVarInt(packet, offset)
-                if (mobInfo.length < 0) return false
-                offset += mobInfo.length
-                if (packet.size > offset) {
-                    val mobInfo2 = readVarInt(packet, offset)
-                    if (mobInfo2.length < 0) return false
-                    if (mobInfo.value == mobInfo2.value) {
-                        logger.trace("mid: {}, code: {}", summonInfo.value, mobInfo.value)
-                        dataStorage.appendMob(summonInfo.value, mobInfo.value)
+            // 1. Strip the Object Type Bitmask from the Entity ID
+            var realActorId = targetInfo.value
+            if (realActorId > 1_000_000) {
+                realActorId = (realActorId and 0x3FFF) or 0x4000
+            }
+
+            // 2. Dynamic Forward Scan for the Mob Type ID
+            // The Mob Type ID is a VarInt that immediately precedes the coordinate block anchor: 00 40 02
+            var mobTypeId = -1
+            var scanOffset = offset
+            var varIntsRead = 0
+
+            // Scan ahead up to 10 VarInts to find the anchor
+            while (varIntsRead < 10 && scanOffset + 3 < packet.size) {
+                val candidateInfo = readVarInt(packet, scanOffset)
+                if (candidateInfo.length < 0) break
+                scanOffset += candidateInfo.length
+
+                // Check if the next 3 bytes are the coordinate anchor `00 40 02`
+                if (packet[scanOffset] == 0x00.toByte() &&
+                    packet[scanOffset + 1] == 0x40.toByte() &&
+                    packet[scanOffset + 2] == 0x02.toByte()) {
+                    mobTypeId = candidateInfo.value
+                    break
+                }
+                varIntsRead++
+            }
+
+            // 3. If successfully found, bind the Mob ID to the Target ID
+            if (mobTypeId != -1) {
+                logger.debug("Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
+                UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
+
+                // Register it to the internal maps
+                dataStorage.appendMob(realActorId, mobTypeId)
+
+                // To completely bridge this to the UI, you could now map the `mobTypeId` (4639)
+                // to a JSON dictionary string ("Training Scarecrow") and append it to `dataStorage.appendNickname()`!
+                return true
+            }
+
+            // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
+            val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+            if (keyIdx != -1) {
+                val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+                val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+                if (opcodeIdx != -1) {
+                    val legacyOffset = keyIdx + opcodeIdx + 11
+                    if (legacyOffset + 2 <= packet.size) {
+                        val legacyActorId = parseUInt16le(packet, legacyOffset)
+                        logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
+                        UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
+                        dataStorage.appendSummon(legacyActorId, targetInfo.value)
+                        return true
                     }
                 }
             }
-
-            val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-            if (keyIdx == -1) return false
-            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-
-            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
-            if (opcodeIdx == -1) return false
-            offset = keyIdx + opcodeIdx + 11
-
-            if (offset + 2 > packet.size) return false
-            val realActorId = parseUInt16le(packet, offset)
-
-            logger.debug("Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-            UnifiedLogger.debug(logger, "Summon mob mapping succeeded {},{}", realActorId, summonInfo.value)
-            dataStorage.appendSummon(realActorId, summonInfo.value)
-            return true
         }
         return false
     }
