@@ -160,6 +160,12 @@ const createDetailsUI = ({
     return Number(byNumber ?? byString ?? 0) || 0;
   };
 
+  const getTargetLabel = (target) => {
+    if (!target) return "";
+    const targetName = typeof target.targetName === "string" ? target.targetName.trim() : "";
+    return targetName || `Mob #${target.targetId}`;
+  };
+
   const getTargetDamageForSelection = (target) => {
     if (!target) return 0;
     if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) {
@@ -263,7 +269,8 @@ const createDetailsUI = ({
       detailsNicknameBtn.style.color = color || "";
     }
     if (detailsTargetBtn) {
-      const targetLabel = selectedTargetId ? `Mob #${selectedTargetId}` : labelText("details.all", "All");
+      const selectedTarget = getTargetById(selectedTargetId);
+      const targetLabel = selectedTargetId ? getTargetLabel(selectedTarget) : labelText("details.all", "All");
       if (targetTextEl) {
         targetTextEl.textContent = targetLabel;
       } else {
@@ -1061,11 +1068,11 @@ const createDetailsUI = ({
       item.dataset.value = String(target.targetId);
       const suffix = formatTargetSuffix(target);
       if (!suffix) {
-        item.textContent = `Mob #${target.targetId}`;
+        item.textContent = getTargetLabel(target);
       } else if (sortMode === "recent") {
-        item.textContent = `Mob #${target.targetId} ${suffix}`;
+        item.textContent = `${getTargetLabel(target)} ${suffix}`;
       } else {
-        item.textContent = `Mob #${target.targetId} (${suffix})`;
+        item.textContent = `${getTargetLabel(target)} (${suffix})`;
       }
       if (Number(target.targetId) === Number(selectedTargetId)) {
         item.classList.add("isActive");

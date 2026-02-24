@@ -12,6 +12,7 @@ data class DetailsActorSummary(
 @Serializable
 data class DetailsTargetSummary(
     val targetId: Int,
+    val targetName: String = "",
     val battleTime: Long,
     val lastDamageTime: Long,
     val totalDamage: Int,

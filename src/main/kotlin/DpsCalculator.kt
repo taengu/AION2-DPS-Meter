@@ -410,6 +410,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             targets.add(
                 DetailsTargetSummary(
                     targetId = targetId,
+                    targetName = resolveTargetName(targetId),
                     battleTime = info?.parseBattleTime() ?: 0L,
                     lastDamageTime = info?.lastDamageTime() ?: 0L,
                     totalDamage = totalDamage,
