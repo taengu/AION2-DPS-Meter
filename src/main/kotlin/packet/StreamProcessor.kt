@@ -1108,11 +1108,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             packet[reader.offset] in 1..3
 
                     var isNextPacket = false
-                    val lookahead = minOf(15, reader.remainingBytes() - 1)
-                    for (scan in 0..lookahead) {
-                        if (packet[reader.offset + scan] == 0x04.toByte() && packet[reader.offset + scan + 1] == 0x38.toByte()) {
-                            isNextPacket = true
-                            break
+                    if (reader.remainingBytes() >= 2) {
+                        val lookahead = minOf(15, reader.remainingBytes() - 2)
+                        for (scan in 0..lookahead) {
+                            if (packet[reader.offset + scan] == 0x04.toByte() && packet[reader.offset + scan + 1] == 0x38.toByte()) {
+                                isNextPacket = true
+                                break
+                            }
                         }
                     }
 
