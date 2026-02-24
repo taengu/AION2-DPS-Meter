@@ -725,80 +725,104 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseSummonPacket(packet: ByteArray): Boolean {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return false
-        offset += packetLengthInfo.length
-
-        if (offset + 1 >= packet.size) return false
-
-        val opcode1 = packet[offset].toInt() and 0xFF
-        val opcode2 = packet[offset + 1].toInt() and 0xFF
-
-        // Opcode 40 36: Standard Spawn/Update Packet
-        if (opcode1 == 0x40 && opcode2 == 0x36) {
-            offset += 2
-            val targetInfo = readVarInt(packet, offset)
-            if (targetInfo.length < 0) return false
-            offset += targetInfo.length
-
-            // 1. Strip the Object Type Bitmask from the Entity ID
-            var realActorId = targetInfo.value
-            if (realActorId > 1_000_000) {
-                realActorId = (realActorId and 0x3FFF) or 0x4000
-            }
-
-            // 2. Dynamic Forward Scan for the Mob Type ID
-            // The Mob Type ID is a VarInt that immediately precedes the coordinate block anchor: 00 40 02
-            var mobTypeId = -1
-            var scanOffset = offset
-            var varIntsRead = 0
-
-            // Scan ahead up to 10 VarInts to find the anchor
-            while (varIntsRead < 10 && scanOffset + 3 < packet.size) {
-                val candidateInfo = readVarInt(packet, scanOffset)
-                if (candidateInfo.length < 0) break
-                scanOffset += candidateInfo.length
-
-                // Check if the next 3 bytes are the coordinate anchor `00 40 02`
-                if (packet[scanOffset] == 0x00.toByte() &&
-                    packet[scanOffset + 1] == 0x40.toByte() &&
-                    packet[scanOffset + 2] == 0x02.toByte()) {
-                    mobTypeId = candidateInfo.value
-                    break
-                }
-                varIntsRead++
-            }
-
-            // 3. If successfully found, bind the Mob ID to the Target ID
-            if (mobTypeId != -1) {
-                logger.debug("Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
-                UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
-
-                // Register it to the internal maps
-                dataStorage.appendMob(realActorId, mobTypeId)
-
-                // To completely bridge this to the UI, you could now map the `mobTypeId` (4639)
-                // to a JSON dictionary string ("Training Scarecrow") and append it to `dataStorage.appendNickname()`!
-                return true
-            }
-
-            // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
-            val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-            if (keyIdx != -1) {
-                val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-                val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
-                if (opcodeIdx != -1) {
-                    val legacyOffset = keyIdx + opcodeIdx + 11
-                    if (legacyOffset + 2 <= packet.size) {
-                        val legacyActorId = parseUInt16le(packet, legacyOffset)
-                        logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                        UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                        dataStorage.appendSummon(legacyActorId, targetInfo.value)
-                        return true
-                    }
+        if (packetLengthInfo.length >= 0) {
+            offset += packetLengthInfo.length
+            if (offset + 1 < packet.size &&
+                packet[offset] == 0x40.toByte() &&
+                packet[offset + 1] == 0x36.toByte()
+            ) {
+                if (parseSummonSpawnAt(packet, offset + 2)) {
+                    return true
                 }
             }
         }
+
+        // Fallback: Some captures include merged frames or transport bytes before the game payload.
+        // Scan for embedded 40 36 summon spawn blocks and parse them directly.
+        var searchOffset = 0
+        while (searchOffset + 1 < packet.size) {
+            val opcodeOffset = findArrayIndexFromOffset(packet, searchOffset, byteArrayOf(0x40, 0x36))
+            if (opcodeOffset == -1) break
+            if (parseSummonSpawnAt(packet, opcodeOffset + 2)) {
+                return true
+            }
+            searchOffset = opcodeOffset + 2
+        }
+
         return false
+    }
+
+    private fun parseSummonSpawnAt(packet: ByteArray, offsetAfterOpcode: Int): Boolean {
+        var offset = offsetAfterOpcode
+        val targetInfo = readVarInt(packet, offset)
+        if (targetInfo.length < 0) return false
+        offset += targetInfo.length
+
+        // 1. Strip the Object Type Bitmask from the Entity ID
+        var realActorId = targetInfo.value
+        if (realActorId > 1_000_000) {
+            realActorId = (realActorId and 0x3FFF) or 0x4000
+        }
+
+        // 2. Dynamic Forward Scan for the Mob Type ID
+        // The Mob Type ID is a VarInt that immediately precedes the coordinate block anchor: 00 40 02
+        var mobTypeId = -1
+        var scanOffset = offset
+        var varIntsRead = 0
+
+        // Scan ahead up to 10 VarInts to find the anchor
+        while (varIntsRead < 10 && scanOffset + 3 < packet.size) {
+            val candidateInfo = readVarInt(packet, scanOffset)
+            if (candidateInfo.length < 0) break
+            scanOffset += candidateInfo.length
+
+            // Check if the next 3 bytes are the coordinate anchor `00 40 02`
+            if (packet[scanOffset] == 0x00.toByte() &&
+                packet[scanOffset + 1] == 0x40.toByte() &&
+                packet[scanOffset + 2] == 0x02.toByte()
+            ) {
+                mobTypeId = candidateInfo.value
+                break
+            }
+            varIntsRead++
+        }
+
+        // 3. If successfully found, bind the Mob ID to the Target ID
+        if (mobTypeId != -1) {
+            logger.debug("Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
+            UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
+
+            // Register it to the internal maps
+            dataStorage.appendMob(realActorId, mobTypeId)
+            return true
+        }
+
+        // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
+        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+        if (keyIdx != -1) {
+            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
+            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+            if (opcodeIdx != -1) {
+                val legacyOffset = keyIdx + opcodeIdx + 11
+                if (legacyOffset + 2 <= packet.size) {
+                    val legacyActorId = parseUInt16le(packet, legacyOffset)
+                    logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
+                    UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
+                    dataStorage.appendSummon(legacyActorId, targetInfo.value)
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+
+    private fun findArrayIndexFromOffset(data: ByteArray, offset: Int, pattern: ByteArray): Int {
+        if (offset >= data.size) return -1
+        if (offset <= 0) return findArrayIndex(data, pattern)
+        val idx = findArrayIndex(data.copyOfRange(offset, data.size), pattern)
+        return if (idx == -1) -1 else offset + idx
     }
 
     private fun parseUInt16le(packet: ByteArray, offset: Int = 0): Int {
