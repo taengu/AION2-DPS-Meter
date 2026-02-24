@@ -2906,11 +2906,11 @@ class DpsApp {
     if (targetMode === "lastHitByMe" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
       return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
     }
-    if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
-      return `Mob #${Number(targetId)}`;
-    }
     if (targetName) {
       return targetName;
+    }
+    if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
+      return `Mob #${Number(targetId)}`;
     }
     return this.getDefaultTargetLabel(targetMode);
   }
