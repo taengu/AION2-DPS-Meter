@@ -771,10 +771,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var varIntsRead = 0
 
         // Scan ahead up to 10 VarInts to find the anchor
-        while (varIntsRead < 10 && scanOffset + 3 < packet.size) {
+        while (varIntsRead < 10 && scanOffset < packet.size) {
             val candidateInfo = readVarInt(packet, scanOffset)
             if (candidateInfo.length < 0) break
             scanOffset += candidateInfo.length
+            if (scanOffset + 2 >= packet.size) break
 
             // Check if the next 3 bytes are the coordinate anchor `00 40 02`
             if (packet[scanOffset] == 0x00.toByte() &&
