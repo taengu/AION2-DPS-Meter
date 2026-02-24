@@ -764,28 +764,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             realActorId = (realActorId and 0x3FFF) or 0x4000
         }
 
-        // 2. Dynamic Forward Scan for the Mob Type ID
-        // The Mob Type ID is a VarInt that immediately precedes the coordinate block anchor: 00 40 02
+        // 2. Scan for the 24-bit NPC Type ID
         var mobTypeId = -1
         var scanOffset = offset
-        var varIntsRead = 0
+        val maxScan = minOf(packet.size - 2, offset + 60) // Search window
 
-        // Scan ahead up to 10 VarInts to find the anchor
-        while (varIntsRead < 10 && scanOffset < packet.size) {
-            val candidateInfo = readVarInt(packet, scanOffset)
-            if (candidateInfo.length < 0) break
-            scanOffset += candidateInfo.length
-            if (scanOffset + 2 >= packet.size) break
-
-            // Check if the next 3 bytes are the coordinate anchor `00 40 02`
+        while (scanOffset < maxScan) {
+            // Check for both anchors: 00 40 02 (Combat) or 00 00 02 (Critter/Boss)
             if (packet[scanOffset] == 0x00.toByte() &&
-                packet[scanOffset + 1] == 0x40.toByte() &&
+                (packet[scanOffset + 1] == 0x40.toByte() || packet[scanOffset + 1] == 0x00.toByte()) &&
                 packet[scanOffset + 2] == 0x02.toByte()
             ) {
-                mobTypeId = candidateInfo.value
+                // The NPC ID is ALWAYS a 24-bit Little Endian integer located exactly 3 bytes before the anchor!
+                if (scanOffset - 3 >= offset) {
+                    val b1 = packet[scanOffset - 3].toInt() and 0xFF
+                    val b2 = packet[scanOffset - 2].toInt() and 0xFF
+                    val b3 = packet[scanOffset - 1].toInt() and 0xFF
+                    mobTypeId = b1 or (b2 shl 8) or (b3 shl 16)
+                }
                 break
             }
-            varIntsRead++
+            scanOffset++
         }
 
         // 3. If successfully found, bind the Mob ID to the Target ID
@@ -793,7 +792,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             logger.debug("Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
             UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
 
-            // Register it to the internal maps
             dataStorage.appendMob(realActorId, mobTypeId)
             return true
         }
@@ -953,6 +951,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     if (canReadVarInt(packet, idx)) {
                         val playerInfo = readVarInt(packet, idx)
                         if (playerInfo.length > 0 && playerInfo.value in 100..9999999) {
+                            // Padding strictly bounded to 0..2 to prevent aggressive false positives
                             for (padding in 0..2) {
                                 val lenIdx = idx + playerInfo.length + padding
                                 if (lenIdx >= packet.size) continue
@@ -973,11 +972,57 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                     }
                                 }
                             }
+                            if (parsedAny) break
                         }
                     }
                     idx++
                 }
             }
+
+            // PATTERN D: The Terminator Anchor
+            // Safely catches names attached to the very end of large property blocks (e.g., Naicha)
+            if ((b0 == 0x04 || b0 == 0x00) && (b1 == 0x8D || b1 == 0x4C)) {
+                val idIdx = searchOffset + 2
+                if (canReadVarInt(packet, idIdx)) {
+                    val playerInfo = readVarInt(packet, idIdx)
+                    if (playerInfo.length > 0 && playerInfo.value in 100..9999999) {
+                        // Scan up to 128 bytes ahead to find the universal terminator 06 00 36
+                        val stopScanningAt = minOf(packet.size - 2, idIdx + 128)
+                        var scanIdx = idIdx + playerInfo.length
+
+                        while (scanIdx < stopScanningAt) {
+                            if (packet[scanIdx] == 0x06.toByte() && packet[scanIdx + 1] == 0x00.toByte() && packet[scanIdx + 2] == 0x36.toByte()) {
+                                // We found the terminator! Look strictly backwards for the string.
+                                for (testLen in 2..32) {
+                                    val lenByteIdx = scanIdx - testLen - 1
+                                    if (lenByteIdx > idIdx) {
+                                        val possibleLen = packet[lenByteIdx].toInt() and 0xFF
+                                        if (possibleLen == testLen) {
+                                            val np = packet.copyOfRange(lenByteIdx + 1, lenByteIdx + 1 + testLen)
+                                            val possibleName = decodeUtf8Strict(np)
+
+                                            if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
+                                                val sanitizedName = sanitizeNickname(possibleName)
+                                                if (sanitizedName != null && sanitizedName.length >= 2) {
+                                                    logger.debug("Confirmed Pattern D nickname {} -> {}", playerInfo.value, sanitizedName)
+                                                    UnifiedLogger.debug(logger, "Confirmed Pattern D nickname {} -> {}", playerInfo.value, sanitizedName)
+                                                    dataStorage.appendNickname(playerInfo.value, sanitizedName)
+                                                    parsedAny = true
+                                                    searchOffset = scanIdx // Fast forward past the block
+                                                    break
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (parsedAny) break
+                            }
+                            scanIdx++
+                        }
+                    }
+                }
+            }
+
             searchOffset++
         }
         return parsedAny
