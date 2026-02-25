@@ -1242,19 +1242,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             val isEmbeddedSyntheticFrame = packet.size >= 2 &&
                     packet[0] == 0xFF.toByte() && packet[1] == 0x01.toByte()
-            val (hpDrain, hpRecovery) = if (!isEmbeddedSyntheticFrame && reader.remainingBytes() <= 64) {
-                tryReadSkillEffectTailHp(reader)
-            } else {
-                0 to 0
-            }
+            val (hpDrain, hpRecovery) = tryReadSkillEffectTailHp(
+                reader,
+                allowLooseFallback = !isEmbeddedSyntheticFrame
+            )
             var healAmount = hpDrain + hpRecovery
             val restorationOrRecovery = specials.contains(SpecialDamage.RESTORATION) || isRecoveryOnlySkill(skillCode)
             // Ignore marker-like tiny tails when no restoration semantics are present.
             if (healAmount <= 1 && !restorationOrRecovery) {
-                healAmount = 0
-            }
-            // Guard against misaligned tail parses on offensive packets.
-            if (!restorationOrRecovery && healAmount > finalDamage * 5) {
                 healAmount = 0
             }
 
@@ -1321,62 +1316,52 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return values
     }
 
-    private fun tryReadSkillEffectTailHp(reader: DamagePacketReader): Pair<Int, Int> {
+    private fun tryReadSkillEffectTailHp(reader: DamagePacketReader, allowLooseFallback: Boolean): Pair<Int, Int> {
         val checkpoint = reader.offset
 
         // FDevPacketData_GameServer_SkillEffect_NT tail order after _additional_hit_dmgs:
         // _barrier_id_list, _abnormal_effect_type, _abnormal_id_list, _skill_process_uid, _hp_drain, _hp_recovery
-        readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
-            ?: run {
-                reader.offset = checkpoint
-                return 0 to 0
+        val strictParsed = run {
+            readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
+                ?: return@run null
+
+            val abnormalEffectType = reader.tryReadVarInt() ?: return@run null
+            if (abnormalEffectType < 0 || abnormalEffectType > 64) return@run null
+
+            readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
+                ?: return@run null
+
+            val skillProcessUid = reader.tryReadVarInt() ?: return@run null
+            if (skillProcessUid < 0) return@run null
+
+            val hpDrain = reader.tryReadVarInt() ?: return@run null
+            val hpRecovery = reader.tryReadVarInt() ?: return@run null
+            if (hpDrain < 0 || hpRecovery < 0) return@run null
+
+            hpDrain to hpRecovery
+        }
+
+        if (strictParsed != null) {
+            return strictParsed
+        }
+
+        reader.offset = checkpoint
+        if (!allowLooseFallback) {
+            return 0 to 0
+        }
+
+        // Fallback for packets where zero/default struct segments are omitted on wire.
+        val looseStart = reader.offset
+        val hpDrain = reader.tryReadVarInt()
+        val hpRecovery = reader.tryReadVarInt()
+        if (hpDrain != null && hpRecovery != null && hpDrain >= 0 && hpRecovery >= 0) {
+            // Accept only when near tail end to avoid cross-packet contamination.
+            if (reader.remainingBytes() <= 2) {
+                return hpDrain to hpRecovery
             }
-
-        val abnormalEffectType = reader.tryReadVarInt() ?: run {
-            reader.offset = checkpoint
-            return 0 to 0
         }
-        if (abnormalEffectType < 0 || abnormalEffectType > 64) {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-
-        readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
-            ?: run {
-                reader.offset = checkpoint
-                return 0 to 0
-            }
-
-        val skillProcessUid = reader.tryReadVarInt() ?: run {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-        if (skillProcessUid < 0) {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-
-        val hpDrain = reader.tryReadVarInt() ?: run {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-        val hpRecovery = reader.tryReadVarInt() ?: run {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-
-        if (hpDrain < 0 || hpRecovery < 0) {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-
-        // Defensive cap for decoded tail values to avoid accidental cross-packet reads.
-        if (hpDrain > 5_000_000 || hpRecovery > 5_000_000) {
-            reader.offset = checkpoint
-            return 0 to 0
-        }
-
-        return hpDrain to hpRecovery
+        reader.offset = looseStart
+        return 0 to 0
     }
 
     private fun toHexRange(bytes: ByteArray, startInclusive: Int, endExclusive: Int): String {
