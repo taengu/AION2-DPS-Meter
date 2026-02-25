@@ -619,6 +619,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return true
     }
 
+
+    private fun isRecoveryOnlySkill(skillCode: Int): Boolean {
+        val skillName = DpsCalculator.SKILL_MAP[skillCode]?.lowercase() ?: return false
+        return skillName.contains("recuperation") ||
+                skillName.contains("recovery") ||
+                skillName.contains("restoration")
+    }
+
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
         val parsedDamage = parsingDamage(packet)
@@ -1232,9 +1240,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
 
-            val hpDrain = reader.tryReadVarInt() ?: 0
-            val hpRecovery = reader.tryReadVarInt() ?: 0
-            val healAmount = hpDrain + hpRecovery
+            val hpDrain = if (reader.remainingBytes() > 2) (reader.tryReadVarInt() ?: 0) else 0
+            val hpRecovery = if (reader.remainingBytes() > 0) (reader.tryReadVarInt() ?: 0) else 0
+            var healAmount = hpDrain + hpRecovery
+            // Common packet tail marker can look like "01 00" and should not be treated as healing.
+            if (healAmount <= 1 && !specials.contains(SpecialDamage.RESTORATION)) {
+                healAmount = 0
+            }
 
             val pdp = ParsedDamagePacket()
             pdp.setTargetId(targetInfo)
@@ -1266,7 +1278,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             val appendedToMeter = pdp.getActorId() != pdp.getTargetId()
             val isRestorationOnly = specials.contains(SpecialDamage.RESTORATION)
-            if (isAllowed && appendedToMeter && !isRestorationOnly) {
+            val isRecoverySkill = isRecoveryOnlySkill(skillCode)
+            if (isAllowed && appendedToMeter && !isRestorationOnly && !isRecoverySkill) {
                 dataStorage.appendDamage(pdp)
             }
 
