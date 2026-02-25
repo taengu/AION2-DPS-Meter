@@ -1240,10 +1240,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
 
-            val (hpDrain, hpRecovery) = tryReadSkillEffectTailHp(reader)
+            val isEmbeddedSyntheticFrame = packet.size >= 2 &&
+                    packet[0] == 0xFF.toByte() && packet[1] == 0x01.toByte()
+            val (hpDrain, hpRecovery) = if (!isEmbeddedSyntheticFrame && reader.remainingBytes() <= 64) {
+                tryReadSkillEffectTailHp(reader)
+            } else {
+                0 to 0
+            }
             var healAmount = hpDrain + hpRecovery
+            val restorationOrRecovery = specials.contains(SpecialDamage.RESTORATION) || isRecoveryOnlySkill(skillCode)
             // Ignore marker-like tiny tails when no restoration semantics are present.
-            if (healAmount <= 1 && !specials.contains(SpecialDamage.RESTORATION)) {
+            if (healAmount <= 1 && !restorationOrRecovery) {
+                healAmount = 0
+            }
+            // Guard against misaligned tail parses on offensive packets.
+            if (!restorationOrRecovery && healAmount > finalDamage * 5) {
                 healAmount = 0
             }
 
@@ -1355,6 +1366,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         if (hpDrain < 0 || hpRecovery < 0) {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+
+        // Defensive cap for decoded tail values to avoid accidental cross-packet reads.
+        if (hpDrain > 5_000_000 || hpRecovery > 5_000_000) {
             reader.offset = checkpoint
             return 0 to 0
         }
