@@ -1240,10 +1240,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
             }
 
-            val hpDrain = if (reader.remainingBytes() > 2) (reader.tryReadVarInt() ?: 0) else 0
-            val hpRecovery = if (reader.remainingBytes() > 0) (reader.tryReadVarInt() ?: 0) else 0
+            val (hpDrain, hpRecovery) = tryReadSkillEffectTailHp(reader)
             var healAmount = hpDrain + hpRecovery
-            // Common packet tail marker can look like "01 00" and should not be treated as healing.
+            // Ignore marker-like tiny tails when no restoration semantics are present.
             if (healAmount <= 1 && !specials.contains(SpecialDamage.RESTORATION)) {
                 healAmount = 0
             }
@@ -1309,6 +1308,58 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             values.add(next)
         }
         return values
+    }
+
+    private fun tryReadSkillEffectTailHp(reader: DamagePacketReader): Pair<Int, Int> {
+        val checkpoint = reader.offset
+
+        // FDevPacketData_GameServer_SkillEffect_NT tail order after _additional_hit_dmgs:
+        // _barrier_id_list, _abnormal_effect_type, _abnormal_id_list, _skill_process_uid, _hp_drain, _hp_recovery
+        readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
+            ?: run {
+                reader.offset = checkpoint
+                return 0 to 0
+            }
+
+        val abnormalEffectType = reader.tryReadVarInt() ?: run {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+        if (abnormalEffectType < 0 || abnormalEffectType > 64) {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+
+        readVarIntArray(reader, maxElements = 64, maxValue = Int.MAX_VALUE)
+            ?: run {
+                reader.offset = checkpoint
+                return 0 to 0
+            }
+
+        val skillProcessUid = reader.tryReadVarInt() ?: run {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+        if (skillProcessUid < 0) {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+
+        val hpDrain = reader.tryReadVarInt() ?: run {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+        val hpRecovery = reader.tryReadVarInt() ?: run {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+
+        if (hpDrain < 0 || hpRecovery < 0) {
+            reader.offset = checkpoint
+            return 0 to 0
+        }
+
+        return hpDrain to hpRecovery
     }
 
     private fun toHexRange(bytes: ByteArray, startInclusive: Int, endExclusive: Int): String {
