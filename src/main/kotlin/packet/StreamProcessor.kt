@@ -607,14 +607,78 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
         val parsedDamage = parsingDamage(packet)
+        val parsedSkillEffect = parseSkillEffectPacket(packet)
         val parsedName = parseActorNameBindingRules(packet) ||
                 parseLootAttributionActorName(packet) ||
                 parsingNickname(packet)
         val parsedSummon = parseSummonPacket(packet)
-        if (!parsedDamage && !parsedName && !parsedSummon) {
+        if (!parsedDamage && !parsedSkillEffect && !parsedName && !parsedSummon) {
             parseDoTPacket(packet)
         }
-        return parsedDamage || parsedName
+        return parsedDamage || parsedSkillEffect || parsedName || parsedSummon
+    }
+
+    private fun parseSkillEffectPacket(packet: ByteArray): Boolean {
+        val packetLengthInfo = readVarInt(packet)
+        if (packetLengthInfo.length < 0) return false
+
+        var offset = packetLengthInfo.length
+        if (offset + 2 > packet.size) return false
+        if (packet[offset] != 0x06.toByte() || packet[offset + 1] != 0x38.toByte()) return false
+        offset += 2
+
+        // FDevPacketData_GameServer_SkillEffect_NT: 16-byte action/base header before _caster_key.
+        val fieldsOffset = offset + 16
+        val requiredBytes = 181
+        if (fieldsOffset + requiredBytes > packet.size) return false
+
+        val casterKey = parseUInt32le(packet, fieldsOffset)
+        val skillCode = parseUInt32le(packet, fieldsOffset + 4)
+        val targetKey = parseUInt32le(packet, fieldsOffset + 12)
+        val hitType = packet[fieldsOffset + 16].toInt() and 0xFF
+        val damage = parseInt64le(packet, fieldsOffset + 64)
+        val hpRecovery = parseInt64le(packet, fieldsOffset + 152)
+
+        if (casterKey < 100 || targetKey < 100 || casterKey == targetKey) return false
+        if (!isActorAllowed(casterKey)) return false
+        if (damage <= 0L || damage > 99_999_999L) return false
+        if (!isValidSkillCode(skillCode) || hitType > 16) return false
+
+        val specials = mutableListOf<SpecialDamage>()
+        if (packet[fieldsOffset + 24].toInt() != 0) specials.add(SpecialDamage.BACK) // _plotter._is_backattack
+        if (packet[fieldsOffset + 25].toInt() != 0 || packet[fieldsOffset + 26].toInt() != 0) {
+            specials.add(SpecialDamage.PARRY) // _plotter._is_shieldblock / _is_weaponblock
+        }
+        if (packet[fieldsOffset + 27].toInt() != 0) specials.add(SpecialDamage.PERFECT) // _plotter._is_perfect
+        if (packet[fieldsOffset + 28].toInt() != 0) specials.add(SpecialDamage.DOUBLE) // _plotter._is_hardhit
+        if (packet[fieldsOffset + 29].toInt() != 0) specials.add(SpecialDamage.ENDURE) // _plotter._is_ironwall
+        if (hitType == 3) specials.add(SpecialDamage.CRITICAL)
+
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(VarIntOutput(targetKey, 4))
+        pdp.setActorId(VarIntOutput(casterKey, 4))
+        pdp.setSkillCode(normalizeSkillId(skillCode))
+        pdp.setType(VarIntOutput(hitType, 1))
+        pdp.setSpecials(specials.distinct())
+        pdp.setDamage(VarIntOutput(damage.toInt(), 8))
+        pdp.setHealAmount(hpRecovery.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+        pdp.setHexPayload(toHex(packet))
+
+        dataStorage.appendDamage(pdp)
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(
+                logger,
+                "SkillEffect damage target {}, attacker {}, skill {}, type {}, damage {}, back={}, hex={}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getSkillCode1(),
+                pdp.getType(),
+                pdp.getDamage(),
+                specials.contains(SpecialDamage.BACK),
+                toHex(packet)
+            )
+        }
+        return true
     }
 
     private fun parseDoTPacket(packet:ByteArray){
@@ -834,6 +898,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 ((packet[offset + 1].toInt() and 0xFF) shl 8) or
                 ((packet[offset + 2].toInt() and 0xFF) shl 16) or
                 ((packet[offset + 3].toInt() and 0xFF) shl 24)
+    }
+
+    private fun parseInt64le(packet: ByteArray, offset: Int): Long {
+        if (offset + 8 > packet.size) return -1L
+        var result = 0L
+        for (i in 0 until 8) {
+            result = result or ((packet[offset + i].toLong() and 0xFFL) shl (8 * i))
+        }
+        return result
     }
 
     private fun canReadVarInt(bytes: ByteArray, offset: Int): Boolean {
