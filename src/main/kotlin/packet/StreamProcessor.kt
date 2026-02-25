@@ -1182,7 +1182,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 reader.offset += 2
             }
             val specials = parseSpecialDamageFlags(byteArrayOf(specialByte.toByte())).toMutableList()
-            if (hitType == EHitType.CRITICAL) {
+            // Keep both schema-driven and legacy crit signaling to avoid regressions.
+            if (hitType == EHitType.CRITICAL || typeValue == 2 || typeValue == 3) {
                 specials.add(SpecialDamage.CRITICAL)
             }
             reader.offset += (tempV - (if (hasSpecialByte) 2 else 0))
@@ -1264,7 +1265,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             val appendedToMeter = pdp.getActorId() != pdp.getTargetId()
-            if (isAllowed && appendedToMeter) {
+            val isRestorationOnly = specials.contains(SpecialDamage.RESTORATION)
+            if (isAllowed && appendedToMeter && !isRestorationOnly) {
                 dataStorage.appendDamage(pdp)
             }
 
@@ -1444,9 +1446,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // FDevPacketData_Common_SkillEffectDamagePlotter boolean map.
         if ((b and 0x01) != 0) flags.add(SpecialDamage.BACK)
         if ((b and 0x02) != 0) flags.add(SpecialDamage.SHIELD_BLOCK)
-        if ((b and 0x04) != 0) flags.add(SpecialDamage.WEAPON_BLOCK)
+        if ((b and 0x04) != 0) {
+            flags.add(SpecialDamage.WEAPON_BLOCK)
+            flags.add(SpecialDamage.PARRY)
+        }
         if ((b and 0x08) != 0) flags.add(SpecialDamage.PERFECT)
-        if ((b and 0x10) != 0) flags.add(SpecialDamage.HARD_HIT)
+        if ((b and 0x10) != 0) {
+            flags.add(SpecialDamage.HARD_HIT)
+            flags.add(SpecialDamage.DOUBLE)
+        }
         if ((b and 0x20) != 0) flags.add(SpecialDamage.IRON_WALL)
         if ((b and 0x40) != 0) flags.add(SpecialDamage.RESTORATION)
         if ((b and 0x80) != 0) flags.add(SpecialDamage.POWER_SHARD)
