@@ -749,24 +749,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             searchOffset = opcodeOffset + 2
         }
 
-        // PATTERN E: The "0E 06" Owner Link
-        // Specifically handles relationship refreshes between owner and summon IDs.
+        // PATTERN F: The "05 38" Direct Relationship Marker
+        // Specifically handles the 05 38 [Summon ID] 02 [Owner ID] sequence.
         searchOffset = 0
-        while (searchOffset < packet.size - 5) {
-            if (packet[searchOffset] == 0x0E.toByte() && packet[searchOffset + 1] == 0x06.toByte()) {
+        while (searchOffset < packet.size - 6) {
+            if (packet[searchOffset] == 0x05.toByte() && packet[searchOffset + 1] == 0x38.toByte()) {
                 val summonIdx = searchOffset + 2
                 if (canReadVarInt(packet, summonIdx)) {
                     val summonInfo = readVarInt(packet, summonIdx)
-                    val ownerIdx = summonIdx + summonInfo.length
+                    val separatorIdx = summonIdx + summonInfo.length
 
-                    if (canReadVarInt(packet, ownerIdx)) {
-                        val ownerInfo = readVarInt(packet, ownerIdx)
-                        if (summonInfo.value in 100..999999 && ownerInfo.value in 100..999999) {
-                            logger.info("Summon owner link found: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
-                            UnifiedLogger.info(logger, "Summon owner link found: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
+                    if (separatorIdx < packet.size && packet[separatorIdx] == 0x02.toByte()) {
+                        val ownerIdx = separatorIdx + 1
+                        if (canReadVarInt(packet, ownerIdx)) {
+                            val ownerInfo = readVarInt(packet, ownerIdx)
+                            if (summonInfo.value > 100 && ownerInfo.value > 100) {
+                                logger.info("Summon linked via 05 38: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
+                                UnifiedLogger.info(logger, "Summon linked via 05 38: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
 
-                            dataStorage.appendSummon(ownerInfo.value, summonInfo.value)
-                            return true
+                                dataStorage.appendSummon(ownerInfo.value, summonInfo.value)
+                                return true
+                            }
                         }
                     }
                 }
