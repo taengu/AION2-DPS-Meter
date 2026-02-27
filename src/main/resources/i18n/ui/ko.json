@@ -119,6 +119,7 @@
     "targetSelection": {
       "label": "대상 선택 (실험적)",
       "options": {
+        "boss": "보스 대상",
         "mostDamage": "가장 큰 피해(현재)",
         "mostRecent": "최근 피해 대상",
         "lastHitByMe": "내가 최근에 공격한 대상",
@@ -191,6 +192,7 @@
     "loopback": "로컬 루프백"
   },
   "target": {
+    "boss": "보스 대상",
     "all": "모든 대상",
     "identifying": "사용자를 식별하는 중...",
     "train": "훈련용 허수아비"

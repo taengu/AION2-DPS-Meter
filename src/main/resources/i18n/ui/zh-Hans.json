@@ -119,6 +119,7 @@
     "targetSelection": {
       "label": "目标选择（实验性）",
       "options": {
+        "boss": "首领目标",
         "mostDamage": "最高伤害（当前）",
         "mostRecent": "最近受伤目标",
         "lastHitByMe": "我最近攻击的目标",
@@ -191,6 +192,7 @@
     "loopback": "本地回环"
   },
   "target": {
+    "boss": "首领目标",
     "all": "所有目标",
     "identifying": "正在识别你...",
     "train": "训练用稻草人"

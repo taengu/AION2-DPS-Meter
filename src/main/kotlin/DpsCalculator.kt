@@ -13,6 +13,11 @@ import com.tbread.entity.TargetDetailsResponse
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.LocalPlayer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 
@@ -25,6 +30,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     )
 
     enum class TargetSelectionMode(val id: String) {
+        BOSS("boss"),
         MOST_DAMAGE("mostDamage"),
         MOST_RECENT("mostRecent"),
         LAST_HIT_BY_ME("lastHitByMe"),
@@ -33,10 +39,15 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         companion object {
             fun fromId(id: String?): TargetSelectionMode {
-                return entries.firstOrNull { it.id == id } ?: LAST_HIT_BY_ME
+                return entries.firstOrNull { it.id == id } ?: BOSS
             }
         }
     }
+
+    data class NpcMeta(
+        val name: String,
+        val isBoss: Boolean,
+    )
 
     data class TargetDecision(
         val targetIds: Set<Int>,
@@ -65,9 +76,12 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             loadSkillMapFromResource()
         }
 
-        val NPC_MAP: Map<Int, String> by lazy {
-            loadNpcMapFromResource()
+        private val NPC_META_MAP: Map<Int, NpcMeta> by lazy {
+            loadNpcMetaMapFromResource()
         }
+
+        val NPC_MAP: Map<Int, String> by lazy { NPC_META_MAP.mapValues { it.value.name } }
+        val NPC_BOSS_MAP: Map<Int, Boolean> by lazy { NPC_META_MAP.mapValues { it.value.isBoss } }
 
         private fun loadSkillMapFromResource(): Map<Int, String> {
             val stream = DpsCalculator::class.java.classLoader
@@ -86,21 +100,24 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 .toMap()
         }
 
-        private fun loadNpcMapFromResource(): Map<Int, String> {
+        private fun loadNpcMetaMapFromResource(): Map<Int, NpcMeta> {
             val stream = DpsCalculator::class.java.classLoader
                 .getResourceAsStream("i18n/npcs/en.json") ?: return emptyMap()
             val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-            val entryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
-            return entryRegex.findAll(text)
-                .mapNotNull { match ->
-                    val code = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
-                    val rawName = match.groupValues.getOrNull(2) ?: return@mapNotNull null
-                    val name = rawName
-                        .replace("\\\"", "\"")
-                        .replace("\\\\", "\\")
-                    code to name
+            return runCatching {
+                val root = Json.parseToJsonElement(text).jsonObject
+                root.entries.mapNotNull { (rawCode, value) ->
+                    val code = rawCode.toIntOrNull() ?: return@mapNotNull null
+                    val valueObj = value.jsonObject
+                    val name = valueObj["name"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    if (name.isBlank()) {
+                        return@mapNotNull null
+                    }
+                    val isBoss = valueObj["isBoss"]?.jsonPrimitive?.booleanOrNull ?: false
+                    code to NpcMeta(name = name, isBoss = isBoss)
                 }
                 .toMap()
+            }.getOrDefault(emptyMap())
         }
     }
 
@@ -108,7 +125,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
-    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.BOSS
     private val targetSwitchStaleMs = 10_000L
     @Volatile private var targetSelectionWindowMs = 5_000L
     private var lastLocalHitTime: Long = -1L
@@ -176,14 +193,34 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         restartTargetSelection()
     }
 
+    private fun isBossTarget(targetId: Int): Boolean {
+        val mobCode = dataStorage.getMobData()[targetId] ?: return false
+        return NPC_BOSS_MAP[mobCode] == true
+    }
+
+    private fun filterTargetIdsByMode(targetIds: Set<Int>, mode: TargetSelectionMode): Set<Int> {
+        if (mode != TargetSelectionMode.BOSS) return targetIds
+        return targetIds.filterTo(mutableSetOf()) { isBossTarget(it) }
+    }
+
+    private fun filterPdpMapByTargetMode(
+        pdpMap: Map<Int, List<ParsedDamagePacket>>,
+        mode: TargetSelectionMode,
+    ): Map<Int, List<ParsedDamagePacket>> {
+        if (mode != TargetSelectionMode.BOSS) return pdpMap
+        return pdpMap.filterKeys { targetId -> isBossTarget(targetId) }
+    }
+
     fun getDps(): DpsData {
         val currentLocalId = LocalPlayer.playerId
         if (currentLocalId != lastKnownLocalPlayerId) {
             lastKnownLocalPlayerId = currentLocalId
             restartTargetSelection()
         }
-        val pdpMap = dataStorage.getBossModeDataSnapshot()
+        val rawPdpMap = dataStorage.getBossModeDataSnapshot()
+        val pdpMap = filterPdpMapByTargetMode(rawPdpMap, targetSelectionMode)
 
+        targetInfoMap.keys.retainAll(pdpMap.keys)
         pdpMap.forEach { (target, data) ->
             data.forEach { pdp ->
                 val targetInfo = targetInfoMap.getOrPut(target) {
@@ -210,21 +247,21 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val isTrainCombined = targetDecision.mode == TargetSelectionMode.TRAIN_TARGETS
 
         var battleTime = when {
-            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
-            isTrainCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
+            isRecentCombined -> parseRecentBattleTime(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
+            isTrainCombined -> parseRecentBattleTime(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
             localActorsForBattleTime != null ->
                 parseActorBattleTimeForTarget(localActorsForBattleTime, currentTarget)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
-                parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs)
+                parseRecentBattleTime(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
 
         // 1. Collect the packets BEFORE checking if battleTime is 0
         val pdps = when {
-            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
-            isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+            isRecentCombined -> collectRecentPdp(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
+            isTrainCombined -> collectRecentPdp(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
             targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
-                collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs)
+                collectRecentPdp(pdpMap, targetDecision.targetIds, allTargetsWindowMs)
             else -> pdpMap[currentTarget] ?: emptyList()
         }
 
@@ -238,6 +275,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         // 3. Now safely abort only if there are actually no packets or time is strictly 0
         if (battleTime == 0L || pdps.isEmpty()) {
+            if (targetSelectionMode == TargetSelectionMode.BOSS) {
+                return dpsData
+            }
             val snapshot = lastDpsSnapshot
             if (snapshot != null) {
                 refreshNicknameSnapshot(snapshot, nicknameData)
@@ -372,7 +412,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun getDetailsContext(): DetailsContext {
-        val pdpMap = dataStorage.getBossModeDataSnapshot()
+        val pdpMap = filterPdpMapByTargetMode(dataStorage.getBossModeDataSnapshot(), targetSelectionMode)
         val nicknameData = dataStorage.getNickname()
         val summonData = dataStorage.getSummonData()
         val mobHpData = dataStorage.getMobHpData()
@@ -429,6 +469,14 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun getTargetDetails(targetId: Int, actorIds: Set<Int>?): TargetDetailsResponse {
+        if (targetSelectionMode == TargetSelectionMode.BOSS && !isBossTarget(targetId)) {
+            return TargetDetailsResponse(
+                targetId = targetId,
+                totalTargetDamage = 0,
+                battleTime = 0L,
+                skills = emptyList()
+            )
+        }
         val pdps = dataStorage.getBossModeDataSnapshot()[targetId] ?: return TargetDetailsResponse(
             targetId = targetId,
             totalTargetDamage = 0,
@@ -552,6 +600,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val shouldPreferMostRecent = shouldPreferMostRecentTarget(mostDamageTarget, mostRecentTarget)
 
         return when (targetSelectionMode) {
+            TargetSelectionMode.BOSS -> {
+                val selectedBossTarget = targetInfoMap
+                    .filterKeys { isBossTarget(it) }
+                    .maxByOrNull { it.value.damagedAmount() }
+                    ?.key
+                    ?: 0
+                if (selectedBossTarget == 0) {
+                    TargetDecision(emptySet(), "", targetSelectionMode, 0)
+                } else {
+                    TargetDecision(
+                        setOf(selectedBossTarget),
+                        resolveTargetName(selectedBossTarget),
+                        targetSelectionMode,
+                        selectedBossTarget
+                    )
+                }
+            }
             TargetSelectionMode.MOST_DAMAGE -> {
                 val selectedTarget = if (shouldPreferMostRecent) mostRecentTarget else mostDamageTarget
                 TargetDecision(setOf(selectedTarget), resolveTargetName(selectedTarget), targetSelectionMode, selectedTarget)
@@ -615,7 +680,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 }
             }
         }
-        return targets
+        return filterTargetIdsByMode(targets, targetSelectionMode)
     }
 
     private fun shouldPreferMostRecentTarget(mostDamageTarget: Int, mostRecentTarget: Int): Boolean {
@@ -744,22 +809,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun selectRecentTargetsForUnknownPlayer(windowMs: Long): Set<Int> {
         val cutoff = System.currentTimeMillis() - windowMs
-        return targetInfoMap.filterValues { it.lastDamageTime() >= cutoff }.keys
+        val targetIds = targetInfoMap.filterValues { it.lastDamageTime() >= cutoff }.keys
+        return filterTargetIdsByMode(targetIds, targetSelectionMode)
     }
 
-    private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
+    private fun collectRecentPdp(pdpMap: Map<Int, List<ParsedDamagePacket>>, targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
         val cutoff = System.currentTimeMillis() - windowMs
         val combined = mutableListOf<ParsedDamagePacket>()
         targetIds.forEach { targetId ->
-            dataStorage.getBossModeDataSnapshot()[targetId]?.forEach { pdp ->
+            pdpMap[targetId]?.forEach { pdp ->
                 if (pdp.getTimeStamp() >= cutoff) combined.add(pdp)
             }
         }
         return combined
     }
 
-    private fun parseRecentBattleTime(targetIds: Set<Int>, windowMs: Long): Long {
-        val pdps = collectRecentPdp(targetIds, windowMs)
+    private fun parseRecentBattleTime(pdpMap: Map<Int, List<ParsedDamagePacket>>, targetIds: Set<Int>, windowMs: Long): Long {
+        val pdps = collectRecentPdp(pdpMap, targetIds, windowMs)
         if (pdps.isEmpty()) return 0
         val start = pdps.minOf { it.getTimeStamp() }
         val end = pdps.maxOf { it.getTimeStamp() }

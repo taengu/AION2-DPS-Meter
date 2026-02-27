@@ -121,6 +121,7 @@
     "targetSelection": {
       "label": "Target selection (experimental)",
       "options": {
+        "boss": "Boss targets",
         "mostDamage": "Most damage (current)",
         "mostRecent": "Most recently damaged",
         "lastHitByMe": "Last hit by me",
@@ -193,6 +194,7 @@
     "loopback": "Local Loopback"
   },
   "target": {
+    "boss": "Boss Targets",
     "all": "All Targets",
     "identifying": "Identifying you...",
     "train": "Training Scarecrow"
