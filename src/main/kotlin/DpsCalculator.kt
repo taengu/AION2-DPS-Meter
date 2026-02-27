@@ -71,7 +71,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             loadSkillMapFromResource()
         }
 
-        val NPC_MAP: Map<Int, NpcInfo> by lazy {
+        private val NPC_MAP: Map<Int, NpcInfo> by lazy {
             loadNpcMapFromResource()
         }
 
