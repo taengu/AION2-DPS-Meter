@@ -2488,9 +2488,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  /* Scroll Performance Fixes */
-  transform: translateZ(0);
-  will-change: transform;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2576,9 +2573,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   gap: 8px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  /* Render Performance Fixes */
-  content-visibility: auto;
-  contain-intrinsic-height: 25px;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;

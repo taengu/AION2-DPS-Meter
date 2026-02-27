@@ -36,6 +36,21 @@ const createDetailsUI = ({
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
+  const setTextIfChanged = (el, value) => {
+    if (!el) return;
+    const next = String(value ?? "");
+    if (el.textContent !== next) {
+      el.textContent = next;
+    }
+  };
+
+  const setStyleIfChanged = (el, prop, value) => {
+    if (!el) return;
+    if (el.style[prop] !== value) {
+      el.style[prop] = value;
+    }
+  };
+
   const formatNum = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return "-";
@@ -636,13 +651,13 @@ const createDetailsUI = ({
       const skill = topSkills[i];
 
       if (!skill) {
-        view.rowEl.style.display = "none";
-        view.dmgFillEl.style.transform = "scaleX(0)";
-        if (view.iconEl) view.iconEl.style.display = "none";
+        setStyleIfChanged(view.rowEl, "display", "none");
+        setStyleIfChanged(view.dmgFillEl, "transform", "scaleX(0)");
+        if (view.iconEl) setStyleIfChanged(view.iconEl, "display", "none");
         continue;
       }
 
-      view.rowEl.style.display = "";
+      setStyleIfChanged(view.rowEl, "display", "");
 
       const damage = skill.dmg || 0;
       const barFillRatio = clamp01(damage / percentBaseTotal);
@@ -666,25 +681,24 @@ const createDetailsUI = ({
       const perfectRate = pct(perfect, hits);
       const doubleRate = pct(double, hits);
 
-      view.nameTextEl.textContent = skill.name ?? "";
+      setTextIfChanged(view.nameTextEl, skill.name ?? "");
       const resolvedJob = skill.job || getActorJob(skill.actorId);
       window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
       const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
       const skillColor = theostoneNameColor || (resolvedJob ? getJobColor(resolvedJob) : "");
       view.nameTextEl.style.color = skillColor || "";
-      view.hitEl.textContent = `${hits}`;
-      view.critEl.textContent = `${critRate}%`;
+      setTextIfChanged(view.hitEl, `${hits}`);
+      setTextIfChanged(view.critEl, `${critRate}%`);
+      setTextIfChanged(view.parryEl, `${parryRate}%`);
+      setTextIfChanged(view.backEl, `${backRate}%`);
+      setTextIfChanged(view.perfectEl, `${perfectRate}%`);
+      setTextIfChanged(view.doubleEl, `${doubleRate}%`);
+      setTextIfChanged(view.healEl, `${formatCount(heal)}`);
+      setTextIfChanged(view.multiHitEl, `${formatCount(multiHitCount)}`);
+      setTextIfChanged(view.multiHitDamageEl, `${formatDamageCompact(multiHitDamage)}`);
 
-      view.parryEl.textContent = `${parryRate}%`;
-      view.backEl.textContent = `${backRate}%`;
-      view.perfectEl.textContent = `${perfectRate}%`;
-      view.doubleEl.textContent = `${doubleRate}%`;
-      view.healEl.textContent = `${formatCount(heal)}`;
-      view.multiHitEl.textContent = `${formatCount(multiHitCount)}`;
-      view.multiHitDamageEl.textContent = `${formatDamageCompact(multiHitDamage)}`;
-
-      view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
-      view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
+      setTextIfChanged(view.dmgTextEl, `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`);
+      setStyleIfChanged(view.dmgFillEl, "transform", `scaleX(${barFillRatio})`);
     }
 
   };
@@ -1036,7 +1050,10 @@ const createDetailsUI = ({
         showSkillIcons,
       });
       if (typeof seq === "number" && seq !== openSeq) return;
-      render(firstDetails, lastRow);
+      if (!restTargets.length) {
+        render(firstDetails, lastRow);
+        return;
+      }
 
       const restDetails = await Promise.all(
         restTargets.map((target) =>
