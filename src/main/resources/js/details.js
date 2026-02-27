@@ -510,6 +510,8 @@ const createDetailsUI = ({
       healEl,
       dmgFillEl,
       dmgTextEl,
+      lastIconKey: "",
+      lastNameColor: "",
     };
   };
 
@@ -653,7 +655,6 @@ const createDetailsUI = ({
       if (!skill) {
         setStyleIfChanged(view.rowEl, "display", "none");
         setStyleIfChanged(view.dmgFillEl, "transform", "scaleX(0)");
-        if (view.iconEl) setStyleIfChanged(view.iconEl, "display", "none");
         continue;
       }
 
@@ -683,10 +684,18 @@ const createDetailsUI = ({
 
       setTextIfChanged(view.nameTextEl, skill.name ?? "");
       const resolvedJob = skill.job || getActorJob(skill.actorId);
-      window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
+      const iconKey = `${String(skill?.code ?? "")}|${resolvedJob}|${skill?.isDot ? "1" : "0"}`;
+      if (view.lastIconKey !== iconKey) {
+        window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
+        view.lastIconKey = iconKey;
+      }
       const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
       const skillColor = theostoneNameColor || (resolvedJob ? getJobColor(resolvedJob) : "");
-      view.nameTextEl.style.color = skillColor || "";
+      const nextNameColor = skillColor || "";
+      if (view.lastNameColor !== nextNameColor) {
+        view.nameTextEl.style.color = nextNameColor;
+        view.lastNameColor = nextNameColor;
+      }
       setTextIfChanged(view.hitEl, `${hits}`);
       setTextIfChanged(view.critEl, `${critRate}%`);
       setTextIfChanged(view.parryEl, `${parryRate}%`);
@@ -1235,6 +1244,8 @@ const createDetailsUI = ({
       for (let i = 0; i < skillSlots.length; i++) {
         skillSlots[i].rowEl.style.display = "none";
         skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+        skillSlots[i].lastIconKey = "";
+        skillSlots[i].lastNameColor = "";
       }
     }
 

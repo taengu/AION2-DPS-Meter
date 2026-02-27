@@ -2402,6 +2402,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   font-weight: 400;
 }
+.detailsPanel .detailsSkills .skills .skillRow .cell,
+.detailsPanel .detailsSkills .skillHeader .cell,
+.detailsPanel .detailsStats .stat .label,
+.detailsPanel .detailsStats .stat .value {
+  text-shadow: none;
+}
 .detailsPanel .detailsSkills .skills .skillRow .cell.name {
   font-weight: 700;
   white-space: normal;
