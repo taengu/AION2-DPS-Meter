@@ -24,7 +24,13 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         var job: String = ""
     )
 
+    private data class NpcInfo(
+        val name: String,
+        val isBoss: Boolean = false,
+    )
+
     enum class TargetSelectionMode(val id: String) {
+        BOSS_TARGETS("bossTargets"),
         MOST_DAMAGE("mostDamage"),
         MOST_RECENT("mostRecent"),
         LAST_HIT_BY_ME("lastHitByMe"),
@@ -33,7 +39,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         companion object {
             fun fromId(id: String?): TargetSelectionMode {
-                return entries.firstOrNull { it.id == id } ?: LAST_HIT_BY_ME
+                return entries.firstOrNull { it.id == id } ?: BOSS_TARGETS
             }
         }
     }
@@ -65,7 +71,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             loadSkillMapFromResource()
         }
 
-        val NPC_MAP: Map<Int, String> by lazy {
+        val NPC_MAP: Map<Int, NpcInfo> by lazy {
             loadNpcMapFromResource()
         }
 
@@ -86,19 +92,39 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 .toMap()
         }
 
-        private fun loadNpcMapFromResource(): Map<Int, String> {
+        private fun loadNpcMapFromResource(): Map<Int, NpcInfo> {
             val stream = DpsCalculator::class.java.classLoader
                 .getResourceAsStream("i18n/npcs/en.json") ?: return emptyMap()
             val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-            val entryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
-            return entryRegex.findAll(text)
+            val objectEntryRegex = Regex(
+                "\"(\\d+)\"\\s*:\\s*\\{[\\s\\S]*?\"name\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"[\\s\\S]*?\"isBoss\"\\s*:\\s*(true|false)[\\s\\S]*?\\}",
+                setOf(RegexOption.IGNORE_CASE)
+            )
+            val parsedFromObject = objectEntryRegex.findAll(text)
+                .mapNotNull { match ->
+                    val code = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+                    val rawName = match.groupValues.getOrNull(2) ?: return@mapNotNull null
+                    val isBoss = match.groupValues.getOrNull(3)?.equals("true", ignoreCase = true) == true
+                    val name = rawName
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                    code to NpcInfo(name = name, isBoss = isBoss)
+                }
+                .toMap()
+            if (parsedFromObject.isNotEmpty()) {
+                return parsedFromObject
+            }
+
+            // Legacy fallback: "1234": "NPC Name"
+            val legacyEntryRegex = Regex("\"(\\d+)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
+            return legacyEntryRegex.findAll(text)
                 .mapNotNull { match ->
                     val code = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
                     val rawName = match.groupValues.getOrNull(2) ?: return@mapNotNull null
                     val name = rawName
                         .replace("\\\"", "\"")
                         .replace("\\\\", "\\")
-                    code to name
+                    code to NpcInfo(name = name, isBoss = false)
                 }
                 .toMap()
         }
@@ -108,7 +134,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
-    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.BOSS_TARGETS
     private val targetSwitchStaleMs = 10_000L
     @Volatile private var targetSelectionWindowMs = 5_000L
     private var lastLocalHitTime: Long = -1L
@@ -544,14 +570,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     private fun decideTarget(): TargetDecision {
-        if (targetInfoMap.isEmpty()) {
+        val candidateTargets = when (targetSelectionMode) {
+            TargetSelectionMode.BOSS_TARGETS -> targetInfoMap.keys.filterTo(mutableSetOf()) { isBossTarget(it) }
+            else -> targetInfoMap.keys
+        }
+        if (candidateTargets.isEmpty()) {
             return TargetDecision(emptySet(), "", targetSelectionMode, 0)
         }
-        val mostDamageTarget = targetInfoMap.maxByOrNull { it.value.damagedAmount() }?.key ?: 0
-        val mostRecentTarget = targetInfoMap.maxByOrNull { it.value.lastDamageTime() }?.key ?: 0
+        val mostDamageTarget = candidateTargets.maxByOrNull { targetInfoMap[it]?.damagedAmount() ?: 0 } ?: 0
+        val mostRecentTarget = candidateTargets.maxByOrNull { targetInfoMap[it]?.lastDamageTime() ?: 0L } ?: 0
         val shouldPreferMostRecent = shouldPreferMostRecentTarget(mostDamageTarget, mostRecentTarget)
 
         return when (targetSelectionMode) {
+            TargetSelectionMode.BOSS_TARGETS,
             TargetSelectionMode.MOST_DAMAGE -> {
                 val selectedTarget = if (shouldPreferMostRecent) mostRecentTarget else mostDamageTarget
                 TargetDecision(setOf(selectedTarget), resolveTargetName(selectedTarget), targetSelectionMode, selectedTarget)
@@ -747,6 +778,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return targetInfoMap.filterValues { it.lastDamageTime() >= cutoff }.keys
     }
 
+    private fun isBossTarget(targetId: Int): Boolean {
+        val mobCode = dataStorage.getMobData()[targetId] ?: return false
+        return NPC_MAP[mobCode]?.isBoss == true
+    }
+
     private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
         val cutoff = System.currentTimeMillis() - windowMs
         val combined = mutableListOf<ParsedDamagePacket>()
@@ -771,7 +807,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val mobCode = dataStorage.getMobData()[target] ?: return ""
 
         // Check our new static NPC map first, then fallback to dynamic data storage
-        return NPC_MAP[mobCode] ?: dataStorage.getMobCodeData()[mobCode] ?: ""
+        return NPC_MAP[mobCode]?.name ?: dataStorage.getMobCodeData()[mobCode] ?: ""
     }
 
     private fun inferOriginalSkillCode(

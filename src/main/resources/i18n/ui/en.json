@@ -195,6 +195,7 @@
   "target": {
     "all": "All Targets",
     "identifying": "Identifying you...",
-    "train": "Training Scarecrow"
+    "train": "Training Scarecrow",
+    "boss": "Boss Targets"
   }
 }
