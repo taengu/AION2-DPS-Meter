@@ -749,6 +749,56 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             searchOffset = opcodeOffset + 2
         }
 
+        // Relationship scan fallback: detect owner/summon IDs co-located inside property update blocks.
+        // We target `0x38 <varint>` markers and bind nearby valid entity IDs.
+        searchOffset = 0
+        while (searchOffset < packet.size - 10) {
+            if (packet[searchOffset] == 0x38.toByte()) {
+                val firstIdIdx = searchOffset + 1
+                if (canReadVarInt(packet, firstIdIdx)) {
+                    val firstId = readVarInt(packet, firstIdIdx)
+                    if (firstId.length > 0) {
+                        var secondScanIdx = firstIdIdx + firstId.length
+                        val limit = minOf(packet.size, secondScanIdx + 30)
+
+                        while (secondScanIdx < limit) {
+                            if (packet[secondScanIdx] == 0x38.toByte() || packet[secondScanIdx] == 0x00.toByte()) {
+                                val secondIdIdx = secondScanIdx + 1
+                                if (canReadVarInt(packet, secondIdIdx)) {
+                                    val secondId = readVarInt(packet, secondIdIdx)
+                                    if (secondId.length > 0 &&
+                                        firstId.value in 100..999_999 &&
+                                        secondId.value in 100..999_999
+                                    ) {
+                                        val ownerId = minOf(firstId.value, secondId.value)
+                                        val summonId = maxOf(firstId.value, secondId.value)
+
+                                        if (ownerId != summonId) {
+                                            logger.info(
+                                                "Summon linked via relationship scan: Owner {} -> Summon {}",
+                                                ownerId,
+                                                summonId
+                                            )
+                                            UnifiedLogger.info(
+                                                logger,
+                                                "Summon linked via relationship scan: Owner {} -> Summon {}",
+                                                ownerId,
+                                                summonId
+                                            )
+                                            dataStorage.appendSummon(ownerId, summonId)
+                                            return true
+                                        }
+                                    }
+                                }
+                            }
+                            secondScanIdx++
+                        }
+                    }
+                }
+            }
+            searchOffset++
+        }
+
         return false
     }
 
