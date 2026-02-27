@@ -1438,7 +1438,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val byteVal = bytes[offset + count].toInt() and 0xff
             count++
 
-            value = value or (byteVal and 0x7F shl shift)
+            value = value or ((byteVal and 0x7F) shl shift)
 
             if ((byteVal and 0x80) == 0) {
                 return VarIntOutput(value, count)
