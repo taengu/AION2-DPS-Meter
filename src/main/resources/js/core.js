@@ -2715,18 +2715,22 @@ class DpsApp {
   }
 
   getDefaultDetailsOpenOptions() {
+    const numericLastTargetId = Number(this.lastTargetId);
+    const hasConcreteTarget = Number.isFinite(numericLastTargetId) && numericLastTargetId > 0;
     const fallbackAllTargets =
       this.lastTargetMode === "lastHitByMe" &&
-      (!Number(this.lastTargetId) || Number(this.lastTargetId) <= 0) &&
+      !hasConcreteTarget &&
       !this.lastTargetName;
     const isTrainTargets = this.lastTargetMode === "trainTargets";
     const shouldDefaultAllTrainTargets = isTrainTargets && this.trainSelectionMode === "all";
     const shouldDefaultTrainTarget = isTrainTargets && this.trainSelectionMode === "highestDamage";
-    const defaultTargetId = shouldDefaultTrainTarget && Number(this.lastTargetId) > 0
-      ? Number(this.lastTargetId)
-      : null;
+    const defaultTargetId = shouldDefaultTrainTarget
+      ? (hasConcreteTarget ? numericLastTargetId : null)
+      : hasConcreteTarget
+        ? numericLastTargetId
+        : null;
     return {
-      defaultTargetAll: this.lastTargetMode === "allTargets" || fallbackAllTargets || shouldDefaultAllTrainTargets,
+      defaultTargetAll: fallbackAllTargets || shouldDefaultAllTrainTargets || (!hasConcreteTarget && this.lastTargetMode === "allTargets"),
       defaultTargetId,
     };
   }
