@@ -13,8 +13,10 @@ import com.tbread.entity.TargetDetailsResponse
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.LocalPlayer
+import com.tbread.packet.PropertyHandler
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
 
 class DpsCalculator(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -71,9 +73,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             loadSkillMapFromResource()
         }
 
-        private val NPC_MAP: Map<Int, NpcInfo> by lazy {
-            loadNpcMapFromResource()
-        }
+        private val npcMapByLanguage = ConcurrentHashMap<String, Map<Int, NpcInfo>>()
 
         private fun loadSkillMapFromResource(): Map<Int, String> {
             val stream = DpsCalculator::class.java.classLoader
@@ -92,9 +92,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 .toMap()
         }
 
-        private fun loadNpcMapFromResource(): Map<Int, NpcInfo> {
+        private fun loadNpcMapFromResource(language: String): Map<Int, NpcInfo> {
             val stream = DpsCalculator::class.java.classLoader
-                .getResourceAsStream("i18n/npcs/en.json") ?: return emptyMap()
+                .getResourceAsStream("i18n/npcs/${language}.json") ?: return emptyMap()
             val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
             val objectEntryRegex = Regex(
                 "\"(\\d+)\"\\s*:\\s*\\{[\\s\\S]*?\"name\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"[\\s\\S]*?\"isBoss\"\\s*:\\s*(true|false)[\\s\\S]*?\\}",
@@ -127,6 +127,21 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     code to NpcInfo(name = name, isBoss = false)
                 }
                 .toMap()
+        }
+
+        private fun getNpcMapForLanguage(language: String): Map<Int, NpcInfo> {
+            val normalized = when (language.trim()) {
+                "ko", "zh-Hans", "zh-Hant", "en" -> language.trim()
+                else -> "en"
+            }
+            return npcMapByLanguage.computeIfAbsent(normalized) { lang ->
+                val localized = loadNpcMapFromResource(lang)
+                if (localized.isNotEmpty()) {
+                    localized
+                } else {
+                    loadNpcMapFromResource("en")
+                }
+            }
         }
     }
 
@@ -805,9 +820,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private fun resolveTargetName(target: Int): String {
         if (!dataStorage.getMobData().containsKey(target)) return ""
         val mobCode = dataStorage.getMobData()[target] ?: return ""
+        val language = PropertyHandler.getProperty("dpsMeter.language", "en") ?: "en"
+        val npcMap = getNpcMapForLanguage(language)
 
-        // Check our new static NPC map first, then fallback to dynamic data storage
-        return NPC_MAP[mobCode]?.name ?: dataStorage.getMobCodeData()[mobCode] ?: ""
+        // Check localized static NPC map first, then fallback to dynamic data storage
+        return npcMap[mobCode]?.name ?: dataStorage.getMobCodeData()[mobCode] ?: ""
     }
 
     private fun inferOriginalSkillCode(
