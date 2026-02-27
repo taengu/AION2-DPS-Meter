@@ -795,7 +795,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private fun isBossTarget(targetId: Int): Boolean {
         val mobCode = dataStorage.getMobData()[targetId] ?: return false
-        return NPC_MAP[mobCode]?.isBoss == true
+        val language = PropertyHandler.getProperty("dpsMeter.language", "en") ?: "en"
+        val npcMap = getNpcMapForLanguage(language)
+        return npcMap[mobCode]?.isBoss == true
     }
 
     private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long): List<ParsedDamagePacket> {
