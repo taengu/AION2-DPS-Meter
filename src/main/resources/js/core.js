@@ -425,9 +425,6 @@ class DpsApp {
     return this.isWindowDragging || this.nowMs() < Number(this.suppressRowInteractionUntilMs || 0);
   }
 
-  isDetailsPanelOpen() {
-    return !!this.detailsUI?.isOpen?.();
-  }
 
   setWindowDragFreeze(active) {
     const enabled = !!active;
@@ -883,9 +880,6 @@ class DpsApp {
       this._lastRenderedRowsSummary = rowsSummary;
     }
     this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
-    if (this.isDetailsPanelOpen()) {
-      return;
-    }
     this.hoverTooltipCacheByRowId.clear();
     this.meterUI.updateFromRows(rowsToRender);
   }
@@ -2716,9 +2710,6 @@ class DpsApp {
       );
       this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
-    }
-    if (this.isDetailsPanelOpen()) {
-      return;
     }
     this.meterUI?.updateFromRows?.(rowsToRender);
   }

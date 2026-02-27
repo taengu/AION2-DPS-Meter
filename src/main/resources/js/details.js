@@ -36,6 +36,55 @@ const createDetailsUI = ({
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
+  const DETAILS_PERF_STORAGE_KEY = "detailsPerf";
+  const perfSamples = [];
+  const PERF_SAMPLE_LIMIT = 60;
+
+  const isDetailsPerfEnabled = () => {
+    try {
+      return window.localStorage?.getItem?.(DETAILS_PERF_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  };
+
+  const perfNow = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+  const pushPerfSample = (sample) => {
+    perfSamples.push(sample);
+    if (perfSamples.length > PERF_SAMPLE_LIMIT) {
+      perfSamples.splice(0, perfSamples.length - PERF_SAMPLE_LIMIT);
+    }
+    if (!isDetailsPerfEnabled()) return;
+    const totalMs = Number(sample?.totalMs) || 0;
+    if (totalMs >= 24) {
+      console.warn("[DetailsPerf]", sample);
+    }
+  };
+
+  if (!globalThis.detailsPerf) {
+    globalThis.detailsPerf = {
+      enable: () => {
+        try {
+          window.localStorage?.setItem?.(DETAILS_PERF_STORAGE_KEY, "1");
+        } catch {
+          // noop
+        }
+      },
+      disable: () => {
+        try {
+          window.localStorage?.removeItem?.(DETAILS_PERF_STORAGE_KEY);
+        } catch {
+          // noop
+        }
+      },
+      clear: () => {
+        perfSamples.splice(0, perfSamples.length);
+      },
+      getSamples: () => perfSamples.slice(),
+    };
+  }
+
   const setTextIfChanged = (el, value) => {
     if (!el) return;
     const next = String(value ?? "");
@@ -606,6 +655,7 @@ const createDetailsUI = ({
   bindSkillHeaderSorting();
 
   const renderSkills = (details, { compact = false } = {}) => {
+    const renderSkillsStartedAt = perfNow();
     const skills = Array.isArray(details?.skills) ? details.skills : [];
     const groupedSkills = new Map();
     skills.forEach((skill) => {
@@ -710,6 +760,11 @@ const createDetailsUI = ({
       setStyleIfChanged(view.dmgFillEl, "transform", `scaleX(${barFillRatio})`);
     }
 
+    return {
+      renderSkillsMs: perfNow() - renderSkillsStartedAt,
+      skillsCount: skills.length,
+      displayedSkillCount: topSkills.length,
+    };
   };
 
   const loadDetailsContext = () => {
@@ -1017,48 +1072,91 @@ const createDetailsUI = ({
 
   const refreshDetailsView = async (seq) => {
     if (!lastRow) return;
+    const perfEnabled = isDetailsPerfEnabled();
+    const startedAt = perfNow();
+    let fetchMs = 0;
+    let contextMs = 0;
+    let renderMetrics = null;
+    let branch = "";
+
+    const fetchDetails = async (options, nextBranch) => {
+      branch = nextBranch;
+      const fetchStartedAt = perfNow();
+      const details = await getDetails(lastRow, options);
+      fetchMs += perfNow() - fetchStartedAt;
+      return details;
+    };
+
     if (activeCompactMode) {
-      const details = await getDetails(lastRow, {
-        targetId: null,
-        attackerIds: null,
-        totalTargetDamage: null,
-        showSkillIcons: false,
-        maxSkills: COMPACT_MAX_SKILLS,
-      });
+      const details = await fetchDetails(
+        {
+          targetId: null,
+          attackerIds: null,
+          totalTargetDamage: null,
+          showSkillIcons: false,
+          maxSkills: COMPACT_MAX_SKILLS,
+        },
+        "compact"
+      );
       if (typeof seq === "number" && seq !== openSeq) return;
-      render(details, lastRow);
-      return;
-    }
-    if (!detailsContext) {
-      const details = await getDetails(lastRow);
-      if (typeof seq === "number" && seq !== openSeq) return;
-      render(details, lastRow);
-      return;
+      renderMetrics = render(details, lastRow);
+    } else {
+      const contextStartedAt = perfNow();
+      if (!detailsContext) {
+        const details = await fetchDetails(undefined, "no-context");
+        if (typeof seq === "number" && seq !== openSeq) return;
+        renderMetrics = render(details, lastRow);
+      } else {
+        contextMs += perfNow() - contextStartedAt;
+        const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
+        if (selectedTargetId === null) {
+          const details = await fetchDetails(
+            {
+              targetId: null,
+              attackerIds: selectedAttackerIds,
+              totalTargetDamage: null,
+              showSkillIcons,
+            },
+            "all-targets"
+          );
+          if (typeof seq === "number" && seq !== openSeq) return;
+          renderMetrics = render(details, lastRow);
+        } else {
+          const target = getTargetById(selectedTargetId);
+          const totalTargetDamage = target ? target.totalDamage : null;
+          const details = await fetchDetails(
+            {
+              targetId: selectedTargetId,
+              attackerIds: selectedAttackerIds,
+              totalTargetDamage,
+              showSkillIcons,
+            },
+            "single-target"
+          );
+          if (typeof seq === "number" && seq !== openSeq) return;
+          renderMetrics = render(details, lastRow);
+        }
+      }
     }
 
-    const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
-    if (selectedTargetId === null) {
-      const details = await getDetails(lastRow, {
-        targetId: null,
-        attackerIds: selectedAttackerIds,
-        totalTargetDamage: null,
-        showSkillIcons,
-      });
-      if (typeof seq === "number" && seq !== openSeq) return;
-      render(details, lastRow);
-      return;
+    const totalMs = perfNow() - startedAt;
+    const sample = {
+      totalMs: Math.round(totalMs * 100) / 100,
+      fetchMs: Math.round(fetchMs * 100) / 100,
+      contextMs: Math.round(contextMs * 100) / 100,
+      renderSkillsMs: Math.round((Number(renderMetrics?.renderSkillsMs) || 0) * 100) / 100,
+      skillsCount: Number(renderMetrics?.skillsCount) || 0,
+      displayedSkillCount: Number(renderMetrics?.displayedSkillCount) || 0,
+      branch,
+      rowId: String(lastRow?.id || ""),
+      selectedTargetId: selectedTargetId === null ? null : Number(selectedTargetId),
+      selectedAttackers: Array.isArray(selectedAttackerIds) ? selectedAttackerIds.length : 0,
+      timestamp: Date.now(),
+    };
+    pushPerfSample(sample);
+    if (perfEnabled && totalMs >= 24) {
+      globalThis.uiDebug?.log?.("details.perf", sample);
     }
-
-    const target = getTargetById(selectedTargetId);
-    const totalTargetDamage = target ? target.totalDamage : null;
-    const details = await getDetails(lastRow, {
-      targetId: selectedTargetId,
-      attackerIds: selectedAttackerIds,
-      totalTargetDamage,
-      showSkillIcons,
-    });
-    if (typeof seq === "number" && seq !== openSeq) return;
-    render(details, lastRow);
   };
 
   detailsNicknameBtn?.addEventListener("click", (event) => {
@@ -1117,13 +1215,14 @@ const createDetailsUI = ({
     selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
     updateHeaderText();
     renderStats(details, { compact: activeCompactMode });
-    renderSkills(details, { compact: activeCompactMode });
+    const renderSkillsMetrics = renderSkills(details, { compact: activeCompactMode });
     lastRow = row;
     lastDetails = details;
     const cacheRowId = String(row?.id ?? "").trim();
     if (cacheRowId) {
       detailsCacheByRowId.set(cacheRowId, details);
     }
+    return renderSkillsMetrics;
   };
 
   const getCachedDetails = (rowId) => {
