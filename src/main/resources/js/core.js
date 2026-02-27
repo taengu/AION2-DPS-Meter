@@ -102,7 +102,7 @@ class DpsApp {
     this._windowTitleTimer = null;
 
     this.i18n = window.i18n;
-    this.targetSelection = "bossTargets";
+    this.targetSelection = "lastHitByMe";
     this.listSortDirection = "desc";
     this.lastTargetMode = "";
     this.lastTargetName = "";
@@ -1449,7 +1449,7 @@ class DpsApp {
       this.refreshDamageData({ reason: "manual refresh" });
     });
     this.targetModeBtn?.addEventListener("click", () => {
-      const modes = ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"];
+      const modes = ["lastHitByMe", "bossTargets", "trainTargets", "allTargets"];
       const currentIndex = modes.indexOf(this.targetSelection);
       const nextMode = modes[(currentIndex + 1) % modes.length];
       console.log("[Target Mode Toggle]", {
@@ -1561,7 +1561,7 @@ class DpsApp {
     const normalizedTargetSelection =
       ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"].includes(storedTargetSelection)
         ? storedTargetSelection
-        : "bossTargets";
+         : "lastHitByMe";
     this.setTargetSelection(normalizedTargetSelection, {
       persist: false,
       syncBackend: true,
@@ -2565,7 +2565,7 @@ class DpsApp {
     const previousSelection = this.targetSelection;
     this.targetSelection = ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"].includes(mode)
       ? mode
-      : "bossTargets";
+       : "lastHitByMe";
     if (persist) {
       this.safeSetStorage(this.storageKeys.targetSelection, String(this.targetSelection));
     }

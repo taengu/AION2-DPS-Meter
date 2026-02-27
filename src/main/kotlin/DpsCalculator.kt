@@ -41,7 +41,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         companion object {
             fun fromId(id: String?): TargetSelectionMode {
-                return entries.firstOrNull { it.id == id } ?: BOSS_TARGETS
+                return entries.firstOrNull { it.id == id } ?: LAST_HIT_BY_ME
             }
         }
     }
@@ -149,7 +149,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
-    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.BOSS_TARGETS
+    @Volatile private var targetSelectionMode: TargetSelectionMode = TargetSelectionMode.LAST_HIT_BY_ME
     private val targetSwitchStaleMs = 10_000L
     @Volatile private var targetSelectionWindowMs = 5_000L
     private var lastLocalHitTime: Long = -1L
