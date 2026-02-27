@@ -959,6 +959,17 @@ const createDetailsUI = ({
       .filter((id) => Number.isFinite(id) && id > 0);
   };
 
+  const targetMatchesSelectedAttackers = (target) => {
+    if (!target) return false;
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) return true;
+    return selectedAttackerIds.some((actorId) => getActorDamage(target.actorDamage, actorId) > 0);
+  };
+
+  const getSelectableTargets = () =>
+    detailsTargets.filter(
+      (target) => Number(target?.targetId) > 0 && targetMatchesSelectedAttackers(target)
+    );
+
   const resolveActorLabel = (actorId) => {
     const actor = detailsActors.get(Number(actorId));
     if (actor?.nickname && actor.nickname !== String(actorId)) return actor.nickname;
@@ -1055,7 +1066,7 @@ const createDetailsUI = ({
   const renderTargetMenu = () => {
     if (!detailsTargetMenu) return;
     detailsTargetMenu.innerHTML = "";
-    const targetsSorted = [...detailsTargets].sort((a, b) => getTargetSortValue(b) - getTargetSortValue(a));
+    const targetsSorted = [...getSelectableTargets()].sort((a, b) => getTargetSortValue(b) - getTargetSortValue(a));
 
     const allItem = document.createElement("button");
     allItem.type = "button";
@@ -1098,19 +1109,8 @@ const createDetailsUI = ({
   const applyTargetSelection = async (targetId) => {
     if (targetId === "all") {
       selectedTargetId = null;
-      selectedAttackerIds = null;
-      selectedAttackerLabel = labelText("details.all", "All");
     } else {
       selectedTargetId = Number(targetId) || null;
-    }
-    const target = getTargetById(selectedTargetId);
-    const actorIds = getTargetActorIds(target);
-    if (targetId !== "all" && selectedAttackerIds && selectedAttackerIds.length > 0) {
-      const stillValid = selectedAttackerIds.some((id) => actorIds.includes(id));
-      if (!stillValid) {
-        selectedAttackerIds = null;
-        selectedAttackerLabel = labelText("details.all", "All");
-      }
     }
     if (selectedAttackerIds && selectedAttackerIds.length === 1) {
       selectedAttackerLabel = resolveActorLabel(selectedAttackerIds[0]);
@@ -1129,6 +1129,10 @@ const createDetailsUI = ({
       const numericId = Number(actorId);
       selectedAttackerIds = Number.isFinite(numericId) ? [numericId] : null;
       selectedAttackerLabel = selectedAttackerIds ? resolveActorLabel(numericId) : "All";
+    }
+    const selectedTarget = getTargetById(selectedTargetId);
+    if (selectedTargetId !== null && !targetMatchesSelectedAttackers(selectedTarget)) {
+      selectedTargetId = null;
     }
     renderNicknameMenu();
     renderTargetMenu();
@@ -1253,7 +1257,7 @@ const createDetailsUI = ({
 
     const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
     if (selectedTargetId === null) {
-      const targetList = detailsTargets.filter((target) => Number(target?.targetId) > 0);
+      const targetList = getSelectableTargets();
       if (!targetList.length) {
         const details = await getDetails(lastRow, {
           targetId: null,
