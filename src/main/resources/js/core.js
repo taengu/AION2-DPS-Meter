@@ -386,7 +386,6 @@ class DpsApp {
       this.settingsSelections.language = lang;
       this.initializeSettingsDropdowns();
       this.detailsUI?.updateLabels?.();
-      this.detailsUI?.refresh?.();
       this.updateDisplayToggleLabel();
       if (this.battleTime?.setAnalysisTextProvider) {
         this.battleTime.setAnalysisTextProvider(getBattleTimeStatusText);
@@ -3131,6 +3130,9 @@ class DpsApp {
     const onMouseUp = () => {
       if (!isResizing) return;
       isResizing = false;
+      if (this.detailsPanel?.classList?.contains("open")) {
+        this.detailsUI?.refresh?.();
+      }
     };
 
     this.detailsResizeHandle.addEventListener("mousedown", (event) => {
