@@ -749,6 +749,37 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             searchOffset = opcodeOffset + 2
         }
 
+        // Linked property relationship fallback (0E 06 38 [id1] ... 0E 06 38 [id2]).
+        // Some summon-owner links are only exposed via this pairwise structure.
+        searchOffset = 0
+        val linkedPattern = byteArrayOf(0x0E, 0x06, 0x38)
+        while (searchOffset < packet.size - 10) {
+            val firstMatch = findArrayIndexFromOffset(packet, searchOffset, linkedPattern)
+            if (firstMatch == -1) break
+
+            val id1Offset = firstMatch + linkedPattern.size
+            if (!canReadVarInt(packet, id1Offset)) {
+                searchOffset = id1Offset
+                continue
+            }
+            val id1 = readVarInt(packet, id1Offset)
+
+            val secondMatch = findArrayIndexFromOffset(packet, id1Offset + id1.length, linkedPattern)
+            if (secondMatch != -1) {
+                val id2Offset = secondMatch + linkedPattern.size
+                if (canReadVarInt(packet, id2Offset)) {
+                    val id2 = readVarInt(packet, id2Offset)
+                    logger.info("Found linked summon/owner relationship: {} <-> {}", id1.value, id2.value)
+                    UnifiedLogger.info(logger, "Found linked summon/owner relationship: {} <-> {}", id1.value, id2.value)
+                    dataStorage.appendSummon(id2.value, id1.value)
+                    dataStorage.appendSummon(id1.value, id2.value)
+                    return true
+                }
+            }
+
+            searchOffset = id1Offset
+        }
+
         return false
     }
 
