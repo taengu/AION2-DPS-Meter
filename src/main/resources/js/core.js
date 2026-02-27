@@ -2904,7 +2904,10 @@ class DpsApp {
     if (targetMode === "trainTargets" && !this.isLocalUserIdentified()) {
       return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
     }
-    if (targetMode === "bossTargets" || targetMode === "allTargets" || targetMode === "trainTargets") {
+    if (targetMode === "allTargets" || targetMode === "trainTargets") {
+      return this.getDefaultTargetLabel(targetMode);
+    }
+    if (targetMode === "bossTargets" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
       return this.getDefaultTargetLabel(targetMode);
     }
     if (targetMode === "lastHitByMe" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
