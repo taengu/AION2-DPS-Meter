@@ -725,31 +725,61 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parseSummonPacket(packet: ByteArray): Boolean {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length >= 0) {
-            offset += packetLengthInfo.length
-            if (offset + 1 < packet.size &&
-                packet[offset] == 0x40.toByte() &&
-                packet[offset + 1] == 0x36.toByte()
-            ) {
-                if (parseSummonSpawnAt(packet, offset + 2)) {
-                    return true
-                }
+        if (packetLengthInfo.length < 0) return false
+        offset += packetLengthInfo.length
+
+        var foundSummon = false
+
+        // 1. Standard 40 36 Spawn Opcode
+        if (offset + 1 < packet.size && packet[offset] == 0x40.toByte() && packet[offset + 1] == 0x36.toByte()) {
+            if (parseSummonSpawnAt(packet, offset + 2)) {
+                foundSummon = true
             }
         }
 
-        // Fallback: Some captures include merged frames or transport bytes before the game payload.
-        // Scan for embedded 40 36 summon spawn blocks and parse them directly.
+        // Check for embedded spawn opcodes
         var searchOffset = 0
         while (searchOffset + 1 < packet.size) {
             val opcodeOffset = findArrayIndexFromOffset(packet, searchOffset, byteArrayOf(0x40, 0x36))
             if (opcodeOffset == -1) break
             if (parseSummonSpawnAt(packet, opcodeOffset + 2)) {
-                return true
+                foundSummon = true
             }
             searchOffset = opcodeOffset + 2
         }
 
-        return false
+        // 2. Exact Property Match for Owner/Summon IDs
+        // 0E 06 38 = Owner Entity ID property
+        // 0F 06 38 = Summon Entity ID property
+        var exactOwnerId = -1
+        var exactSummonId = -1
+        var pIdx = 0
+        while (pIdx < packet.size - 4) {
+            if (packet[pIdx] == 0x0E.toByte() && packet[pIdx+1] == 0x06.toByte() && packet[pIdx+2] == 0x38.toByte()) {
+                val v = readVarInt(packet, pIdx + 3)
+                if (v.length > 0 && v.value >= 100) exactOwnerId = v.value
+            }
+            if (packet[pIdx] == 0x0F.toByte() && packet[pIdx+1] == 0x06.toByte() && packet[pIdx+2] == 0x38.toByte()) {
+                val v = readVarInt(packet, pIdx + 3)
+                if (v.length > 0 && v.value >= 100) exactSummonId = v.value
+            }
+
+            // Once both explicit properties are seen in the same packet, link them safely
+            if (exactOwnerId != -1 && exactSummonId != -1) {
+                if (exactOwnerId != exactSummonId) {
+                    logger.info("Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
+                    UnifiedLogger.info(logger, "Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
+                    dataStorage.appendSummon(exactOwnerId, exactSummonId)
+                    foundSummon = true
+                }
+                // Reset to allow multiple pairs (rare, but possible)
+                exactOwnerId = -1
+                exactSummonId = -1
+            }
+            pIdx++
+        }
+
+        return foundSummon
     }
 
     private fun parseSummonSpawnAt(packet: ByteArray, offsetAfterOpcode: Int): Boolean {
@@ -758,24 +788,24 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (targetInfo.length < 0) return false
         offset += targetInfo.length
 
-        // 1. Strip the Object Type Bitmask from the Entity ID
+        // Strip Object Type
         var realActorId = targetInfo.value
         if (realActorId > 1_000_000) {
             realActorId = (realActorId and 0x3FFF) or 0x4000
         }
 
-        // 2. Scan for the 24-bit NPC Type ID
+        var foundSomething = false
+
+        // Scan for NPC Type
         var mobTypeId = -1
         var scanOffset = offset
-        val maxScan = minOf(packet.size - 2, offset + 60) // Search window
+        val maxScan = minOf(packet.size - 2, offset + 60)
 
         while (scanOffset < maxScan) {
-            // Check for both anchors: 00 40 02 (Combat) or 00 00 02 (Critter/Boss)
             if (packet[scanOffset] == 0x00.toByte() &&
                 (packet[scanOffset + 1] == 0x40.toByte() || packet[scanOffset + 1] == 0x00.toByte()) &&
                 packet[scanOffset + 2] == 0x02.toByte()
             ) {
-                // The NPC ID is ALWAYS a 24-bit Little Endian integer located exactly 3 bytes before the anchor!
                 if (scanOffset - 3 >= offset) {
                     val b1 = packet[scanOffset - 3].toInt() and 0xFF
                     val b2 = packet[scanOffset - 2].toInt() and 0xFF
@@ -787,56 +817,52 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             scanOffset++
         }
 
-        // 3. If successfully found, bind the Mob ID to the Target ID
         if (mobTypeId != -1) {
             logger.debug("Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
             UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
-
             dataStorage.appendMob(realActorId, mobTypeId)
 
-            // --- NEW: Parse HP ---
             var hpScanOffset = scanOffset + 3
             val hpScanEnd = minOf(packet.size - 2, hpScanOffset + 64)
             while(hpScanOffset < hpScanEnd) {
-                // Look for the 01 byte that precedes the HP VarInts
                 if (packet[hpScanOffset] == 0x01.toByte()) {
                     val currentHpInfo = readVarInt(packet, hpScanOffset + 1)
                     if (currentHpInfo.length > 0 && currentHpInfo.value > 0) {
                         val maxHpInfo = readVarInt(packet, hpScanOffset + 1 + currentHpInfo.length)
-                        // Max HP should be valid and >= Current HP
-                        if (maxHpInfo.length > 0 && maxHpInfo.value > 0 && maxHpInfo.value >= currentHpInfo.value) {
+                        if (maxHpInfo.length > 0 && maxHpInfo.value >= currentHpInfo.value) {
                             dataStorage.appendMobHp(realActorId, maxHpInfo.value)
                             logger.debug("Summon mob HP mapped: Target {} -> Max HP {}", realActorId, maxHpInfo.value)
-                            UnifiedLogger.debug(logger, "Summon mob HP mapped: Target {} -> Max HP {}", realActorId, maxHpInfo.value)
                             break
                         }
                     }
                 }
                 hpScanOffset++
             }
-            // -------------------
-
-            return true
+            foundSomething = true
         }
 
-        // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
+        // --- THE BUG FIX: LEGACY SPAWN PACKET FALLBACK ---
+        // This MUST execute regardless of whether mobTypeId was found above.
         val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
         if (keyIdx != -1) {
             val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
             val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
             if (opcodeIdx != -1) {
-                val legacyOffset = keyIdx + opcodeIdx + 11
+                // keyIdx + 8 gets us past FF FF. + opcodeIdx gets us to 07. + 3 gets us past 07 02 06.
+                val legacyOffset = keyIdx + 8 + opcodeIdx + 3
                 if (legacyOffset + 2 <= packet.size) {
                     val legacyActorId = parseUInt16le(packet, legacyOffset)
-                    logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    dataStorage.appendSummon(legacyActorId, targetInfo.value)
-                    return true
+                    if (legacyActorId in 100..999999) {
+                        logger.info("Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
+                        UnifiedLogger.info(logger, "Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
+                        dataStorage.appendSummon(legacyActorId, targetInfo.value)
+                        foundSomething = true
+                    }
                 }
             }
         }
 
-        return false
+        return foundSomething
     }
 
 
