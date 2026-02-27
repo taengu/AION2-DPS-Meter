@@ -844,19 +844,43 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return true
         }
 
-        // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
-        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-        if (keyIdx != -1) {
-            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+        // --- IMPROVED LEGACY SPAWN PACKET FALLBACK ---
+        // Targets packets shaped like:
+        // [Summon VarInt] ... [ff ff ff ff ff ff ff ff] ... [07 02 06] ... [Summoner VarInt]
+        val legacyAnchor = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+        if (legacyAnchor != -1) {
+            val opcodeIdx = findArrayIndexFromOffset(packet, legacyAnchor + 8, byteArrayOf(0x07, 0x02, 0x06))
             if (opcodeIdx != -1) {
-                val legacyOffset = keyIdx + opcodeIdx + 11
-                if (legacyOffset + 2 <= packet.size) {
-                    val legacyActorId = parseUInt16le(packet, legacyOffset)
-                    logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    dataStorage.appendSummon(legacyActorId, targetInfo.value)
-                    return true
+                val summonerVarIntIdx = opcodeIdx + 3
+                var summonerId = -1
+
+                for (i in 0..15) {
+                    val candidateIdx = summonerVarIntIdx + i
+                    if (canReadVarInt(packet, candidateIdx)) {
+                        val result = readVarInt(packet, candidateIdx)
+                        if (result.value in 100..999999) {
+                            summonerId = result.value
+                            break
+                        }
+                    }
+                }
+
+                if (summonerId != -1) {
+                    var searchIdx = legacyAnchor - 1
+                    val minSearchIdx = maxOf(0, legacyAnchor - 64)
+
+                    while (searchIdx >= minSearchIdx) {
+                        if (canReadVarInt(packet, searchIdx)) {
+                            val potentialSummon = readVarInt(packet, searchIdx)
+                            if (potentialSummon.value == targetInfo.value || potentialSummon.value in 100..999999) {
+                                logger.info("Summon linked via Legacy Scan: Owner {} -> Summon {}", summonerId, potentialSummon.value)
+                                UnifiedLogger.info(logger, "Summon linked via Legacy Scan: Owner {} -> Summon {}", summonerId, potentialSummon.value)
+                                dataStorage.appendSummon(summonerId, potentialSummon.value)
+                                return true
+                            }
+                        }
+                        searchIdx--
+                    }
                 }
             }
         }
