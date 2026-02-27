@@ -749,6 +749,31 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             searchOffset = opcodeOffset + 2
         }
 
+        // PATTERN E: The "0E 06" Owner Link
+        // Specifically handles relationship refreshes between owner and summon IDs.
+        searchOffset = 0
+        while (searchOffset < packet.size - 5) {
+            if (packet[searchOffset] == 0x0E.toByte() && packet[searchOffset + 1] == 0x06.toByte()) {
+                val summonIdx = searchOffset + 2
+                if (canReadVarInt(packet, summonIdx)) {
+                    val summonInfo = readVarInt(packet, summonIdx)
+                    val ownerIdx = summonIdx + summonInfo.length
+
+                    if (canReadVarInt(packet, ownerIdx)) {
+                        val ownerInfo = readVarInt(packet, ownerIdx)
+                        if (summonInfo.value in 100..999999 && ownerInfo.value in 100..999999) {
+                            logger.info("Summon owner link found: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
+                            UnifiedLogger.info(logger, "Summon owner link found: Owner {} -> Summon {}", ownerInfo.value, summonInfo.value)
+
+                            dataStorage.appendSummon(ownerInfo.value, summonInfo.value)
+                            return true
+                        }
+                    }
+                }
+            }
+            searchOffset++
+        }
+
         return false
     }
 
