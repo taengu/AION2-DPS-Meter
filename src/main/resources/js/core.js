@@ -589,6 +589,9 @@ class DpsApp {
     }
     const isSameRow = this.hoveredDetailsRowId === rowId;
     this.hoveredDetailsRowId = rowId;
+    if (this.detailsUI?.isOpen?.()) {
+      return;
+    }
     this.detailsUI?.close?.({ keepPinned: false });
     this.applyHoverTooltip(row, { forceRefresh: !isSameRow });
   }
