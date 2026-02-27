@@ -819,19 +819,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return true
         }
 
-        // --- LEGACY SPAWN PACKET FALLBACK (Keep this for older formats) ---
+        // --- UPDATED LEGACY SPAWN PACKET FALLBACK ---
         val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
         if (keyIdx != -1) {
-            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
+            val afterPacketIdx = keyIdx + 8
+            val opcodeIdx = findArrayIndexFromOffset(packet, afterPacketIdx, byteArrayOf(0x07, 0x02, 0x06))
             if (opcodeIdx != -1) {
-                val legacyOffset = keyIdx + opcodeIdx + 11
-                if (legacyOffset + 2 <= packet.size) {
-                    val legacyActorId = parseUInt16le(packet, legacyOffset)
-                    logger.debug("Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    UnifiedLogger.debug(logger, "Legacy Summon mob mapping succeeded {},{}", legacyActorId, targetInfo.value)
-                    dataStorage.appendSummon(legacyActorId, targetInfo.value)
-                    return true
+                var summonerSearchIdx = opcodeIdx + 11
+                val searchLimit = minOf(packet.size, summonerSearchIdx + 10)
+
+                while (summonerSearchIdx < searchLimit) {
+                    if (canReadVarInt(packet, summonerSearchIdx)) {
+                        val summonerInfo = readVarInt(packet, summonerSearchIdx)
+                        if (summonerInfo.value in 100..999999) {
+                            logger.info("Summon linked: Summoner {} -> Summon {}", summonerInfo.value, targetInfo.value)
+                            UnifiedLogger.info(logger, "Summon linked: Summoner {} -> Summon {}", summonerInfo.value, targetInfo.value)
+
+                            dataStorage.appendSummon(summonerInfo.value, targetInfo.value)
+                            return true
+                        }
+                    }
+                    summonerSearchIdx++
                 }
             }
         }
