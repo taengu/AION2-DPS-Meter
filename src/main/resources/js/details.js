@@ -1038,50 +1038,14 @@ const createDetailsUI = ({
 
     const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
     if (selectedTargetId === null) {
-      const targetList = getSelectableTargets();
-      if (!targetList.length) {
-        const details = await getDetails(lastRow, {
-          targetId: null,
-          attackerIds: selectedAttackerIds,
-          totalTargetDamage: null,
-          showSkillIcons,
-        });
-        if (typeof seq === "number" && seq !== openSeq) return;
-        render(details, lastRow);
-        return;
-      }
-
-      const [firstTarget, ...restTargets] = targetList;
-      const firstDetails = await getDetails(lastRow, {
-        targetId: firstTarget.targetId,
+      const details = await getDetails(lastRow, {
+        targetId: null,
         attackerIds: selectedAttackerIds,
-        totalTargetDamage: firstTarget.totalDamage,
+        totalTargetDamage: null,
         showSkillIcons,
       });
       if (typeof seq === "number" && seq !== openSeq) return;
-      if (!restTargets.length) {
-        render(firstDetails, lastRow);
-        return;
-      }
-
-      const restDetails = await Promise.all(
-        restTargets.map((target) =>
-          getDetails(lastRow, {
-            targetId: target.targetId,
-            attackerIds: selectedAttackerIds,
-            totalTargetDamage: target.totalDamage,
-            showSkillIcons,
-          })
-        )
-      );
-      const detailsList = [firstDetails, ...restDetails];
-      const totalTargetDamage = targetList.reduce(
-        (sum, target) => sum + (Number(target?.totalDamage) || 0),
-        0
-      );
-      const mergedDetails = buildCombinedDetails(detailsList, totalTargetDamage, showSkillIcons);
-      if (typeof seq === "number" && seq !== openSeq) return;
-      render(mergedDetails, lastRow);
+      render(details, lastRow);
       return;
     }
 
