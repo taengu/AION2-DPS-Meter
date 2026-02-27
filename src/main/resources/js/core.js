@@ -2916,11 +2916,14 @@ class DpsApp {
     if (targetMode === "lastHitByMe" && (!Number(targetId) || Number(targetId) <= 0) && !targetName) {
       return this.i18n?.t("target.identifying", "Identifying you...") ?? "Identifying you...";
     }
-    if (targetName) {
-      return targetName;
+    const numericTargetId = Number(targetId);
+    const cleanTargetName = typeof targetName === "string" ? targetName.trim() : "";
+    if (Number.isFinite(numericTargetId) && numericTargetId > 0) {
+      const localizedName = this.i18n?.getNpcName?.(numericTargetId, cleanTargetName) ?? cleanTargetName;
+      return localizedName || `Mob #${numericTargetId}`;
     }
-    if (Number.isFinite(Number(targetId)) && Number(targetId) > 0) {
-      return `Mob #${Number(targetId)}`;
+    if (cleanTargetName) {
+      return cleanTargetName;
     }
     return this.getDefaultTargetLabel(targetMode);
   }

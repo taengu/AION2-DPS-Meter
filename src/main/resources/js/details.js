@@ -162,8 +162,12 @@ const createDetailsUI = ({
 
   const getTargetLabel = (target) => {
     if (!target) return "";
+    const targetId = Number(target?.targetId);
     const targetName = typeof target.targetName === "string" ? target.targetName.trim() : "";
-    return targetName || `Mob #${target.targetId}`;
+    const localizedName = Number.isFinite(targetId) && targetId > 0
+      ? (i18n?.getNpcName?.(targetId, targetName) ?? targetName)
+      : targetName;
+    return localizedName || `Mob #${target.targetId}`;
   };
 
   const getTargetDamageForSelection = (target) => {
@@ -1094,6 +1098,8 @@ const createDetailsUI = ({
   const applyTargetSelection = async (targetId) => {
     if (targetId === "all") {
       selectedTargetId = null;
+      selectedAttackerIds = null;
+      selectedAttackerLabel = labelText("details.all", "All");
     } else {
       selectedTargetId = Number(targetId) || null;
     }
@@ -1103,7 +1109,7 @@ const createDetailsUI = ({
       const stillValid = selectedAttackerIds.some((id) => actorIds.includes(id));
       if (!stillValid) {
         selectedAttackerIds = null;
-        selectedAttackerLabel = "All";
+        selectedAttackerLabel = labelText("details.all", "All");
       }
     }
     if (selectedAttackerIds && selectedAttackerIds.length === 1) {
@@ -1118,7 +1124,7 @@ const createDetailsUI = ({
   const applyAttackerSelection = async (actorId) => {
     if (actorId === "all") {
       selectedAttackerIds = null;
-      selectedAttackerLabel = "All";
+      selectedAttackerLabel = labelText("details.all", "All");
     } else {
       const numericId = Number(actorId);
       selectedAttackerIds = Number.isFinite(numericId) ? [numericId] : null;
