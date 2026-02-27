@@ -54,7 +54,6 @@
   --cjk-font-stack: "Noto Sans SC", "Noto Sans TC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 
   /* Fallbacks to resolve IDE warnings */
-  --details-skill-name-width: 144px;
   --tooltip-skill-icon-size: 20px;
 }
 
@@ -2409,8 +2408,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 var(--details-skill-name-width, 144px);
-  min-width: var(--details-skill-name-width, 144px);
+  flex: 1.6 1 0;
+  min-width: clamp(112px, 22%, 176px);
+  max-width: clamp(112px, 24%, 188px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
@@ -2442,20 +2442,21 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 0 1 auto;
+  flex: 0.7 1 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .detailsPanel .detailsSkills .cell.heal {
-  flex: 0.9 1 0;
+  flex: 0.85 1 0;
 }
 .detailsPanel .detailsSkills .cell.mhit,
 .detailsPanel .detailsSkills .cell.mdmg {
-  flex: 0.9 1 0;
+  flex: 0.85 1 0;
 }
 .detailsPanel .detailsSkills .cell.dmg {
-  flex: 2.5 1 0;
-  min-width: 170px;
+  flex: 2.8 1 0;
+  min-width: 132px;
   justify-content: center;
 }
 .detailsPanel .detailsSkills .cell.right {

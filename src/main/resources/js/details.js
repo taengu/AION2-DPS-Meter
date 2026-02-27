@@ -29,12 +29,9 @@ const createDetailsUI = ({
   let detectedJobByActorId = new Map();
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
-  let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
-  let skillColumnSyncRafId = 0;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
-  const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -304,7 +301,6 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
-    scheduleSkillColumnMinWidths();
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -569,224 +565,6 @@ const createDetailsUI = ({
     });
   };
 
-  const clearSkillColumnInlineWidths = () => {
-    const cells = detailsPanel?.querySelectorAll?.(".detailsSkills .cell");
-    if (!cells?.length) return;
-    cells.forEach((cell) => {
-      cell.style.removeProperty("min-width");
-      cell.style.removeProperty("width");
-      cell.style.removeProperty("max-width");
-      cell.style.removeProperty("flex");
-    });
-  };
-
-  const syncSkillColumnMinWidths = () => {
-    clearSkillColumnInlineWidths();
-    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
-    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
-    if (!headerEl || !headerCells?.length) return;
-
-    const compactColumns = ["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"];
-    const compactSet = new Set(compactColumns);
-    const columnOrder = ["name", ...compactColumns, "dmg"];
-
-    const compactColumnMaxWidths = {
-      hit: 56,
-      mhit: 66,
-      mdmg: 78,
-      crit: 64,
-      parry: 64,
-      perfect: 68,
-      double: 66,
-      back: 62,
-      heal: 72,
-    };
-
-    const compactColumnMinWidths = {
-      hit: 40,
-      mhit: 48,
-      mdmg: 56,
-      crit: 46,
-      parry: 46,
-      perfect: 50,
-      double: 48,
-      back: 44,
-      heal: 50,
-    };
-
-    const isVisibleCell = (cell) => {
-      if (!cell) return false;
-      const style = window.getComputedStyle(cell);
-      return style.display !== "none";
-    };
-
-    const measuredWidths = new Map();
-    const headerMinWidths = new Map();
-
-    columnOrder.forEach((columnClass) => {
-      const headerCell = [...headerCells].find(
-        (cell) => cell.classList.contains(columnClass) && isVisibleCell(cell)
-      );
-      if (!headerCell) return;
-
-      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`) || [];
-      const visibleCells = [...columnCells].filter((cell) => {
-        if (!isVisibleCell(cell)) return false;
-        const row = cell?.closest?.(".skillRow");
-        return !row || row.style.display !== "none";
-      });
-      if (!visibleCells.length) return;
-
-      const headerWidth = Math.ceil(headerCell.scrollWidth || 0);
-      if (!Number.isFinite(headerWidth) || headerWidth <= 0) return;
-
-      headerMinWidths.set(columnClass, headerWidth + 4);
-
-      let targetWidth = headerWidth + 4;
-      if (columnClass === "name") {
-        const currentNameWidth = parseFloat(
-          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "144"
-        );
-        if (Number.isFinite(currentNameWidth) && currentNameWidth > 0) {
-          targetWidth = Math.max(targetWidth, Math.ceil(currentNameWidth));
-        }
-        targetWidth = Math.min(Math.max(96, targetWidth), 176);
-      } else if (compactSet.has(columnClass)) {
-        visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
-        });
-        targetWidth = Math.min(targetWidth, compactColumnMaxWidths[columnClass] || 74);
-      } else if (columnClass === "dmg") {
-        visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
-        });
-        targetWidth = Math.min(Math.max(120, targetWidth), 170);
-      }
-
-      measuredWidths.set(columnClass, Math.ceil(targetWidth));
-    });
-
-    const visibleColumns = columnOrder.filter((columnClass) => measuredWidths.has(columnClass));
-    if (!visibleColumns.length) return;
-
-    const gap = 6;
-    const totalGap = Math.max(0, visibleColumns.length - 1) * gap;
-    const availableWidth = Math.max(300, Math.floor(headerEl.clientWidth - 4));
-    const getTotalWidth = () => visibleColumns.reduce((sum, key) => sum + (measuredWidths.get(key) || 0), 0) + totalGap;
-
-    let overflow = getTotalWidth() - availableWidth;
-
-    if (overflow > 0 && measuredWidths.has("name")) {
-      const current = measuredWidths.get("name") || 0;
-      const minName = Math.max(headerMinWidths.get("name") || 84, 108);
-      const reducible = Math.max(0, current - minName);
-      const delta = Math.min(reducible, overflow);
-      measuredWidths.set("name", current - delta);
-      overflow -= delta;
-    }
-
-    if (overflow > 0 && measuredWidths.has("dmg")) {
-      const current = measuredWidths.get("dmg") || 0;
-      const minDmg = Math.max(headerMinWidths.get("dmg") || 100, 108);
-      const reducible = Math.max(0, current - minDmg);
-      const delta = Math.min(reducible, overflow);
-      measuredWidths.set("dmg", current - delta);
-      overflow -= delta;
-    }
-
-    if (overflow > 0) {
-      const shrinkable = compactColumns.filter((columnClass) => measuredWidths.has(columnClass));
-      let safety = 2000;
-      while (overflow > 0 && safety > 0) {
-        safety -= 1;
-        let changed = false;
-        for (let i = 0; i < shrinkable.length && overflow > 0; i++) {
-          const key = shrinkable[i];
-          const current = measuredWidths.get(key) || 0;
-          const minWidth = Math.max(compactColumnMinWidths[key] || 40, headerMinWidths.get(key) || 40);
-          if (current <= minWidth) continue;
-          measuredWidths.set(key, current - 1);
-          overflow -= 1;
-          changed = true;
-        }
-        if (!changed) break;
-      }
-    }
-
-    visibleColumns.forEach((columnClass) => {
-      const width = Math.max(36, Math.floor(measuredWidths.get(columnClass) || 0));
-      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
-      if (!columnCells?.length) return;
-
-      columnCells.forEach((cell) => {
-        if (!isVisibleCell(cell)) return;
-        cell.style.minWidth = `${width}px`;
-        cell.style.width = `${width}px`;
-        cell.style.maxWidth = `${width}px`;
-        cell.style.flex = `0 0 ${width}px`;
-      });
-
-      if (columnClass === "name") {
-        detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${width}px`);
-      }
-    });
-
-    const panelRect = detailsPanel?.getBoundingClientRect?.();
-    const currentWidth = Math.ceil(panelRect?.width || 0);
-    const maxAllowedWidth = Math.max(280, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
-    if (currentWidth > maxAllowedWidth) {
-      detailsPanel.style.width = `${maxAllowedWidth}px`;
-    }
-
-  };
-
-  const scheduleSkillColumnMinWidths = () => {
-    if (skillColumnSyncRafId) {
-      return;
-    }
-    skillColumnSyncRafId = requestAnimationFrame(() => {
-      skillColumnSyncRafId = 0;
-      syncSkillColumnMinWidths();
-    });
-  };
-
-  const getSkillIconReserveWidth = () => {
-    const rawSize = detailsPanel ? window.getComputedStyle(detailsPanel).getPropertyValue("--details-skill-icon-size") : "";
-    const iconSize = Number.parseFloat(rawSize);
-    const resolved = Number.isFinite(iconSize) && iconSize > 0 ? iconSize : 36;
-    return resolved + 8;
-  };
-
-  const syncSkillNameColumnWidth = (skills = []) => {
-    if (!skillNameMeasureCtx) return;
-    const fontSource =
-      detailsPanel?.querySelector?.(".detailsSkills .skills .skillRow .skillNameText") ||
-      detailsPanel?.querySelector?.(".detailsSkills .skillHeader .cell.name");
-    if (!fontSource) return;
-
-    const computed = window.getComputedStyle(fontSource);
-    const font = computed?.font || `${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
-    if (!font) return;
-
-    skillNameMeasureCtx.font = font;
-    let widest = 0;
-    for (let i = 0; i < skills.length; i++) {
-      const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
-      const hasIcon = (window.skillIcons?.getIconCandidates?.(skills[i]) || []).length > 0;
-      const withIcon = hasIcon ? width + getSkillIconReserveWidth() : width;
-      if (withIcon > widest) widest = withIcon;
-    }
-
-    const panelRect = detailsPanel?.getBoundingClientRect?.();
-    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
-    const maxNameColumnWidth = Math.max(112, Math.floor(panelWidth * 0.224));
-    const nextWidth = Math.min(Math.max(84, Math.ceil(widest + 16)), maxNameColumnWidth);
-    if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
-    lastSkillNameColumnWidth = nextWidth;
-    detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);
-  };
-
-
   const bindSkillHeaderSorting = () => {
     const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell[data-sort-key]");
     headerCells?.forEach?.((cell) => {
@@ -809,24 +587,6 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
-  scheduleSkillColumnMinWidths();
-
-  if (typeof ResizeObserver === "function") {
-    const skillColumnsResizeObserver = new ResizeObserver(() => {
-      scheduleSkillColumnMinWidths();
-    });
-    const skillsEl = detailsPanel?.querySelector?.(".detailsSkills .skills");
-    if (skillsEl) {
-      skillColumnsResizeObserver.observe(skillsEl);
-    }
-    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
-    if (headerEl) {
-      skillColumnsResizeObserver.observe(headerEl);
-    }
-    if (detailsPanel) {
-      skillColumnsResizeObserver.observe(detailsPanel);
-    }
-  }
 
   const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
@@ -870,7 +630,6 @@ const createDetailsUI = ({
     const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
 
     ensureSkillSlots(topSkills.length);
-    syncSkillNameColumnWidth(topSkills);
 
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
@@ -928,7 +687,6 @@ const createDetailsUI = ({
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
 
-    scheduleSkillColumnMinWidths();
   };
 
   const loadDetailsContext = () => {
@@ -1450,9 +1208,6 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     detailsPanel.classList.add("open");
-    detailsPanel.style.removeProperty("width");
-    clearSkillColumnInlineWidths();
-    scheduleSkillColumnMinWidths();
 
     const cachedDetails = getCachedDetails(rowId);
     if (cachedDetails) {
@@ -1488,9 +1243,6 @@ const createDetailsUI = ({
     lastRow = null;
     lastDetails = null;
     activeCompactMode = false;
-    lastSkillNameColumnWidth = 0;
-    detailsPanel.style.removeProperty("width");
-    clearSkillColumnInlineWidths();
     for (let i = 0; i < statSlots.length; i++) {
       statSlots[i].statEl.style.display = "";
     }
