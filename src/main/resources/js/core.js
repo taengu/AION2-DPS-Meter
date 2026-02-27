@@ -1416,6 +1416,7 @@ class DpsApp {
       totalHeal,
       combatTime,
       battleTimeMs: Number.isFinite(battleTimeMsRaw) ? battleTimeMsRaw : 0,
+      maxHp: Number(detailObj?.maxHp) || 0,
 
       skills,
       showSkillIcons,

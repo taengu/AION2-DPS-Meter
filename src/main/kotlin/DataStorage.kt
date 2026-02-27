@@ -19,6 +19,7 @@ class DataStorage {
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val currentTarget = AtomicInteger(0)
     private val packetOrder = ArrayDeque<ParsedDamagePacket>()
+    private val mobHpData = ConcurrentHashMap<Int, Int>()
 
     // --- UPDATED LIMITS ---
     // Increased from 60,000 -> 200,000 (Approx 60 mins of heavy data)
@@ -171,6 +172,7 @@ class DataStorage {
         byTargetStorage.clear()
         packetOrder.clear()
         summonStorage.clear()
+        mobHpData.clear()
         currentTarget.set(0)
         logger.info("Damage packets reset")
     }
@@ -203,6 +205,16 @@ class DataStorage {
             snapshot.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         }
         return snapshot
+    }
+
+    fun appendMobHp(mid: Int, hp: Int) {
+        if (hp > 0) {
+            mobHpData[mid] = hp
+        }
+    }
+
+    fun getMobHpData(): ConcurrentMap<Int, Int> {
+        return mobHpData
     }
 
     fun getNickname(): ConcurrentHashMap<Int, String> {

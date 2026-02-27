@@ -793,6 +793,29 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             UnifiedLogger.debug(logger, "Summon mob mapping succeeded: Target {} -> NPC Type {}", realActorId, mobTypeId)
 
             dataStorage.appendMob(realActorId, mobTypeId)
+
+            // --- NEW: Parse HP ---
+            var hpScanOffset = scanOffset + 3
+            val hpScanEnd = minOf(packet.size - 2, hpScanOffset + 64)
+            while(hpScanOffset < hpScanEnd) {
+                // Look for the 01 byte that precedes the HP VarInts
+                if (packet[hpScanOffset] == 0x01.toByte()) {
+                    val currentHpInfo = readVarInt(packet, hpScanOffset + 1)
+                    if (currentHpInfo.length > 0 && currentHpInfo.value > 0) {
+                        val maxHpInfo = readVarInt(packet, hpScanOffset + 1 + currentHpInfo.length)
+                        // Max HP should be valid and >= Current HP
+                        if (maxHpInfo.length > 0 && maxHpInfo.value > 0 && maxHpInfo.value >= currentHpInfo.value) {
+                            dataStorage.appendMobHp(realActorId, maxHpInfo.value)
+                            logger.debug("Summon mob HP mapped: Target {} -> Max HP {}", realActorId, maxHpInfo.value)
+                            UnifiedLogger.debug(logger, "Summon mob HP mapped: Target {} -> Max HP {}", realActorId, maxHpInfo.value)
+                            break
+                        }
+                    }
+                }
+                hpScanOffset++
+            }
+            // -------------------
+
             return true
         }
 

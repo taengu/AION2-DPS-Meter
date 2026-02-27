@@ -375,6 +375,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val pdpMap = dataStorage.getBossModeDataSnapshot()
         val nicknameData = dataStorage.getNickname()
         val summonData = dataStorage.getSummonData()
+        val mobHpData = dataStorage.getMobHpData()
 
         val actorMeta = mutableMapOf<Int, ActorMetaBuilder>()
         val targets = mutableListOf<DetailsTargetSummary>()
@@ -411,6 +412,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 DetailsTargetSummary(
                     targetId = targetId,
                     targetName = resolveTargetName(targetId),
+                    maxHp = mobHpData[targetId] ?: 0,
                     battleTime = info?.parseBattleTime() ?: 0L,
                     lastDamageTime = info?.lastDamageTime() ?: 0L,
                     totalDamage = totalDamage,
@@ -434,6 +436,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             skills = emptyList()
         )
         val summonData = dataStorage.getSummonData()
+        val mobHpData = dataStorage.getMobHpData()
         val actorJobs = mutableMapOf<Int, String>()
         val skillMap = mutableMapOf<String, DetailSkillEntry>()
         var totalTargetDamage = 0
@@ -533,6 +536,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         return TargetDetailsResponse(
             targetId = targetId,
+            maxHp = mobHpData[targetId] ?: 0,
             totalTargetDamage = totalTargetDamage,
             battleTime = battleTime,
             skills = skillMap.values.toList()

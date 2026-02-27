@@ -13,6 +13,7 @@ data class DetailsActorSummary(
 data class DetailsTargetSummary(
     val targetId: Int,
     val targetName: String = "",
+    val maxHp: Int = 0,
     val battleTime: Long,
     val lastDamageTime: Long,
     val totalDamage: Int,
@@ -48,6 +49,7 @@ data class DetailSkillEntry(
 @Serializable
 data class TargetDetailsResponse(
     val targetId: Int,
+    val maxHp: Int = 0,
     val totalTargetDamage: Int,
     val battleTime: Long,
     val skills: List<DetailSkillEntry>

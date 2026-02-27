@@ -107,6 +107,11 @@ const createDetailsUI = ({
       fallback: "Total Damage",
       getValue: (d) => formatDamageCompact(d?.totalDmg),
     },
+    {
+          key: "details.stats.maxHp",
+          fallback: "Max HP",
+          getValue: (d) => d?.maxHp > 0 ? formatDamageCompact(d.maxHp) : "-"
+        },
     { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     { key: "details.stats.combatTime", fallback: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
     { key: "details.skills.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
@@ -308,6 +313,8 @@ const createDetailsUI = ({
     switch (statKey) {
       case "details.stats.totalDamage":
         return formatDamageCompact(data.totalDmg);
+      case "details.stats.maxHp":
+        return "-";
       case "details.stats.hits":
       case "details.skills.hits":
         return formatCount(data.totalHits);
@@ -1203,6 +1210,7 @@ const createDetailsUI = ({
     return {
       totalDmg,
       totalHits: totalTimes,
+      maxHp,
       contributionPct: totalTargetDamage > 0 ? (totalDmg / totalTargetDamage) * 100 : 0,
       totalCritPct: pct(totalCrit, totalTimes),
       totalParryPct: pct(totalParry, totalTimes),
