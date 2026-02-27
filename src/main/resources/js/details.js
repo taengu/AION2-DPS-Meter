@@ -30,6 +30,8 @@ const createDetailsUI = ({
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
   let activeCompactMode = false;
+  let refreshInFlight = false;
+  let refreshQueued = false;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -1278,7 +1280,7 @@ const createDetailsUI = ({
   };
   detailsClose?.addEventListener("click", close);
 
-  const refresh = async () => {
+  const runRefresh = async () => {
     if (!detailsPanel.classList.contains("open") || !lastRow) return;
     const previousTargetId = selectedTargetId;
     const previousAttackerIds = Array.isArray(selectedAttackerIds) ? [...selectedAttackerIds] : null;
@@ -1296,6 +1298,23 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     await refreshDetailsView(seq);
+  };
+
+  const refresh = async () => {
+    if (refreshInFlight) {
+      refreshQueued = true;
+      return;
+    }
+    refreshInFlight = true;
+    try {
+      do {
+        refreshQueued = false;
+        await runRefresh();
+      } while (refreshQueued);
+    } finally {
+      refreshInFlight = false;
+      refreshQueued = false;
+    }
   };
 
   const isPinned = () => pinnedRowId !== null;
