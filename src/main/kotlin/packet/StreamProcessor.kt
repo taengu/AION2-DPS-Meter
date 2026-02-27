@@ -767,8 +767,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             // Once both explicit properties are seen in the same packet, link them safely
             if (exactOwnerId != -1 && exactSummonId != -1) {
                 if (exactOwnerId != exactSummonId) {
-                    logger.info("Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
-                    UnifiedLogger.info(logger, "Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
+                    logger.debug("Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
+                    UnifiedLogger.debug(logger, "Summon linked exactly via properties: Owner {} -> Summon {}", exactOwnerId, exactSummonId)
                     dataStorage.appendSummon(exactOwnerId, exactSummonId)
                     foundSummon = true
                 }
@@ -853,8 +853,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 if (legacyOffset + 2 <= packet.size) {
                     val legacyActorId = parseUInt16le(packet, legacyOffset)
                     if (legacyActorId in 100..999999) {
-                        logger.info("Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
-                        UnifiedLogger.info(logger, "Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
+                        logger.debug("Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
+                        UnifiedLogger.debug(logger, "Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
                         dataStorage.appendSummon(legacyActorId, targetInfo.value)
                         foundSomething = true
                     }
