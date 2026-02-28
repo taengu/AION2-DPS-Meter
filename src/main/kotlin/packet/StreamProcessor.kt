@@ -1124,6 +1124,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             return false
         }
+
+        // SkillEffect_NT direct damage packet (184 bytes) exact parser.
+        // When this succeeds, we skip the legacy heuristic parser below.
+        if (tryParseSkillEffectNt(packet, reader.offset)) {
+            return true
+        }
+
         reader.offset += 2
 
         var parsedAny = false
@@ -1329,6 +1336,87 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         return parsedAny
+    }
+
+    private fun tryParseSkillEffectNt(packet: ByteArray, opcodeOffset: Int): Boolean {
+        val requiredEnd = opcodeOffset + 0xB5
+        if (requiredEnd > packet.size) return false
+
+        val targetId = parseInt32le(packet, opcodeOffset + 0x08)
+        val actorId = parseInt32le(packet, opcodeOffset + 0x10)
+        val rawSkillId = parseInt32le(packet, opcodeOffset + 0x14)
+        val skillCode = normalizeSkillId(rawSkillId / 100)
+        val hitType = packet[opcodeOffset + 0x20].toInt() and 0xFF
+
+        val primaryDamage = parseInt64le(packet, opcodeOffset + 0x50)
+        val additionalDamageValues = listOf(
+            parseInt64le(packet, opcodeOffset + 0x60),
+            parseInt64le(packet, opcodeOffset + 0x68)
+        ).filter { it > 0 }
+
+        val multiHitDamageLong = additionalDamageValues.sum()
+        val totalDamageLong = primaryDamage + multiHitDamageLong
+        if (targetId < 100 || actorId < 100 || skillCode <= 0 || totalDamageLong <= 0L) return false
+
+        val healAmountLong = parseInt64le(packet, opcodeOffset + 0xA8)
+        val specialFlagsByte = packet[opcodeOffset + 0x28]
+
+        val specials = parseSpecialDamageFlags(byteArrayOf(specialFlagsByte)).toMutableList()
+        if (hitType == 3) {
+            specials.add(SpecialDamage.CRITICAL)
+        }
+
+        val pdp = ParsedDamagePacket()
+        pdp.setTargetId(VarIntOutput(targetId, 4))
+        pdp.setActorId(VarIntOutput(actorId, 4))
+        pdp.setSkillCode(skillCode)
+        pdp.setType(VarIntOutput(hitType, 1))
+        pdp.setSpecials(specials)
+        pdp.setMultiHitCount(additionalDamageValues.size)
+        pdp.setMultiHitDamage(multiHitDamageLong.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+        pdp.setHealAmount(healAmountLong.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+        pdp.setDamage(VarIntOutput(totalDamageLong.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), 8))
+        pdp.setHexPayload(toHex(packet))
+
+        val isAllowed = isActorAllowed(pdp.getActorId())
+        val appendedToMeter = pdp.getActorId() != pdp.getTargetId()
+        if (isAllowed && appendedToMeter) {
+            dataStorage.appendDamage(pdp)
+        }
+
+        if (UnifiedLogger.isDebugEnabled()) {
+            UnifiedLogger.debug(
+                logger,
+                "SkillEffect_NT target={}, actor={}, skill={}, hitType={}, damage={}, extraHits={}, heal={}, hex={}",
+                pdp.getTargetId(),
+                pdp.getActorId(),
+                pdp.getSkillCode1(),
+                pdp.getType(),
+                pdp.getDamage(),
+                pdp.getMultiHitCount(),
+                pdp.getHealAmount(),
+                toHex(packet)
+            )
+        }
+
+        return true
+    }
+
+    private fun parseInt32le(bytes: ByteArray, offset: Int): Int {
+        if (offset + 4 > bytes.size) return 0
+        return (bytes[offset].toInt() and 0xFF) or
+                ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+                ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+                ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+    }
+
+    private fun parseInt64le(bytes: ByteArray, offset: Int): Long {
+        if (offset + 8 > bytes.size) return 0L
+        var result = 0L
+        for (idx in 0 until 8) {
+            result = result or ((bytes[offset + idx].toLong() and 0xFFL) shl (idx * 8))
+        }
+        return result
     }
 
     private fun toHexRange(bytes: ByteArray, startInclusive: Int, endExclusive: Int): String {
