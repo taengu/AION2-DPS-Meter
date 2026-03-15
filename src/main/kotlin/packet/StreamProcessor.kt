@@ -189,8 +189,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (ownerId != -1) {
                 for (summonId in pendingSummonLinks) {
                     if (ownerId != summonId) {
-                        logger.debug("Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
-                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        logger.debug("Bundle summon linking: Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(payload))
+                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(payload))
                         dataStorage.appendSummon(ownerId, summonId)
                     }
                 }
@@ -543,7 +543,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 parseLootAttributionActorName(packet) ||
                 parsingNickname(packet)
         val parsedSummon = parseSummonPacket(packet)
-        if (!parsedDamage && !parsedName && !parsedSummon) {
+        val parsedOwnership = parseSummonOwnershipPacket(packet)
+        if (!parsedDamage && !parsedName && !parsedSummon && !parsedOwnership) {
             parseDoTPacket(packet)
         }
         return parsedDamage || parsedName
@@ -631,6 +632,55 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
         }
         return -1
+    }
+
+    /**
+     * Parse 04 8D summon ownership packets.
+     * Format after opcode: summon_id (varint), 4 zero bytes, owner_id (varint),
+     * metadata varint, name_length + name string.
+     * This is the most reliable way to link static summons (e.g. Divine Aegis) to their owner.
+     */
+    private fun parseSummonOwnershipPacket(packet: ByteArray): Boolean {
+        val packetLengthInfo = readVarInt(packet)
+        if (packetLengthInfo.length < 0) return false
+        val offset = packetLengthInfo.length
+        if (offset + 1 >= packet.size) return false
+        if (packet[offset] != 0x04.toByte() || packet[offset + 1] != 0x8D.toByte()) return false
+
+        var pos = offset + 2
+        val summonInfo = readVarInt(packet, pos)
+        if (summonInfo.length <= 0 || summonInfo.value < 100) return false
+        val summonId = summonInfo.value
+        pos += summonInfo.length
+
+        // Skip 4 zero bytes
+        if (pos + 4 > packet.size) return false
+        pos += 4
+
+        val ownerInfo = readVarInt(packet, pos)
+        if (ownerInfo.length <= 0 || ownerInfo.value < 100) return false
+        val ownerId = ownerInfo.value
+        pos += ownerInfo.length
+
+        if (ownerId == summonId) return false
+
+        logger.debug("Summon ownership packet (04 8D): Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(packet))
+        UnifiedLogger.debugForActor(logger, ownerId, "Summon ownership packet (04 8D): Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(packet))
+        dataStorage.appendSummon(ownerId, summonId)
+
+        // Try to extract the summon's name
+        val metaInfo = readVarInt(packet, pos)
+        if (metaInfo.length > 0) {
+            pos += metaInfo.length
+            if (pos < packet.size) {
+                val nameLen = packet[pos].toInt() and 0xFF
+                if (nameLen in 1..16 && pos + 1 + nameLen <= packet.size) {
+                    registerUtf8Nickname(packet, summonId, pos + 1, nameLen)
+                }
+            }
+        }
+
+        return true
     }
 
     private fun parseSummonPacket(packet: ByteArray): Boolean {
@@ -727,17 +777,33 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         // --- SUMMON OWNER LINKING ---
-        // The owner (player) varint appears after the fixed 8-byte marker 80 75 D5 2A BB 03 00 00.
-        // In non-bundle packets this marker is preceded by FF*8; in bundle inner packets it is not.
-        val ownerId = extractOwnerFromPacket(packet)
-        if (ownerId != -1 && ownerId != realActorId) {
-            logger.debug("Summon owner linking: Owner {} -> Summon {}", ownerId, realActorId)
-            UnifiedLogger.debugForActor(logger, ownerId, "Summon owner linking: Owner {} -> Summon {}", ownerId, realActorId)
-            dataStorage.appendSummon(ownerId, realActorId)
+        // If 04 8D already set the owner, don't overwrite — it's the most reliable source.
+        if (dataStorage.getSummonData().containsKey(realActorId)) {
+            return foundSomething
+        }
+
+        // Strategy 1: LE uint32 scan near the owner marker (reliable for static summons).
+        // The owner marker 80 75 D5 2A BB 03 00 00 is followed by the summon's own varint,
+        // then position data, then the actual owner encoded as a LE uint32 ~20-30 bytes later.
+        // The varint immediately after the marker is unreliable (can be self-reference or wrong actor).
+        val leOwnerId = scanForKnownPlayerLE32(packet, realActorId)
+        if (leOwnerId != -1) {
+            logger.debug("Summon owner linking (LE32): Owner {} -> Summon {}, hex={}", leOwnerId, realActorId, toHex(packet))
+            UnifiedLogger.debugForActor(logger, leOwnerId, "Summon owner linking (LE32): Owner {} -> Summon {}, hex={}", leOwnerId, realActorId, toHex(packet))
+            dataStorage.appendSummon(leOwnerId, realActorId)
             foundSomething = true
         } else {
-            // Owner not in this packet — queue for bundle-level resolution
-            pendingSummonLinks.add(realActorId)
+            // Strategy 2: Varint after the owner marker (works for regular mobile summons).
+            val ownerId = extractOwnerFromPacket(packet)
+            if (ownerId != -1 && ownerId != realActorId) {
+                logger.debug("Summon owner linking (marker): Owner {} -> Summon {}, hex={}", ownerId, realActorId, toHex(packet))
+                UnifiedLogger.debugForActor(logger, ownerId, "Summon owner linking (marker): Owner {} -> Summon {}, hex={}", ownerId, realActorId, toHex(packet))
+                dataStorage.appendSummon(ownerId, realActorId)
+                foundSomething = true
+            } else {
+                // Owner not in this packet — queue for bundle-level resolution
+                pendingSummonLinks.add(realActorId)
+            }
         }
 
         return foundSomething
@@ -775,6 +841,33 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val ownerInfo = readVarInt(packet, ownerOffset)
         if (ownerInfo.length <= 0 || ownerInfo.value !in 100..999999) return -1
         return ownerInfo.value
+    }
+
+    /**
+     * Scan the packet for a LE uint32 value matching a known actor (has nickname or combat data).
+     * Searches only AFTER the owner marker (80 75 D5 2A BB 03 00 00) to avoid matching
+     * other actors' IDs that appear earlier in the packet (e.g. in damage or position data).
+     * The actual owner LE uint32 is ~20-30 bytes after the marker.
+     * Returns the actor ID, or -1 if not found.
+     */
+    private fun scanForKnownPlayerLE32(packet: ByteArray, excludeActorId: Int): Int {
+        val marker = byteArrayOf(
+            0x80.toByte(), 0x75, 0xD5.toByte(), 0x2A, 0xBB.toByte(), 0x03, 0x00, 0x00
+        )
+        val markerIdx = findArrayIndex(packet, marker)
+        if (markerIdx == -1) return -1
+        val startOffset = markerIdx + marker.size
+        val endOffset = minOf(packet.size - 3, startOffset + 48)
+        for (i in startOffset until endOffset) {
+            val le32 = ((packet[i].toInt() and 0xFF)) or
+                    ((packet[i + 1].toInt() and 0xFF) shl 8) or
+                    ((packet[i + 2].toInt() and 0xFF) shl 16) or
+                    ((packet[i + 3].toInt() and 0xFF) shl 24)
+            if (le32 != excludeActorId && le32 in 100..999999 && actorExists(le32)) {
+                return le32
+            }
+        }
+        return -1
     }
 
     private fun findArrayIndexFromOffset(data: ByteArray, offset: Int, pattern: ByteArray): Int {
