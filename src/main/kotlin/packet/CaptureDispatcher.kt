@@ -20,6 +20,13 @@ class CaptureDispatcher(
     // One assembler per (portA, portB) pair so streams don't mix
     private val assemblers = mutableMapOf<Pair<Int, Int>, StreamAssembler>()
 
+    // For offline replay we reuse a single StreamProcessor so that the embedded-packet
+    // dedup set is shared across all replay lines (the same damage sub-record can appear
+    // in multiple consecutive context-update chunks, which would otherwise cause duplicates).
+    // A fresh StreamAssembler is still created per line so the TCP fragment buffer stays clean.
+    private val offlineReplayProcessor: StreamProcessor? =
+        if (isOfflineReplay) StreamProcessor(dataStorage) else null
+
     // raw magic detector for "lock" logging (but we do NOT filter yet)
     private val MAGIC = byteArrayOf(0x06.toByte(), 0x00.toByte(), 0x36.toByte())
     private val TLS_CONTENT_TYPES = setOf(0x14, 0x15, 0x16, 0x17)
@@ -71,8 +78,15 @@ class CaptureDispatcher(
                 val b = maxOf(cap.srcPort, cap.dstPort)
                 val key = a to b
 
-                val assembler = assemblers.getOrPut(key) {
-                    StreamAssembler(StreamProcessor(sharedDataStorage))
+                val assembler = if (isOfflineReplay) {
+                    // Replay logs already contain discrete captured payloads, so create a fresh
+                    // StreamAssembler (clean fragment buffer) each line, but reuse the shared
+                    // StreamProcessor so that the embedded-packet dedup set persists across lines.
+                    StreamAssembler(offlineReplayProcessor!!)
+                } else {
+                    assemblers.getOrPut(key) {
+                        StreamAssembler(StreamProcessor(sharedDataStorage))
+                    }
                 }
 
                 if (unlocked) {

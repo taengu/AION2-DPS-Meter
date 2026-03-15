@@ -33,6 +33,7 @@ import java.io.File
 import java.awt.image.BufferedImage
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
@@ -416,7 +417,11 @@ class BrowserApp(
     }
 
     @Volatile
-    private var dpsData: DpsData = dpsCalculator.getDps()
+    private var dpsData: DpsData = DpsData()
+
+    private val dpsUpdateScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "dps-updater").apply { isDaemon = true }
+    }
 
     private val debugMode = false
 
@@ -431,13 +436,20 @@ class BrowserApp(
         }
     }
 
+    private val windowTitleScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "window-title-poller").apply { isDaemon = true }
+    }
+
     private fun startWindowTitlePolling() {
-        Timeline(KeyFrame(Duration.seconds(1.0), {
-            cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
-        })).apply {
-            cycleCount = Timeline.INDEFINITE
-            play()
-        }
+        // Run off the JavaFX Application Thread — EnumWindows + OpenProcess per window
+        // can take 50–200ms, which would block rendering and JS execution if on the JAT.
+        windowTitleScheduler.scheduleAtFixedRate({
+            try {
+                cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
+            } catch (e: Exception) {
+                logger.warn("Window title polling failed", e)
+            }
+        }, 0L, 1L, TimeUnit.SECONDS)
     }
 
     private fun ensureStageVisible(stage: Stage, reason: String) {
@@ -541,12 +553,16 @@ class BrowserApp(
             cycleCount = 1
             play()
         }
-        Timeline(KeyFrame(Duration.millis(500.0), {
-            dpsData = dpsCalculator.getDps()
-        })).apply {
-            cycleCount = Timeline.INDEFINITE
-            play()
-        }
+        // Run getDps() on a background thread so it never blocks the JavaFX Application
+        // Thread (which also drives WebView rendering and JS↔Java bridge calls).
+        // The volatile write to dpsData is safe to read from any thread.
+        dpsUpdateScheduler.scheduleAtFixedRate({
+            try {
+                dpsData = dpsCalculator.getDps()
+            } catch (e: Exception) {
+                logger.warn("getDps() failed on background thread", e)
+            }
+        }, 0L, 500L, TimeUnit.MILLISECONDS)
     }
 
     @Suppress("unused")

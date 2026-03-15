@@ -30,7 +30,7 @@
       <div class="meter">
         <div class="header">
           <div class="bossIcon">
-            <img src="./assets/logo.png" />
+            <img src="./assets/logo.png" alt="Logo" />
             <div class="bossIconOverlay" aria-hidden="true">
               <i data-lucide="camera"></i>
             </div>
@@ -129,12 +129,14 @@
                     </div>
                     <div class="detailsSettingsControl">
                       <input
+                        id="detailsOpacityInput"
                         class="detailsOpacityInput"
                         type="range"
                         min="0"
                         max="100"
                         step="5"
-                        value="80" />
+                        value="80"
+                        aria-label="Panel background opacity" />
                       <span class="detailsOpacityValue">80%</span>
                     </div>
                     <div class="detailsSettingsLabel" data-i18n="details.fontSize.label">
@@ -142,12 +144,14 @@
                     </div>
                     <div class="detailsSettingsControl">
                       <input
+                        id="detailsFontSizeInput"
                         class="detailsFontSizeInput"
                         type="range"
                         min="11"
                         max="20"
                         step="1"
-                        value="16" />
+                        value="16"
+                        aria-label="Font size" />
                       <span class="detailsFontSizeValue">16px</span>
                     </div>
                     <div class="detailsSettingsLabel" data-i18n="details.iconSize.label">
@@ -155,12 +159,14 @@
                     </div>
                     <div class="detailsSettingsControl">
                       <input
+                        id="detailsIconSizeInput"
                         class="detailsIconSizeInput"
                         type="range"
                         min="20"
                         max="56"
                         step="1"
-                        value="36" />
+                        value="36"
+                        aria-label="Skill icon size" />
                       <span class="detailsIconSizeValue">36px</span>
                     </div>
                     <div class="detailsSettingsLabel" data-i18n="details.screenshots.label">
@@ -292,7 +298,6 @@
               </div>
             </div>
           </div>
-          <div class="detailsResizeHandle" aria-hidden="true"></div>
         </div>
         <div
           class="settingsPanel"
@@ -318,7 +323,7 @@
                   placeholder="Enter your character name"
                   data-i18n-placeholder="settings.characterNamePlaceholder" />
                 <div class="settingsActorInline">
-                  <span class="settingsActorPrefix">#</span>
+                  <label for="localActorIdInput" class="settingsActorPrefix">#</label>
                   <input
                     id="localActorIdInput"
                     class="localActorIdInput"
@@ -357,12 +362,14 @@
               </div>
               <div class="settingsRangeStack">
                 <input
+                  id="meterOpacityInput"
                   class="settingsRange meterOpacityInput"
                   type="range"
                   min="10"
                   max="100"
                   step="5"
-                  value="80" />
+                  value="80"
+                  aria-label="Meter opacity" />
                 <div class="settingsValue meterOpacityValue">80%</div>
               </div>
             </div>
@@ -492,7 +499,6 @@
                   height="36"
                   style="border:0px;height:36px;"
                   src="https://storage.ko-fi.com/cdn/kofi3.png"
-                  border="0"
                   alt="Buy Me a Coffee at ko-fi.com" />
               </button>
             </div>

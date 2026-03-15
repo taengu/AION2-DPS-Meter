@@ -32,6 +32,7 @@ const createDetailsUI = ({
   let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
   let skillColumnSyncRafId = 0;
+  let skillColumnSyncDebounceId = 0;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
   const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
@@ -615,9 +616,12 @@ const createDetailsUI = ({
     };
 
     const isVisibleCell = (cell) => {
+      // Cells are only ever hidden via inline style (row-level: rowEl.style.display="none")
+      // or the iconEl. Individual column cells are never hidden via CSS class.
+      // Avoid getComputedStyle — it forces a synchronous layout recalculation
+      // for every cell, causing 400+ forced reflows per sync call.
       if (!cell) return false;
-      const style = window.getComputedStyle(cell);
-      return style.display !== "none";
+      return cell.style.display !== "none";
     };
 
     const measuredWidths = new Map();
@@ -741,13 +745,23 @@ const createDetailsUI = ({
   };
 
   const scheduleSkillColumnMinWidths = () => {
+    // Debounce: cancel any pending RAF and restart the 80ms quiet-period timer.
+    // This prevents a burst of ResizeObserver or render calls from running the
+    // expensive reflow loop on every animation frame.
     if (skillColumnSyncRafId) {
-      return;
-    }
-    skillColumnSyncRafId = requestAnimationFrame(() => {
+      cancelAnimationFrame(skillColumnSyncRafId);
       skillColumnSyncRafId = 0;
-      syncSkillColumnMinWidths();
-    });
+    }
+    if (skillColumnSyncDebounceId) {
+      clearTimeout(skillColumnSyncDebounceId);
+    }
+    skillColumnSyncDebounceId = setTimeout(() => {
+      skillColumnSyncDebounceId = 0;
+      skillColumnSyncRafId = requestAnimationFrame(() => {
+        skillColumnSyncRafId = 0;
+        syncSkillColumnMinWidths();
+      });
+    }, 80);
   };
 
   const getSkillIconReserveWidth = () => {
@@ -811,22 +825,16 @@ const createDetailsUI = ({
   bindSkillHeaderSorting();
   scheduleSkillColumnMinWidths();
 
-  if (typeof ResizeObserver === "function") {
-    const skillColumnsResizeObserver = new ResizeObserver(() => {
+  // Recalculate column widths when the window resizes (panel width depends
+  // on viewport via CSS calc).  Do NOT use ResizeObserver on .skills or
+  // .skillHeader — clearSkillColumnInlineWidths() inside syncSkillColumnMinWidths
+  // mutates cell widths which changes the observed element's size, creating an
+  // infinite 80ms reflow loop that blocks the JAT and causes 1-2s interaction lag.
+  window.addEventListener("resize", () => {
+    if (detailsPanel?.classList?.contains("open")) {
       scheduleSkillColumnMinWidths();
-    });
-    const skillsEl = detailsPanel?.querySelector?.(".detailsSkills .skills");
-    if (skillsEl) {
-      skillColumnsResizeObserver.observe(skillsEl);
     }
-    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
-    if (headerEl) {
-      skillColumnsResizeObserver.observe(headerEl);
-    }
-    if (detailsPanel) {
-      skillColumnsResizeObserver.observe(detailsPanel);
-    }
-  }
+  });
 
   const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
@@ -1495,6 +1503,7 @@ const createDetailsUI = ({
       statSlots[i].statEl.style.display = "";
     }
     detailsPanel.classList.remove("open");
+    window._resumeFpsMonitor?.();
   };
   detailsClose?.addEventListener("click", close);
 

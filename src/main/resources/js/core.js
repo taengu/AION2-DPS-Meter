@@ -379,7 +379,6 @@ class DpsApp {
       });
     }
     this.setupDetailsPanelSettings();
-    this.bindDetailsResizeHandle();
     this.setupSettingsPanel();
     this.detailsUI?.updateLabels?.();
     this.i18n?.onChange?.((lang) => {
@@ -693,8 +692,20 @@ class DpsApp {
       return;
     }
     const now = this.nowMs();
-    if (this.settingsPanel?.classList.contains("isOpen")) {
-      this.refreshConnectionInfo({ skipSettingsRefresh: true });
+    const isAnyPanelOpen =
+      this.detailsPanel?.classList?.contains("open") ||
+      this.settingsPanel?.classList?.contains("isOpen");
+    // Freeze all main-window JS work when any panel is open.
+    // The meter is hidden behind the panel so DOM updates are wasted work,
+    // and any Java bridge call or rAF we schedule competes with the panel's
+    // own event loop on the single JavaFX Application Thread.
+    if (isAnyPanelOpen) {
+      this._renderDeferredWhilePanelOpen = true;
+      return;
+    }
+    if (this._renderDeferredWhilePanelOpen) {
+      this._renderDeferredWhilePanelOpen = false;
+      this.lastJson = null; // force full re-render on next cycle
     }
     const raw = window.dpsData?.getDpsData?.();
     // globalThis.uiDebug?.log?.("getBattleDetail", raw);
@@ -845,7 +856,9 @@ class DpsApp {
     // render
     const nextTargetLabel = this.getTargetLabel({ targetId, targetName, targetMode });
     if (this.elBossName) {
-      this.elBossName.textContent = nextTargetLabel;
+      if (this.elBossName.textContent !== nextTargetLabel) {
+        this.elBossName.textContent = nextTargetLabel;
+      }
       this.elBossName.classList.toggle("isAllTargets", targetMode === "allTargets");
     }
     if (
@@ -2470,6 +2483,7 @@ class DpsApp {
 
   closeSettingsPanel() {
     this.settingsPanel?.classList.remove("isOpen");
+    window._resumeFpsMonitor?.();
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {
@@ -2996,9 +3010,6 @@ class DpsApp {
       if (targetEl?.closest?.(".resizeHandle")) {
         return;
       }
-      if (targetEl?.closest?.(".detailsResizeHandle")) {
-        return;
-      }
       if (targetEl?.closest?.(".headerBtn, .footerBtn, .bossIcon")) {
         return;
       }
@@ -3105,48 +3116,6 @@ class DpsApp {
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  bindDetailsResizeHandle() {
-    this.detailsResizeHandle = document.querySelector(".detailsResizeHandle");
-    if (!this.detailsResizeHandle || !this.detailsPanel) return;
-
-    let isResizing = false;
-    let startX = 0;
-    let startY = 0;
-    let startWidth = 0;
-    let startHeight = 0;
-    const minWidth = 520;
-    const minHeight = 340;
-
-    const onMouseMove = (event) => {
-      if (!isResizing) return;
-      const rect = this.detailsPanel.getBoundingClientRect();
-      const maxWidth = Math.max(minWidth, Math.floor(window.innerWidth - Math.max(0, rect.left) - 12));
-      const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight - Math.max(0, rect.top) - 12));
-      const nextWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + (event.clientX - startX)));
-      const nextHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + (event.clientY - startY)));
-      this.detailsPanel.style.width = `${nextWidth}px`;
-      this.detailsPanel.style.height = `${nextHeight}px`;
-    };
-
-    const onMouseUp = () => {
-      if (!isResizing) return;
-      isResizing = false;
-    };
-
-    this.detailsResizeHandle.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = this.detailsPanel.getBoundingClientRect();
-      startWidth = rect.width;
-      startHeight = rect.height;
-      startX = event.clientX;
-      startY = event.clientY;
-      isResizing = true;
-    });
-
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }
 }
 
 DpsApp.instance = null;
@@ -3230,6 +3199,56 @@ window.addEventListener("unhandledrejection", (event) => {
   debug?.log?.("unhandledrejection", event.reason);
 });
 
+// Frame rate monitor: logs actual rAF fps to console every 5 seconds.
+// Open the JavaFX WebView console to read these numbers.
+// If fps is low (~1-5) even when panels are closed, the WebKit renderer itself
+// is the bottleneck. If fps is fine when closed but drops when a panel opens,
+// the panel's CSS rendering is the culprit.
+// Frame rate monitor: logs actual rAF fps via the Java logger every 5 seconds.
+// Check debug.log for "[FPS]" lines to see the actual render frame rate.
+// Low fps (< 30) when panels are CLOSED points to an animation/rendering loop.
+// Low fps only when panels are OPEN means the panel content itself is the bottleneck.
+const startFpsMonitor = () => {
+  let frames = 0;
+  let lastReport = performance.now();
+  let paused = false;
+  const tick = (now) => {
+    // Pause the rAF loop when a panel is open.  A continuous rAF keeps
+    // JavaFX WebView in repaint mode (software renderer re-composites every
+    // frame) even when nothing changed, wasting CPU and starving input events.
+    const panelOpen =
+      document.querySelector(".detailsPanel")?.classList?.contains("open") ||
+      document.querySelector(".settingsPanel")?.classList?.contains("isOpen");
+    if (panelOpen) {
+      paused = true;
+      frames = 0;
+      lastReport = now;
+      return; // stop scheduling — resumed when panel closes
+    }
+    paused = false;
+    frames++;
+    if (now - lastReport >= 5000) {
+      const elapsed = now - lastReport;
+      const fps = (frames / (elapsed / 1000)).toFixed(1);
+      const msg = `[FPS] rAF rate: ${fps} fps (${frames} frames in ${Math.round(elapsed)}ms)`;
+      try { window.javaBridge?.logDebug?.(msg); } catch (_) {}
+      frames = 0;
+      lastReport = now;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  // Allow external code to restart the loop after a panel closes.
+  window._resumeFpsMonitor = () => {
+    if (paused) {
+      paused = false;
+      frames = 0;
+      lastReport = performance.now();
+      requestAnimationFrame(tick);
+    }
+  };
+};
+
 let appStarted = false;
 const startApp = async ({ forced = false } = {}) => {
   if (appStarted) return;
@@ -3245,6 +3264,7 @@ const startApp = async ({ forced = false } = {}) => {
     window.lucide?.createIcons?.();
     dpsApp.start();
     window.javaBridge?.notifyUiReady?.();
+    startFpsMonitor();
   } catch (err) {
     debug?.log?.("startApp.error", err);
   }
