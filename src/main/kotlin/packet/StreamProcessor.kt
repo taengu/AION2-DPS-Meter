@@ -24,6 +24,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private val mask = 0x0f
     private val actorIdFilterKey = "dpsMeter.actorIdFilter"
     private var pendingCompactSkillContext: PendingCompactSkillContext? = null
+    private val pendingSummonLinks = mutableSetOf<Int>()
 
     /**
      * Dedup set for embedded 04 38 scanning.
@@ -113,6 +114,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 val bundlePayload = fullPacket.copyOfRange(payloadStart, fullPacket.size)
                 unwrapBundle(bundlePayload)
             } else {
+                pendingSummonLinks.clear()
                 parsePerfectPacket(fullPacket)
             }
 
@@ -129,6 +131,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         var offset = 8
         val damageCountBefore = currentStoredDamageCount()
         pendingCompactSkillContext = null
+        pendingSummonLinks.clear()
 
         while (offset < payload.size) {
             // 1. Skip zero padding between nested packets
@@ -172,6 +175,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             // 3. Advance strictly to the next inner packet
             offset += innerTotalBytes
+        }
+
+        // Scan the full bundle payload for embedded 40 36 spawn opcodes.
+        // Some bundles have only a few cleanly framed inner packets followed by a large
+        // unframed payload containing spawn data that the inner packet loop can't reach.
+        scanBundleForSummonSpawns(payload)
+
+        // Resolve any summon spawns that couldn't find their owner in the same inner packet.
+        // The owner info may be in a different inner packet or in the unframed bundle region.
+        if (pendingSummonLinks.isNotEmpty()) {
+            val ownerId = extractOwnerFromPacket(payload)
+            if (ownerId != -1) {
+                for (summonId in pendingSummonLinks) {
+                    if (ownerId != summonId) {
+                        logger.debug("Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        dataStorage.appendSummon(ownerId, summonId)
+                    }
+                }
+            }
+            pendingSummonLinks.clear()
         }
 
         // If the normal bundle walk still produced no damage at all, fall back to a whole-body
@@ -702,30 +726,56 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             foundSomething = true
         }
 
-        // --- THE BUG FIX: LEGACY SPAWN PACKET FALLBACK ---
-        // This MUST execute regardless of whether mobTypeId was found above.
-        val keyIdx = findArrayIndex(packet, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
-        if (keyIdx != -1) {
-            val afterPacket = packet.copyOfRange(keyIdx + 8, packet.size)
-            val opcodeIdx = findArrayIndex(afterPacket, 0x07, 0x02, 0x06)
-            if (opcodeIdx != -1) {
-                // keyIdx + 8 gets us past FF FF. + opcodeIdx gets us to 07. + 3 gets us past 07 02 06.
-                val legacyOffset = keyIdx + 8 + opcodeIdx + 3
-                if (legacyOffset + 2 <= packet.size) {
-                    val legacyActorId = parseUInt16le(packet, legacyOffset)
-                    if (legacyActorId in 100..999999) {
-                        logger.debug("Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
-                        UnifiedLogger.debugForActor(logger, legacyActorId, "Legacy Summon mapping succeeded: Owner {} -> Summon {}", legacyActorId, targetInfo.value)
-                        dataStorage.appendSummon(legacyActorId, targetInfo.value)
-                        foundSomething = true
-                    }
-                }
-            }
+        // --- SUMMON OWNER LINKING ---
+        // The owner (player) varint appears after the fixed 8-byte marker 80 75 D5 2A BB 03 00 00.
+        // In non-bundle packets this marker is preceded by FF*8; in bundle inner packets it is not.
+        val ownerId = extractOwnerFromPacket(packet)
+        if (ownerId != -1 && ownerId != realActorId) {
+            logger.debug("Summon owner linking: Owner {} -> Summon {}", ownerId, realActorId)
+            UnifiedLogger.debugForActor(logger, ownerId, "Summon owner linking: Owner {} -> Summon {}", ownerId, realActorId)
+            dataStorage.appendSummon(ownerId, realActorId)
+            foundSomething = true
+        } else {
+            // Owner not in this packet — queue for bundle-level resolution
+            pendingSummonLinks.add(realActorId)
         }
 
         return foundSomething
     }
 
+
+    /**
+     * Scan the full bundle payload for embedded 40 36 spawn opcodes that weren't
+     * reached by the inner packet unwrapper. For each found, extract the summon ID
+     * and call parseSummonSpawnAt to process mob type/HP and queue for owner linking.
+     */
+    private fun scanBundleForSummonSpawns(payload: ByteArray) {
+        var searchOffset = 0
+        while (searchOffset + 1 < payload.size) {
+            val opcodeOffset = findArrayIndexFromOffset(payload, searchOffset, byteArrayOf(0x40, 0x36))
+            if (opcodeOffset == -1) break
+            parseSummonSpawnAt(payload, opcodeOffset + 2)
+            searchOffset = opcodeOffset + 2
+        }
+    }
+
+    /**
+     * Extract owner (player) actor ID from a packet by finding the fixed 8-byte marker
+     * 80 75 D5 2A BB 03 00 00 followed by the owner varint.
+     * Returns -1 if not found.
+     */
+    private fun extractOwnerFromPacket(packet: ByteArray): Int {
+        val marker = byteArrayOf(
+            0x80.toByte(), 0x75, 0xD5.toByte(), 0x2A, 0xBB.toByte(), 0x03, 0x00, 0x00
+        )
+        val markerIdx = findArrayIndex(packet, marker)
+        if (markerIdx == -1) return -1
+        val ownerOffset = markerIdx + marker.size
+        if (ownerOffset >= packet.size) return -1
+        val ownerInfo = readVarInt(packet, ownerOffset)
+        if (ownerInfo.length <= 0 || ownerInfo.value !in 100..999999) return -1
+        return ownerInfo.value
+    }
 
     private fun findArrayIndexFromOffset(data: ByteArray, offset: Int, pattern: ByteArray): Int {
         if (offset >= data.size) return -1
@@ -1047,6 +1097,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             // Reject out-of-range skill codes immediately — indicates we're not on a real damage packet
             if (exactSkillCode !in 1L..299_999_999L) { reader.offset = checkpoint; break }
+
+            // 7-digit skill codes (1,000,000–9,999,999) are NPC/boss/mob skills — skip them
+            if (exactSkillCode in 1_000_000L..9_999_999L) { reader.offset = checkpoint; break }
 
             // Skip the always-present 1-byte UID field after the skill code
             if (reader.remainingBytes() > 0) {
