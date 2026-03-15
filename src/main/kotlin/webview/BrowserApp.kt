@@ -278,6 +278,17 @@ class BrowserApp(
             return keyHookEvent.getCurrentHotKey()
         }
 
+        @Suppress("unused")
+        fun setToggleWindowHotkey(modifiers: Int, keyCode: Int) {
+            logger.info("setToggleWindowHotkey called mods={} vk={}", modifiers, keyCode)
+            keyHookEvent.setToggleWindowHotkey(modifiers, keyCode)
+        }
+
+        @Suppress("unused")
+        fun getCurrentToggleWindowHotKey(): String {
+            return keyHookEvent.getCurrentToggleWindowHotKey()
+        }
+
         fun dispose() {
             keyHookEvent.stop()
         }

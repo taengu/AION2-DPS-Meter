@@ -136,6 +136,13 @@
       }
     },
     "meterSettings": "미터 설정",
+    "keybinds": "단축키",
+    "keybind": {
+      "reload": "데이터 새로고침",
+      "toggle": "창 표시/숨기기",
+      "pressKeys": "키를 누르세요...",
+      "needModifiers": "수정자 2개 이상 필요"
+    },
     "trainingMode": {
       "label": "훈련 모드",
       "options": {

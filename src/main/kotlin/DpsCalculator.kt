@@ -358,7 +358,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 true
             }
             if (keep) {
-                data.dps = data.amount / battleTime * 1000
+                data.dps = data.amount / battleTime.coerceAtLeast(1000) * 1000
                 data.damageContribution = data.amount / totalDamage * 100
             }
         }

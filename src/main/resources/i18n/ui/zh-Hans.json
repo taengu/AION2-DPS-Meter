@@ -136,6 +136,13 @@
       }
     },
     "meterSettings": "计量设置",
+    "keybinds": "快捷键",
+    "keybind": {
+      "reload": "重新加载数据",
+      "toggle": "显示/隐藏窗口",
+      "pressKeys": "请按下按键...",
+      "needModifiers": "需要2个以上修饰键"
+    },
     "trainingMode": {
       "label": "训练模式",
       "options": {

@@ -502,6 +502,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   border-radius: var(--rounded-lg);
   text-shadow: var(--text-shadow);
   z-index: 2;
+  contain: layout style paint;
 
   &.isOpen {
     display: flex;
@@ -608,6 +609,36 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     color: var(--text-color);
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .keybindBtn {
+    min-width: 140px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--rounded-xs);
+    padding: 6px 12px;
+    background: var(--panel-field-bg);
+    color: var(--text-color);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  .keybindBtn:hover {
+    border-color: var(--isUser-fill);
+  }
+  .keybindBtn.recording {
+    border-color: var(--isUser-fill);
+    background: rgba(var(--isUser-fill-rgb, 100, 180, 255), 0.15);
+    animation: keybindPulse 1s ease-in-out infinite;
+  }
+  @keyframes keybindPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .keybindBtn .keybindText {
+    pointer-events: none;
   }
 
   .settingsSelect {
@@ -984,6 +1015,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   max-height: calc(100vh - 24px);
   max-width: max(280px, calc(100vw - 304px));
   overflow: hidden;
+  contain: layout style paint;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -2490,9 +2522,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   max-width: 100%;
   box-sizing: border-box;
   contain: layout paint;
-  /* Scroll Performance Fixes */
-  transform: translateZ(0);
-  will-change: transform;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
@@ -2583,6 +2612,11 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel.open ~ .list .item .fill,
 .settingsPanel.isOpen ~ .list .item .fill {
   transition: none;
+}
+.detailsPanel.open ~ .list .item .fill::after,
+.settingsPanel.isOpen ~ .list .item .fill::after {
+  animation: none !important;
+  will-change: auto;
 }
 
 .detailsPanel .detailsSkills .skills .skillRow {

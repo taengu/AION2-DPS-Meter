@@ -692,21 +692,6 @@ class DpsApp {
       return;
     }
     const now = this.nowMs();
-    const isAnyPanelOpen =
-      this.detailsPanel?.classList?.contains("open") ||
-      this.settingsPanel?.classList?.contains("isOpen");
-    // Freeze all main-window JS work when any panel is open.
-    // The meter is hidden behind the panel so DOM updates are wasted work,
-    // and any Java bridge call or rAF we schedule competes with the panel's
-    // own event loop on the single JavaFX Application Thread.
-    if (isAnyPanelOpen) {
-      this._renderDeferredWhilePanelOpen = true;
-      return;
-    }
-    if (this._renderDeferredWhilePanelOpen) {
-      this._renderDeferredWhilePanelOpen = false;
-      this.lastJson = null; // force full re-render on next cycle
-    }
     const raw = window.dpsData?.getDpsData?.();
     // globalThis.uiDebug?.log?.("getBattleDetail", raw);
 
@@ -1547,8 +1532,13 @@ class DpsApp {
     const storedTargetSelectionWindowMs = this.safeGetSetting(this.storageKeys.targetSelectionWindowMs) ||
       this.safeGetStorage(this.storageKeys.targetSelectionWindowMs) ||
       "5000";
-    const storedMeterOpacity = this.safeGetSetting(this.storageKeys.meterFillOpacity) ||
+    let storedMeterOpacity = this.safeGetSetting(this.storageKeys.meterFillOpacity) ||
       this.safeGetStorage(this.storageKeys.meterFillOpacity);
+    if (this.safeGetSetting("dpsMeter.migration.opacityReset1") !== "done") {
+      storedMeterOpacity = "80";
+      this.safeSetSetting(this.storageKeys.meterFillOpacity, "80");
+      this.safeSetSetting("dpsMeter.migration.opacityReset1", "done");
+    }
     const storedDebugLogging = this.safeGetSetting(this.storageKeys.debugLogging) === "true";
     const storedPinMeToTop = this.safeGetSetting(this.storageKeys.pinMeToTop) === "true";
     const mainPlayerNamesBoldSetting = this.safeGetSetting(this.storageKeys.mainPlayerNamesBold);
@@ -1681,6 +1671,8 @@ class DpsApp {
         this.applyMeterFillOpacity(next, { persist: true });
       });
     }
+
+    this.setupKeybindButtons();
 
     const currentLanguage = this.i18n?.getLanguage?.() || storedLanguage || "en";
     this.settingsSelections.language = currentLanguage;
@@ -2470,6 +2462,156 @@ class DpsApp {
     this.detailsSettingsMenu.style.top = "";
   }
 
+  setupKeybindButtons() {
+    const MOD_ALT = 1;
+    const MOD_CONTROL = 2;
+    const MOD_SHIFT = 4;
+    const MOD_WIN = 8;
+
+    const vkKeyName = (keyCode) => {
+      if (keyCode >= 65 && keyCode <= 90) return String.fromCharCode(keyCode);
+      if (keyCode >= 48 && keyCode <= 57) return String(keyCode - 48);
+      if (keyCode >= 112 && keyCode <= 123) return `F${keyCode - 111}`;
+      if (keyCode >= 96 && keyCode <= 105) return `Num${keyCode - 96}`;
+      const names = {
+        8: "Backspace", 9: "Tab", 13: "Enter", 19: "Pause", 20: "CapsLock",
+        27: "Esc", 32: "Space", 33: "PgUp", 34: "PgDn", 35: "End", 36: "Home",
+        37: "Left", 38: "Up", 39: "Right", 40: "Down",
+        45: "Insert", 46: "Delete",
+        106: "Num*", 107: "Num+", 109: "Num-", 110: "Num.", 111: "Num/",
+        144: "NumLock", 145: "ScrollLock",
+        186: ";", 187: "=", 188: ",", 189: "-", 190: ".", 191: "/",
+        192: "`", 219: "[", 220: "\\", 221: "]", 222: "'",
+      };
+      return names[keyCode] || `Key${keyCode}`;
+    };
+
+    const formatBinding = (mods, keyCode) => {
+      if (!mods && !keyCode) return "—";
+      const parts = [];
+      if (mods & MOD_CONTROL) parts.push("Ctrl");
+      if (mods & MOD_ALT) parts.push("Alt");
+      if (mods & MOD_SHIFT) parts.push("Shift");
+      if (mods & MOD_WIN) parts.push("Win");
+      if (keyCode) parts.push(vkKeyName(keyCode));
+      return parts.join("+") || "—";
+    };
+
+    const isModifierKeyCode = (kc) =>
+      kc === 16 || kc === 17 || kc === 18 || kc === 91 || kc === 92 ||
+      kc === 93 || kc === 224;
+
+    const reloadBtn = document.querySelector(".reloadKeybindBtn");
+    const toggleBtn = document.querySelector(".toggleKeybindBtn");
+
+    this.refreshKeybindLabels = () => {
+      const reloadLabel = window.javaBridge?.getCurrentHotKey?.() || "";
+      const toggleLabel = window.javaBridge?.getCurrentToggleWindowHotKey?.() || "";
+      if (reloadBtn) {
+        reloadBtn.querySelector(".keybindText").textContent = reloadLabel || "Ctrl+Alt+R";
+      }
+      if (toggleBtn) {
+        toggleBtn.querySelector(".keybindText").textContent = toggleLabel || "Ctrl+Alt+Up";
+      }
+    };
+    this.refreshKeybindLabels();
+
+    let activeRecording = null;
+
+    const stopRecording = () => {
+      if (!activeRecording) return;
+      activeRecording.btn.classList.remove("recording");
+      activeRecording = null;
+    };
+
+    const startRecording = (btn, type) => {
+      stopRecording();
+      btn.classList.add("recording");
+      btn.querySelector(".keybindText").textContent =
+        this.i18n?.t?.("settings.keybind.pressKeys", "Press keys...") ?? "Press keys...";
+      activeRecording = { btn, type };
+    };
+
+    const handleKeybindClick = (btn, type) => {
+      if (activeRecording?.btn === btn) {
+        stopRecording();
+        this.refreshKeybindLabels();
+        return;
+      }
+      startRecording(btn, type);
+    };
+
+    reloadBtn?.addEventListener("click", () => handleKeybindClick(reloadBtn, "reload"));
+    toggleBtn?.addEventListener("click", () => handleKeybindClick(toggleBtn, "toggle"));
+
+    document.addEventListener("keydown", (event) => {
+      if (!activeRecording) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === "Escape") {
+        stopRecording();
+        this.refreshKeybindLabels();
+        return;
+      }
+
+      if (isModifierKeyCode(event.keyCode)) {
+        const parts = [];
+        if (event.ctrlKey) parts.push("Ctrl");
+        if (event.altKey) parts.push("Alt");
+        if (event.shiftKey) parts.push("Shift");
+        if (event.metaKey) parts.push("Win");
+        activeRecording.btn.querySelector(".keybindText").textContent =
+          parts.length ? parts.join("+") + "+..." : (this.i18n?.t?.("settings.keybind.pressKeys", "Press keys...") ?? "Press keys...");
+        return;
+      }
+
+      let mods = 0;
+      if (event.ctrlKey) mods |= MOD_CONTROL;
+      if (event.altKey) mods |= MOD_ALT;
+      if (event.shiftKey) mods |= MOD_SHIFT;
+      if (event.metaKey) mods |= MOD_WIN;
+
+      const modCount = ((mods & MOD_CONTROL) ? 1 : 0) +
+        ((mods & MOD_ALT) ? 1 : 0) +
+        ((mods & MOD_SHIFT) ? 1 : 0) +
+        ((mods & MOD_WIN) ? 1 : 0);
+
+      if (modCount < 2) {
+        activeRecording.btn.querySelector(".keybindText").textContent =
+          this.i18n?.t?.("settings.keybind.needModifiers", "Need 2+ modifiers") ?? "Need 2+ modifiers";
+        setTimeout(() => {
+          if (activeRecording) {
+            activeRecording.btn.querySelector(".keybindText").textContent =
+              this.i18n?.t?.("settings.keybind.pressKeys", "Press keys...") ?? "Press keys...";
+          }
+        }, 1200);
+        return;
+      }
+
+      const vk = event.keyCode;
+      const label = formatBinding(mods, vk);
+      const { type } = activeRecording;
+
+      stopRecording();
+
+      if (type === "reload") {
+        window.javaBridge?.setHotkey?.(mods, vk);
+        if (reloadBtn) reloadBtn.querySelector(".keybindText").textContent = label;
+      } else if (type === "toggle") {
+        window.javaBridge?.setToggleWindowHotkey?.(mods, vk);
+        if (toggleBtn) toggleBtn.querySelector(".keybindText").textContent = label;
+      }
+    }, true);
+
+    document.addEventListener("click", (event) => {
+      if (!activeRecording) return;
+      if (event.target?.closest?.(".keybindBtn")) return;
+      stopRecording();
+      this.refreshKeybindLabels();
+    });
+  }
+
   toggleSettingsPanel() {
     if (!this.settingsPanel) return;
     const isOpen = this.settingsPanel.classList.toggle("isOpen");
@@ -2478,6 +2620,7 @@ class DpsApp {
       this.hoveredDetailsRowId = null;
       this.detailsUI?.close?.({ keepPinned: false });
       this.refreshConnectionInfo();
+      this.refreshKeybindLabels?.();
     }
   }
 

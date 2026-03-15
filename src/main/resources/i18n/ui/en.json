@@ -138,6 +138,13 @@
       }
     },
     "meterSettings": "Meter Settings",
+    "keybinds": "Keybinds",
+    "keybind": {
+      "reload": "Reload data",
+      "toggle": "Show/Hide window",
+      "pressKeys": "Press keys...",
+      "needModifiers": "Need 2+ modifiers"
+    },
     "trainingMode": {
       "label": "Training Mode target",
       "options": {

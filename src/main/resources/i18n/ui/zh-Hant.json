@@ -136,6 +136,13 @@
       }
     },
     "meterSettings": "計量設定",
+    "keybinds": "快捷鍵",
+    "keybind": {
+      "reload": "重新載入數據",
+      "toggle": "顯示/隱藏視窗",
+      "pressKeys": "請按下按鍵...",
+      "needModifiers": "需要2個以上修飾鍵"
+    },
     "trainingMode": {
       "label": "訓練模式",
       "options": {

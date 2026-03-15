@@ -13,7 +13,6 @@ import com.sun.jna.platform.win32.WinNT
 import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
 import javafx.application.Application
-import javafx.application.Platform
 import javafx.stage.Stage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
@@ -147,7 +146,7 @@ private fun configureJavaFxPipeline() {
     val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
     if (!isWindows || !isNativeImage) return
     if (!System.getProperty("prism.order").isNullOrBlank()) return
-    System.setProperty("javafx.animation.pulse", "30")
+    System.setProperty("prism.order", "d3d,sw")
 
 }
 
