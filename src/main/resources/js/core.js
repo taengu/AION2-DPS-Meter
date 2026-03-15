@@ -8,6 +8,7 @@ class DpsApp {
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
     this.pinMeToTop = false;
+    this.slimMode = false;
     this.mainPlayerNamesBold = true;
     this.mainPlayerDpsBold = true;
     this.includeMainMeterScreenshot = false;
@@ -35,6 +36,7 @@ class DpsApp {
       mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
       mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
       theme: "dpsMeter.theme",
+      slimMode: "dpsMeter.slimMode",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -623,8 +625,10 @@ class DpsApp {
       })
       .join("");
 
+    const tooltipName = String(row?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const tooltipClassIcon = row?.job ? `<img class="hoverDetailsTooltipClassIcon" src="./assets/${row.job}.png" alt="" onerror="this.style.display='none'">` : "";
     this.hoverTooltipEl.innerHTML = `
-      <div class="hoverDetailsTooltipHeader">${String(row?.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      <div class="hoverDetailsTooltipHeader">${tooltipClassIcon}${tooltipName}</div>
       <div class="hoverDetailsTooltipStats">
         <span>${this.i18n?.t("header.display.dps", "DPS") ?? "DPS"}: ${dpsText}</span>
         <span>${this.i18n?.t("details.stats.totalDamage", "Total Damage") ?? "Total Damage"}: ${totalDamageText}</span>
@@ -1491,6 +1495,7 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
+    this.slimModeCheckbox = document.querySelector(".slimModeCheckbox");
     this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
     this.playerDpsBoldCheckbox = document.querySelector(".playerDpsBoldCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
@@ -1553,6 +1558,8 @@ class DpsApp {
     this.setOnlyShowUser(false, { persist: false });
     this.setDebugLogging(storedDebugLogging, { persist: false, syncBackend: true });
     this.setPinMeToTop(storedPinMeToTop, { persist: false });
+    const storedSlimMode = this.safeGetSetting(this.storageKeys.slimMode) === "true";
+    this.setSlimMode(storedSlimMode, { persist: false });
     this.setMainPlayerNamesBold(storedMainPlayerNamesBold, { persist: false });
     this.setMainPlayerDpsBold(storedMainPlayerDpsBold, { persist: false });
     if (mainPlayerNamesBoldSetting === null || mainPlayerNamesBoldSetting === undefined || mainPlayerNamesBoldSetting === "") {
@@ -1635,6 +1642,13 @@ class DpsApp {
         this.setPinMeToTop(isChecked, { persist: true });
       });
     }
+    if (this.slimModeCheckbox) {
+      this.slimModeCheckbox.checked = this.slimMode;
+      this.slimModeCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.setSlimMode(isChecked, { persist: true });
+      });
+    }
     if (this.playerNamesBoldCheckbox) {
       this.playerNamesBoldCheckbox.checked = this.mainPlayerNamesBold;
       this.playerNamesBoldCheckbox.addEventListener("change", (event) => {
@@ -1685,6 +1699,13 @@ class DpsApp {
     });
 
     this.settingsClose?.addEventListener("click", () => this.closeSettingsPanel());
+
+    const advancedToggle = document.querySelector(".settingsAdvancedToggle");
+    const advancedBody = document.querySelector(".settingsAdvancedBody");
+    advancedToggle?.addEventListener("click", () => {
+      const isOpen = advancedToggle.classList.toggle("isOpen");
+      if (advancedBody) advancedBody.style.display = isOpen ? "" : "none";
+    });
 
     this.resetDetectBtn?.addEventListener("click", () => {
       window.javaBridge?.resetAutoDetection?.();
@@ -2439,27 +2460,11 @@ class DpsApp {
   openDetailsSettingsMenu(event) {
     if (!this.detailsSettingsMenu) return;
     this.detailsSettingsMenu.classList.add("isOpen");
-    const menu = this.detailsSettingsMenu;
-    const padding = 8;
-    const buttonRect = this.detailsSettingsBtn?.getBoundingClientRect();
-    const baseX = Number.isFinite(event?.clientX) ? event.clientX : buttonRect?.right ?? padding;
-    const baseY = Number.isFinite(event?.clientY) ? event.clientY : buttonRect?.bottom ?? padding;
-    const rect = menu.getBoundingClientRect();
-    let left = baseX + padding;
-    let top = baseY + padding;
-    const maxLeft = window.innerWidth - rect.width - padding;
-    const maxTop = window.innerHeight - rect.height - padding;
-    left = Math.min(Math.max(padding, left), Math.max(padding, maxLeft));
-    top = Math.min(Math.max(padding, top), Math.max(padding, maxTop));
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
   }
 
   closeDetailsSettingsMenu() {
     if (!this.detailsSettingsMenu) return;
     this.detailsSettingsMenu.classList.remove("isOpen");
-    this.detailsSettingsMenu.style.left = "";
-    this.detailsSettingsMenu.style.top = "";
   }
 
   setupKeybindButtons() {
@@ -2677,6 +2682,9 @@ class DpsApp {
     if (this.debugLoggingCheckbox && document.activeElement !== this.debugLoggingCheckbox) {
       this.debugLoggingCheckbox.checked = this.debugLoggingEnabled;
     }
+    if (this.characterNameInput) {
+      this.characterNameInput.readOnly = !this.debugLoggingEnabled;
+    }
     if (persist) {
       this.safeSetSetting(this.storageKeys.debugLogging, String(this.debugLoggingEnabled));
     }
@@ -2694,6 +2702,17 @@ class DpsApp {
       this.safeSetSetting(this.storageKeys.pinMeToTop, String(this.pinMeToTop));
     }
     this.renderCurrentRows();
+  }
+
+  setSlimMode(enabled, { persist = false } = {}) {
+    this.slimMode = !!enabled;
+    if (this.slimModeCheckbox && document.activeElement !== this.slimModeCheckbox) {
+      this.slimModeCheckbox.checked = this.slimMode;
+    }
+    document.querySelector(".meter")?.classList.toggle("slim", this.slimMode);
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.slimMode, String(this.slimMode));
+    }
   }
 
   setMainPlayerNamesBold(enabled, { persist = false } = {}) {

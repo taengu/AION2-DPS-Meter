@@ -78,6 +78,10 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
     "pinMeToTop": "Always show me at the top",
+    "slimMode": "Slim mode",
+    "appearance": "Appearance",
+    "connection": "Connection",
+    "advanced": "Advanced",
     "bold": {
       "label": "Bold",
       "names": "Names",

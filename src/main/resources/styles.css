@@ -495,14 +495,15 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   display: none;
   left: 372px;
   top: 0;
-  width: 420px;
+  width: 720px;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   padding: 12px 8px;
   border-radius: var(--rounded-lg);
   text-shadow: var(--text-shadow);
   z-index: 2;
-  contain: layout style paint;
+  contain: layout style;
+  overflow: visible;
 
   &.isOpen {
     display: flex;
@@ -581,7 +582,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   }
 
   .lockedIp {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
   }
 
@@ -1014,8 +1015,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
   max-width: max(280px, calc(100vw - 304px));
-  overflow: hidden;
-  contain: layout style paint;
+  overflow: visible;
+  contain: layout style;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -1706,19 +1707,25 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   text-overflow: ellipsis;
 }
 .settingsPanel .themeDropdownBtn {
-  color: var(--dps-text);
-  text-shadow: var(--dps-shadow, var(--text-shadow));
-  background: rgba(12, 22, 40, 1);
+  color: var(--text-color);
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
+  background: var(--row-fill);
+  opacity: var(--meter-fill-opacity, 0.8);
+  font-weight: 500;
 }
 .settingsPanel .themeDropdownBtn .settingsDropdownText {
-  color: var(--dps-text);
-  text-shadow: var(--dps-shadow, var(--text-shadow));
+  color: var(--text-color);
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
 .settingsPanel .themeDropdownMenu .settingsDropdownItem {
-  text-shadow: var(--dps-shadow, var(--text-shadow));
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
 .settingsPanel .themeDropdownMenu {
   background: rgba(12, 22, 40, 1);
+}
+body.mainPlayerNamesBold .settingsPanel .themeDropdownBtn .settingsDropdownText,
+body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem {
+  font-weight: 700;
 }
 .settingsPanel .settingsDropdownCaret {
   opacity: 0.6;
@@ -1807,8 +1814,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   transition: transform 0.15s ease;
+  flex: 0 0 auto;
 }
 .settingsPanel .supportButton:hover {
   transform: translateY(-1px);
@@ -1846,7 +1855,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex: 0 0 60%;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease;
 }
@@ -1861,7 +1869,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   filter: brightness(0.98);
 }
 .settingsPanel .quitButton {
-  flex: 0 0 40%;
   text-align: center;
   display: inline-flex;
   align-items: center;
@@ -1870,6 +1877,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease;
   background: linear-gradient(90deg, rgba(185, 53, 53, 0.85), rgba(146, 44, 44, 0.85));
+  font-weight: 700;
 }
 .settingsPanel .quitButton:hover {
   transform: translateY(-1px);
@@ -1894,7 +1902,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .settingsPanel .settingsFooter {
   margin-top: 0;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 6px;
   opacity: 0.8;
   font-size: 13px;
 }
@@ -2208,6 +2217,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsHeader .detailsSettingsMenuWrapper {
   position: relative;
+  overflow: visible;
 }
 .detailsPanel .detailsHeader .detailsSettingsBtn {
   cursor: pointer;
@@ -2224,10 +2234,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: rgba(255, 255, 255, 0.08);
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu {
-  position: fixed;
-  right: auto;
-  top: auto;
-  bottom: auto;
+  position: absolute;
+  right: 0;
+  top: 100%;
   min-width: 260px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -2875,6 +2884,15 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   font-size: 17px;
   font-weight: 700;
   margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hoverDetailsTooltipClassIcon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .hoverDetailsTooltipStats {
@@ -2942,4 +2960,150 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .hoverDetailsTooltipSkill.muted {
   display: block;
   opacity: 0.75;
+}
+
+/* ========== Slim Mode ========== */
+.meter.slim .header {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.meter.slim .header .bossIcon {
+  width: 72px;
+}
+.meter.slim .header .bossIcon img {
+  border: none;
+  border-radius: 0;
+}
+.meter.slim .header .bossIcon .bossIconOverlay {
+  display: none;
+}
+.meter.slim .header .bossNames {
+  font-size: 16px;
+  height: 22px;
+}
+.meter.slim .header .headerBtns .headerBtn {
+  width: 16px;
+  height: 16px;
+}
+.meter.slim .footerBtns {
+  bottom: 1px;
+  right: 16px;
+}
+.meter.slim .footerBtns .footerBtn {
+  width: 16px;
+  height: 16px;
+}
+.meter.slim .footerBtns .metricToggleBtn,
+.meter.slim .footerBtns .targetModeBtn {
+  font-size: 13px;
+}
+.meter.slim .list {
+  gap: 2px;
+}
+.meter.slim .list:has(.item:not([style*="display: none"])) {
+  padding: 2px 10px 6px;
+}
+.meter.slim .list .item {
+  height: 24px;
+  padding: 0 6px;
+}
+.meter.slim .list .item .content {
+  gap: 5px;
+}
+.meter.slim .list .item .classIcon {
+  width: 18px;
+}
+.meter.slim .list .item .name {
+  font-size: 14px;
+}
+.meter.slim .list .item .name.isCjk {
+  font-size: 15px;
+}
+.meter.slim .list .item .dps {
+  font-size: 13px;
+  gap: 4px;
+}
+.meter.slim .battleTime {
+  bottom: 1px;
+  left: 10px;
+}
+.meter.slim .battleTime .tick {
+  font-size: 14px;
+}
+.meter.slim .battleTime .status {
+  width: 8px;
+  height: 8px;
+}
+.meter.slim .resizeHandle {
+  width: 12px;
+  height: 12px;
+}
+
+/* ========== Settings Panel 2-Column Layout ========== */
+.settingsPanel .settingsColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+.settingsPanel .settingsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--panel-border);
+}
+
+/* Inline range + value (e.g. opacity slider) */
+.settingsPanel .settingsRangeInline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.settingsPanel .settingsRangeInline .settingsRange {
+  margin-left: 0;
+}
+
+/* Advanced collapsible section */
+.settingsAdvancedToggle {
+  margin-top: 4px;
+}
+.settingsAdvancedBtn {
+  background: none;
+  border: none;
+  color: rgba(200, 215, 230, 1);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+.settingsAdvancedBtn:hover {
+  opacity: 0.8;
+}
+.settingsAdvancedCaret {
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.settingsAdvancedToggle.isOpen .settingsAdvancedCaret {
+  transform: rotate(180deg);
+}
+.settingsAdvancedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Discord/Support/Quit button row */
+.settingsPanel .settingsButtonRow {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 8px;
+}
+.settingsPanel .settingsButtonRow > .discordButton,
+.settingsPanel .settingsButtonRow > .quitButton {
+  flex: 0 0 28%;
 }

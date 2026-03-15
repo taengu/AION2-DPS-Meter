@@ -76,6 +76,10 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "输入你的角色名称",
     "pinMeToTop": "将我置顶",
+    "slimMode": "精简模式",
+    "appearance": "外观",
+    "connection": "连接",
+    "advanced": "高级",
     "bold": {
       "label": "加粗",
       "names": "名称",

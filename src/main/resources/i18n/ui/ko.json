@@ -76,6 +76,10 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "캐릭터 이름 입력",
     "pinMeToTop": "내 캐릭터를 맨 위에 고정",
+    "slimMode": "슬림 모드",
+    "appearance": "외관",
+    "connection": "연결",
+    "advanced": "고급",
     "bold": {
       "label": "굵게",
       "names": "이름",
