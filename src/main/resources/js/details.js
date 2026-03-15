@@ -1223,7 +1223,7 @@ const createDetailsUI = ({
     return {
       totalDmg,
       totalHits: totalTimes,
-      maxHp,
+      maxHp: 0,
       contributionPct: totalTargetDamage > 0 ? (totalDmg / totalTargetDamage) * 100 : 0,
       totalCritPct: pct(totalCrit, totalTimes),
       totalParryPct: pct(totalParry, totalTimes),
