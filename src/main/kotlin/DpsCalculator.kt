@@ -819,6 +819,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return end - start
     }
 
+    fun resolveTargetNamePublic(target: Int): String = resolveTargetName(target)
+
     private fun resolveTargetName(target: Int): String {
         if (!dataStorage.getMobData().containsKey(target)) return ""
         val mobCode = dataStorage.getMobData()[target] ?: return ""
@@ -928,6 +930,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun resetDataStorage() {
+        com.tbread.logging.BossEncounterLogger.dumpEncounter(dataStorage, this)
         dataStorage.flushDamageStorage()
         targetInfoMap.clear()
         lastLocalHitTime = -1L

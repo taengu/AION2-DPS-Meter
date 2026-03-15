@@ -82,6 +82,7 @@
     "appearance": "Appearance",
     "connection": "Connection",
     "advanced": "Advanced",
+    "bossLogs": "Enable per-boss logs",
     "bold": {
       "label": "Bold",
       "names": "Names",

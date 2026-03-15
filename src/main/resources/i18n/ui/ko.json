@@ -80,6 +80,7 @@
     "appearance": "외관",
     "connection": "연결",
     "advanced": "고급",
+    "bossLogs": "보스별 로그 활성화",
     "bold": {
       "label": "굵게",
       "names": "이름",

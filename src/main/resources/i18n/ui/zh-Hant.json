@@ -80,6 +80,7 @@
     "appearance": "外觀",
     "connection": "連線",
     "advanced": "進階",
+    "bossLogs": "啟用每場Boss記錄",
     "bold": {
       "label": "加粗",
       "names": "名稱",

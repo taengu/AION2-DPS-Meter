@@ -237,6 +237,12 @@ class BrowserApp(
         }
 
         @Suppress("unused")
+        fun setBossLogsEnabled(enabled: Boolean) {
+            com.tbread.logging.BossEncounterLogger.enabled = enabled
+            PropertyHandler.setProperty(com.tbread.logging.BossEncounterLogger.SETTING_KEY, enabled.toString())
+        }
+
+        @Suppress("unused")
         fun logDebug(message: String?) {
             if (message.isNullOrBlank()) return
             UnifiedLogger.debug(logger, "UI {}", message.trim())

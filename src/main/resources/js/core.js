@@ -37,6 +37,7 @@ class DpsApp {
       mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
       theme: "dpsMeter.theme",
       slimMode: "dpsMeter.slimMode",
+      bossLogs: "dpsMeter.bossLogsEnabled",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -1493,6 +1494,7 @@ class DpsApp {
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
+    this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
     this.slimModeCheckbox = document.querySelector(".slimModeCheckbox");
@@ -1628,6 +1630,15 @@ class DpsApp {
     this.safeSetSetting(this.storageKeys.trainSelectionMode, selectedMode);
     window.javaBridge?.setTrainSelectionMode?.(selectedMode);
 
+    if (this.bossLogsCheckbox) {
+      const storedBossLogs = this.safeGetSetting(this.storageKeys.bossLogs) === "true";
+      this.bossLogsCheckbox.checked = storedBossLogs;
+      this.bossLogsCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.bossLogs, String(isChecked));
+        window.javaBridge?.setBossLogsEnabled?.(isChecked);
+      });
+    }
     if (this.debugLoggingCheckbox) {
       this.debugLoggingCheckbox.checked = this.debugLoggingEnabled;
       this.debugLoggingCheckbox.addEventListener("change", (event) => {

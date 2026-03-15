@@ -80,6 +80,7 @@
     "appearance": "外观",
     "connection": "连接",
     "advanced": "高级",
+    "bossLogs": "启用每场Boss日志",
     "bold": {
       "label": "加粗",
       "names": "名称",
