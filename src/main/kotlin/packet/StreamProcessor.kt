@@ -5,6 +5,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.DpsCalculator
 import com.tbread.logging.UnifiedLogger
+import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
@@ -18,6 +19,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     )
 
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
+    private val lz4Decompressor = LZ4Factory.fastestInstance().safeDecompressor()
 
     data class VarIntOutput(val value: Int, val length: Int)
 
@@ -100,26 +102,28 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 break // Legitimate fragment, wait for the next TCP chunk
             }
 
-            // 4. Extract the perfectly aligned outer packet
-            val fullPacket = buffer.copyOfRange(offset, offset + totalPacketBytes)
-
-            // 5. Check if it's an FF FF Bundle
+            // 4. Check if it's an FF FF compressed bundle
             val payloadStart = lengthInfo.length
-            val isBundle = fullPacket.size > payloadStart + 1 &&
-                    fullPacket[payloadStart] == 0xff.toByte() &&
-                    fullPacket[payloadStart + 1] == 0xff.toByte()
+            val isBundle = offset + totalPacketBytes <= buffer.size &&
+                    payloadStart + 1 < totalPacketBytes &&
+                    buffer[offset + payloadStart] == 0xff.toByte() &&
+                    buffer[offset + payloadStart + 1] == 0xff.toByte()
 
             if (isBundle) {
-                // Pass the raw payload (everything after the outer VarInt length) to the unwrapper
-                val bundlePayload = fullPacket.copyOfRange(payloadStart, fullPacket.size)
+                // FF-FF bundles use outerLength - 2 (not -3) for their true size
+                val bundleSize = totalPacketBytes + 1
+                if (offset + bundleSize > buffer.size) {
+                    break // Wait for more data
+                }
+                val bundlePayload = buffer.copyOfRange(offset + payloadStart, offset + bundleSize)
                 unwrapBundle(bundlePayload)
+                offset += bundleSize
             } else {
+                val fullPacket = buffer.copyOfRange(offset, offset + totalPacketBytes)
                 pendingSummonLinks.clear()
                 parsePerfectPacket(fullPacket)
+                offset += totalPacketBytes
             }
-
-            // 6. Advance exactly to the next outer boundary
-            offset += totalPacketBytes
         }
 
         return offset
@@ -127,20 +131,42 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     private fun unwrapBundle(payload: ByteArray) {
         // payload starts exactly at FF FF
-        // Aion 2 bundles typically have an 8-byte header: FF FF + 6 bytes of sequence/metadata
-        var offset = 8
-        val damageCountBefore = currentStoredDamageCount()
+        // Format: FF FF (2 bytes) + decompressed size (4 bytes LE) + LZ4 compressed data
+        if (payload.size < 7) return
+
+        val decompressedSize = ((payload[2].toInt() and 0xFF)) or
+                ((payload[3].toInt() and 0xFF) shl 8) or
+                ((payload[4].toInt() and 0xFF) shl 16) or
+                ((payload[5].toInt() and 0xFF) shl 24)
+
+        if (decompressedSize <= 0 || decompressedSize > 1_000_000) {
+            logger.debug("Bundle: invalid decompressed size {}, skipping", decompressedSize)
+            return
+        }
+
+        val compressed = payload.copyOfRange(6, payload.size)
+        val decompressed: ByteArray
+        try {
+            decompressed = ByteArray(decompressedSize)
+            lz4Decompressor.decompress(compressed, 0, compressed.size, decompressed, 0, decompressedSize)
+        } catch (e: Exception) {
+            logger.debug("Bundle: LZ4 decompression failed (compressed={} bytes, expected={}): {}",
+                compressed.size, decompressedSize, e.message)
+            return
+        }
+
+        // Walk the decompressed data as varint-framed inner packets (same as consumeStream)
         pendingCompactSkillContext = null
         pendingSummonLinks.clear()
+        var offset = 0
 
-        while (offset < payload.size) {
-            // 1. Skip zero padding between nested packets
-            if (payload[offset] == 0x00.toByte()) {
+        while (offset < decompressed.size) {
+            if (decompressed[offset] == 0x00.toByte()) {
                 offset++
                 continue
             }
 
-            val lengthInfo = readVarInt(payload, offset)
+            val lengthInfo = readVarInt(decompressed, offset)
             if (lengthInfo.length <= 0 || lengthInfo.value <= 0) {
                 break
             }
@@ -152,13 +178,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             val innerPacketEnd = offset + innerTotalBytes
-            if (innerPacketEnd > payload.size) {
-                break // Safely break if padding or trailing garbage exceeds the bundle bounds
+            if (innerPacketEnd > decompressed.size) {
+                break
             }
 
-            val innerPacket = payload.copyOfRange(offset, innerPacketEnd)
+            val innerPacket = decompressed.copyOfRange(offset, innerPacketEnd)
 
-            // 2. Check if the nested packet is another bundle (rare, but protects against recursion bugs)
+            // Check if the nested packet is another FF-FF compressed bundle
             val innerPayloadStart = lengthInfo.length
             val isNestedBundle = innerPacket.size > innerPayloadStart + 1 &&
                     innerPacket[innerPayloadStart] == 0xff.toByte() &&
@@ -169,28 +195,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 unwrapBundle(nestedPayload)
             } else {
                 extractPendingCompactSkillContext(innerPacket)?.let { pendingCompactSkillContext = it }
-                // It's a normal nested packet (like Damage, DoT, or Actor spawn)
                 parsePerfectPacket(innerPacket)
             }
 
-            // 3. Advance strictly to the next inner packet
             offset += innerTotalBytes
         }
 
-        // Scan the full bundle payload for embedded 40 36 spawn opcodes.
-        // Some bundles have only a few cleanly framed inner packets followed by a large
-        // unframed payload containing spawn data that the inner packet loop can't reach.
-        scanBundleForSummonSpawns(payload)
-
-        // Resolve any summon spawns that couldn't find their owner in the same inner packet.
-        // The owner info may be in a different inner packet or in the unframed bundle region.
+        // Resolve any summon spawns that couldn't find their owner in the same inner packet
         if (pendingSummonLinks.isNotEmpty()) {
-            val ownerId = extractOwnerFromPacket(payload)
+            val ownerId = extractOwnerFromPacket(decompressed)
             if (ownerId != -1) {
                 for (summonId in pendingSummonLinks) {
                     if (ownerId != summonId) {
-                        logger.debug("Bundle summon linking: Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(payload))
-                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(payload))
+                        logger.debug("Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
                         dataStorage.appendSummon(ownerId, summonId)
                     }
                 }
@@ -198,11 +216,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pendingSummonLinks.clear()
         }
 
-        // If the normal bundle walk still produced no damage at all, fall back to a whole-body
-        // embedded 04 38 scan so later combat frames are not lost.
-        if (currentStoredDamageCount() == damageCountBefore && payload.isNotEmpty()) {
-            tryParseEmbeddedDamagePacket(payload)
-        }
         pendingCompactSkillContext = null
     }
 
