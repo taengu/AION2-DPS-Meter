@@ -592,6 +592,14 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     margin: 0 6px;
   }
 
+  .lockedPort.isPcapError {
+    color: #e05555;
+    font-weight: 600;
+  }
+  .lockedPort.isPcapError::before {
+    content: none;
+  }
+
   .characterNameInput {
     flex: 0 1 160px;
     max-width: 160px;
@@ -3102,5 +3110,5 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .settingsPanel .settingsButtonRow > .discordButton,
 .settingsPanel .settingsButtonRow > .quitButton {
-  flex: 0 0 28%;
+  flex: 0 0 32%;
 }

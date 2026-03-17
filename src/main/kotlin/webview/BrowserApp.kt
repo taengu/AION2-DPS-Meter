@@ -5,6 +5,7 @@ import com.tbread.entity.DpsData
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
+import com.tbread.packet.PcapCapturer
 import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PropertyHandler
 import com.tbread.windows.WindowTitleDetector
@@ -61,7 +62,8 @@ class BrowserApp(
         val locked: Boolean,
         val characterName: String?,
         val device: String?,
-        val localPlayerId: Long?
+        val localPlayerId: Long?,
+        val pcapError: String? = null
     )
 
     inner class JSBridge(
@@ -184,7 +186,8 @@ class BrowserApp(
                 locked = lockedPort != null,
                 characterName = LocalPlayer.characterName,
                 device = lockedDevice,
-                localPlayerId = LocalPlayer.playerId
+                localPlayerId = LocalPlayer.playerId,
+                pcapError = PcapCapturer.pcapError
             )
             return Json.encodeToString(info)
         }

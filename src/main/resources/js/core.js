@@ -2944,6 +2944,19 @@ class DpsApp {
     }
     const info = this.safeParseJSON(raw, {});
     const previousLocalId = this.localPlayerId;
+
+    // Show Npcap error if present
+    const pcapErr = typeof info?.pcapError === "string" ? info.pcapError.trim() : "";
+    if (pcapErr) {
+      this.lockedIp.textContent = "";
+      this.lockedPort.textContent = pcapErr;
+      this.lockedPort.classList.add("isPcapError");
+      this.updateConnectionStatusUi();
+      if (!skipSettingsRefresh) this.refreshSettingsPanelIfOpen();
+      return;
+    }
+    this.lockedPort.classList.remove("isPcapError");
+
     const deviceName = typeof info?.device === "string" && info.device.trim() ? info.device : "";
     const rawIp = info?.ip || "-";
     const ip =

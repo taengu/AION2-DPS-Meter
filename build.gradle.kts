@@ -16,7 +16,7 @@ java {
 }
 
 group = "com.tbread"
-version = "0.1.7-pre4"
+version = "0.1.7-pre5"
 
 val appVersion = version.toString()
 
@@ -62,7 +62,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:1.7.26")
     implementation("net.java.dev.jna:jna:5.16.0")
     implementation("net.java.dev.jna:jna-platform:5.16.0")
-    implementation("org.lz4:lz4-java:1.10.1")
+    implementation("at.yawk.lz4:lz4-java:1.10.4")
 
     testImplementation(kotlin("test"))
 }
@@ -119,6 +119,8 @@ graalvmNative {
                 "-H:ReflectionConfigurationFiles=${project.file("src/main/resources/native-image/reflect-config.json")}"
             )
             buildArgs.add("-H:JNIConfigurationFiles=${project.file("src/main/resources/native-image/jni-config.json")}")
+            buildArgs.add("-H:NativeLinkerOption=/MANIFEST:EMBED")
+            buildArgs.add("-H:NativeLinkerOption=/MANIFESTINPUT:${project.file("src/main/resources/native-image/app.manifest")}")
 
             buildArgs.addAll(listOf("--class-path", appClassPath))
             buildArgs.addAll(listOf("--module-path", javafxModulePath))

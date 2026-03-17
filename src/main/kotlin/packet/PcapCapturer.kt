@@ -21,12 +21,18 @@ class PcapCapturer(
         private const val FALLBACK_DELAY_MS = 1500L
         private const val DEVICE_STATUS_INTERVAL_MS = 10_000L
 
+        /** Non-null when Npcap/WinPcap failed to load (e.g. not installed). */
+        @Volatile
+        var pcapError: String? = null
+            private set
+
         private fun getAllDevices(): List<PcapNetworkInterface> =
             try { Pcaps.findAllDevs() ?: emptyList() }
             catch (e: PcapNativeException) {
                 logger.error("Failed to initialize pcap", e)
                 UnifiedLogger.crash("Failed to initialize pcap", e)
-                exitProcess(2)
+                pcapError = "Npcap is not installed. Download it from https://npcap.com"
+                emptyList()
             }
     }
 
@@ -169,9 +175,13 @@ class PcapCapturer(
         if (!running.compareAndSet(false, true)) return
         val devices = getAllDevices()
         if (devices.isEmpty()) {
-            logger.error("No capture devices found")
-            UnifiedLogger.crash("No capture devices found")
-            exitProcess(1)
+            if (pcapError == null) {
+                logger.error("No capture devices found")
+                UnifiedLogger.crash("No capture devices found")
+                pcapError = "No capture devices found"
+            }
+            running.set(false)
+            return
         }
 
         if (UnifiedLogger.isDebugEnabled()) {
