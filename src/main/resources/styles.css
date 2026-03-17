@@ -826,7 +826,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 
     transition: transform 150ms ease;
     overflow: hidden;
-    will-change: transform;
 
     &::after {
       content: "";
@@ -1953,7 +1952,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   transform: scaleX(0);
   transition: transform 150ms ease;
   overflow: hidden;
-  will-change: transform;
 }
 .list .item .fill::after {
   content: "";
@@ -1971,7 +1969,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
           rgba(255, 255, 255, 0) 100%
   );
   transform: translateX(-100%); /* Use transform for initial position */
-  will-change: transform, opacity; /* Hint to browser to promote to GPU layer */
 }
 .list .item.hoverRippleOnce .fill::after {
   opacity: 1;

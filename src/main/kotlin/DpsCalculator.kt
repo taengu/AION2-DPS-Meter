@@ -97,7 +97,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 .getResourceAsStream("i18n/npcs/${language}.json") ?: return emptyMap()
             val text = stream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
             val objectEntryRegex = Regex(
-                "\"(\\d+)\"\\s*:\\s*\\{[\\s\\S]*?\"name\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"[\\s\\S]*?\"isBoss\"\\s*:\\s*(true|false)[\\s\\S]*?\\}",
+                "\"(\\d+)\"\\s*:\\s*\\{[\\s\\S]*?\"name\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"[\\s\\S]*?\"isBoss\"\\s*:\\s*(true|false)[\\s\\S]*?}",
                 setOf(RegexOption.IGNORE_CASE)
             )
             val parsedFromObject = objectEntryRegex.findAll(text)
@@ -292,12 +292,14 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
 
         val summonData = dataStorage.getSummonData()
+        val nicknameToCanonicalId = buildNicknameCanonicalMap(pdps, summonData, nicknameData)
 
         pdps.forEach { pdp ->
             totalDamage += pdp.getDamage()
 
-            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
-            if (uid <= 0) return@forEach
+            val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (rawUid <= 0) return@forEach
+            val uid = nicknameToCanonicalId[resolveNickname(rawUid, nicknameData)] ?: rawUid
 
             val nickname = resolveNickname(uid, nicknameData)
             val cachedJob = cachedJobForNickname(nickname)
@@ -390,6 +392,36 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             ?: uid.toString()
     }
 
+    /**
+     * Build a mapping from nickname -> canonical actor ID.
+     * For each nickname, the canonical ID is the one that directly owns it in nicknameData,
+     * falling back to the first ID seen with the most damage.
+     * This merges unresolved summon IDs (e.g. Divine Aegis) with their owner.
+     */
+    private fun buildNicknameCanonicalMap(
+        pdps: List<ParsedDamagePacket>,
+        summonData: Map<Int, Int>,
+        nicknameData: Map<Int, String>
+    ): Map<String, Int> {
+        val nicknameDamage = mutableMapOf<String, MutableMap<Int, Int>>()
+        pdps.forEach { pdp ->
+            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (uid <= 0) return@forEach
+            val nickname = resolveNickname(uid, nicknameData)
+            val idDamage = nicknameDamage.getOrPut(nickname) { mutableMapOf() }
+            idDamage[uid] = (idDamage[uid] ?: 0) + pdp.getDamage()
+        }
+        val result = mutableMapOf<String, Int>()
+        nicknameDamage.forEach { (nickname, idDamage) ->
+            // Prefer the ID that directly has the nickname in nicknameData
+            val directOwner = idDamage.keys.firstOrNull { nicknameData[it] == nickname }
+            result[nickname] = directOwner
+                ?: idDamage.maxByOrNull { it.value }?.key
+                ?: return@forEach
+        }
+        return result
+    }
+
     private fun cachedJobForNickname(nickname: String): String? {
         val key = nickname.trim().lowercase()
         if (key.isBlank() || key.all { it.isDigit() }) return null
@@ -425,9 +457,13 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             var totalDamage = 0
             val actorDamage = mutableMapOf<Int, Int>()
 
+            val nicknameToCanonicalId = buildNicknameCanonicalMap(pdps, summonData, nicknameData)
+
             pdps.forEach { pdp ->
-                val uid = resolveSummonerUid(pdp.getActorId(), summonData)
-                if (uid <= 0) return@forEach
+                val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
+                if (rawUid <= 0) return@forEach
+                val nickname = resolveNickname(rawUid, nicknameData)
+                val uid = nicknameToCanonicalId[nickname] ?: rawUid
                 val damage = pdp.getDamage()
                 totalDamage += damage
                 actorDamage[uid] = (actorDamage[uid] ?: 0) + damage
@@ -477,6 +513,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             skills = emptyList()
         )
         val summonData = dataStorage.getSummonData()
+        val nicknameData = dataStorage.getNickname()
         val mobHpData = dataStorage.getMobHpData()
         val actorJobs = mutableMapOf<Int, String>()
         val skillMap = mutableMapOf<String, DetailSkillEntry>()
@@ -484,12 +521,33 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         var startTime: Long? = null
         var endTime: Long? = null
 
+        // Build nickname-based canonical ID mapping to merge unresolved summon IDs
+        // (e.g. Divine Aegis) with their owner.
+        val nicknameToCanonicalId = buildNicknameCanonicalMap(pdps, summonData, nicknameData)
+
+        // Expand actorIds to include any IDs that share the same nickname
+        val expandedActorIds = if (actorIds != null) {
+            val canonicalIds = actorIds.map { nicknameToCanonicalId[resolveNickname(it, nicknameData)] ?: it }.toSet()
+            val expanded = actorIds.toMutableSet()
+            pdps.forEach { pdp ->
+                val uid = resolveSummonerUid(pdp.getActorId(), summonData)
+                if (uid > 0) {
+                    val canonical = nicknameToCanonicalId[resolveNickname(uid, nicknameData)] ?: uid
+                    if (canonicalIds.contains(canonical)) {
+                        expanded.add(uid)
+                    }
+                }
+            }
+            expanded
+        } else null
+
         pdps.forEach { pdp ->
-            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
-            if (uid <= 0) return@forEach
+            val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (rawUid <= 0) return@forEach
+            val uid = nicknameToCanonicalId[resolveNickname(rawUid, nicknameData)] ?: rawUid
             val damage = pdp.getDamage()
             totalTargetDamage += damage
-            if (actorIds != null && !actorIds.contains(uid)) {
+            if (expandedActorIds != null && !expandedActorIds.contains(rawUid)) {
                 return@forEach
             }
             val timestamp = pdp.getTimeStamp()
@@ -820,6 +878,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun resolveTargetNamePublic(target: Int): String = resolveTargetName(target)
+
+    fun isBossTargetPublic(targetId: Int): Boolean = isBossTarget(targetId)
 
     private fun resolveTargetName(target: Int): String {
         if (!dataStorage.getMobData().containsKey(target)) return ""

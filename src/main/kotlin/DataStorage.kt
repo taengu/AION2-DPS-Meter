@@ -96,15 +96,17 @@ class DataStorage {
         currentTarget.set(targetId)
     }
 
-    fun getCurrentTarget(): Int{
-        return currentTarget.get()
-    }
 
     fun appendMob(mid: Int, code: Int) {
         mobStorage[mid] = code
     }
 
     fun appendSummon(summoner: Int, summon: Int) {
+        // Never register a known player (has nickname) as a summon
+        if (nicknameStorage.containsKey(summon)) {
+            logger.debug("Summon registration blocked: {} is a known player, not registering as summon of {}", summon, summoner)
+            return
+        }
         summonStorage[summon] = summoner
     }
 
@@ -133,6 +135,11 @@ class DataStorage {
         logger.debug("Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         UnifiedLogger.debug(logger, "Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         nicknameStorage[uid] = nickname
+
+        // If this ID was previously registered as a summon, remove it — it's a player
+        if (summonStorage.remove(uid) != null) {
+            logger.debug("Removed false summon mapping for player {} (nickname: {})", uid, nickname)
+        }
 
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         if (localName.isNotBlank() && nickname.trim() == localName) {

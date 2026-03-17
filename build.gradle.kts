@@ -62,7 +62,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:1.7.26")
     implementation("net.java.dev.jna:jna:5.16.0")
     implementation("net.java.dev.jna:jna-platform:5.16.0")
-    implementation("org.lz4:lz4-java:1.8.0")
+    implementation("org.lz4:lz4-java:1.10.1")
 
     testImplementation(kotlin("test"))
 }
@@ -171,7 +171,7 @@ compose.desktop {
             "--add-opens=jdk.jsobject/netscape.javascript=ALL-UNNAMED",
             "--enable-native-access=ALL-UNNAMED",
             "-Djavafx.verbose=false",
-            "-Dprism.order=d3d,sw",
+            "-Dprism.order=sw",
             "-DdpsMeter.memProfileEnabled=true",
             "-DdpsMeter.memProfileInterval=30",
             "-DdpsMeter.memProfileTop=50",

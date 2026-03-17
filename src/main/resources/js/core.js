@@ -2,7 +2,7 @@ class DpsApp {
   constructor() {
     if (DpsApp.instance) return DpsApp.instance;
 
-    this.POLL_MS = 200;
+    this.POLL_MS = 500;
     this.WINDOW_TITLE_POLL_MS = 30000;
     this.USER_NAME = "";
     this.onlyShowUser = false;
@@ -592,6 +592,10 @@ class DpsApp {
     const isSameRow = this.hoveredDetailsRowId === rowId;
     this.hoveredDetailsRowId = rowId;
     if (this.detailsUI?.isOpen?.()) {
+      return;
+    }
+    // Skip redundant tooltip renders when still hovering the same row
+    if (isSameRow && this.hoverTooltipEl?.classList.contains("isVisible")) {
       return;
     }
     this.detailsUI?.close?.({ keepPinned: false });

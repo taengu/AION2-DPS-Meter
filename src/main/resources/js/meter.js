@@ -104,6 +104,8 @@ const createMeterUI = ({
 
 
     rowEl.addEventListener("mousemove", (event) => {
+      if (view._lastMoveMs && nowMs() - view._lastMoveMs < 100) return;
+      view._lastMoveMs = nowMs();
       onHoverUserRow?.(view.currentRow, event);
     });
     rowEl.addEventListener("mouseleave", () => {
@@ -178,29 +180,40 @@ const createMeterUI = ({
     return { value: dps, text: `${dpsFormatter.format(dps)}/s` };
   };
 
+  let lastOrderKey = "";
+
   const renderRows = (rows) => {
     const now = nowMs();
     const nextVisibleIds = new Set();
 
-    elList.classList.toggle("hasRows", rows.length > 0);
+    const hadRows = elList.classList.contains("hasRows");
+    const hasRows = rows.length > 0;
+    if (hadRows !== hasRows) {
+      elList.classList.toggle("hasRows", hasRows);
+    }
 
     let topMetric = 1;
     for (const row of rows) {
       const metricValue = Number(resolveMetric(row)?.value) || 0;
-      topMetric = Math.max(topMetric, metricValue);
+      if (metricValue > topMetric) topMetric = metricValue;
     }
     const visibleTotalDamage = rows.reduce((sum, row) => sum + (Number(row?.totalDamage) || 0), 0);
 
+    // Build order key to detect if DOM reordering is needed
+    let orderKey = "";
+    const validRows = [];
     for (const row of rows) {
-      if (!row) {
-        continue;
-      }
-
+      if (!row) continue;
       const id = row.id ?? row.name;
-      if (!id) {
-        continue;
-      }
+      if (!id) continue;
+      validRows.push({ row, id });
+      orderKey += id + ",";
+    }
 
+    const needsReorder = orderKey !== lastOrderKey;
+    lastOrderKey = orderKey;
+
+    for (const { row, id } of validRows) {
       nextVisibleIds.add(id);
 
       const view = getRowView(id);
@@ -262,8 +275,6 @@ const createMeterUI = ({
         }
       }
 
-      // view.classIconEl.style.display = "";
-
       const metric = resolveMetric(row) || { value: 0, text: "-" };
       const metricValue = Number(metric.value) || 0;
       const damageContribution =
@@ -303,7 +314,10 @@ const createMeterUI = ({
         view.lastFillRatio = ratio;
       }
 
-      elList.appendChild(view.rowEl);
+      // Only touch DOM order when the sorted list actually changed
+      if (needsReorder) {
+        elList.appendChild(view.rowEl);
+      }
     }
 
     for (const id of lastVisibleIds) {
@@ -347,6 +361,7 @@ const createMeterUI = ({
       renderRowsRafId = 0;
     }
     pendingRenderRows = null;
+    lastOrderKey = "";
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 

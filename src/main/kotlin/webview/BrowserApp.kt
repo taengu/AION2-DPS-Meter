@@ -436,6 +436,9 @@ class BrowserApp(
     @Volatile
     private var dpsData: DpsData = DpsData()
 
+    @Volatile
+    private var cachedDpsJson: String = Json.encodeToString(DpsData())
+
     private val dpsUpdateScheduler = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "dps-updater").apply { isDaemon = true }
     }
@@ -575,7 +578,9 @@ class BrowserApp(
         // The volatile write to dpsData is safe to read from any thread.
         dpsUpdateScheduler.scheduleAtFixedRate({
             try {
-                dpsData = dpsCalculator.getDps()
+                val data = dpsCalculator.getDps()
+                dpsData = data
+                cachedDpsJson = Json.encodeToString(data)
             } catch (e: Exception) {
                 logger.warn("getDps() failed on background thread", e)
             }
@@ -584,7 +589,7 @@ class BrowserApp(
 
     @Suppress("unused")
     fun getDpsData(): String {
-        return Json.encodeToString(dpsData)
+        return cachedDpsJson
     }
 
     @Suppress("unused")

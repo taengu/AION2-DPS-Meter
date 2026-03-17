@@ -1203,11 +1203,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             // Exact 4-byte Skill ID (No rounding / 100)
             if (reader.offset + 4 > packet.size) { reader.offset = checkpoint; break }
-            val exactSkillCode = (packet[reader.offset].toLong() and 0xFF) or
+            var exactSkillCode = (packet[reader.offset].toLong() and 0xFF) or
                     ((packet[reader.offset + 1].toLong() and 0xFF) shl 8) or
                     ((packet[reader.offset + 2].toLong() and 0xFF) shl 16) or
                     ((packet[reader.offset + 3].toLong() and 0xFF) shl 24)
             reader.offset += 4
+
+            // Theostone raw item IDs (3_000_000..3_099_999) → full skill code (raw * 10 + 1)
+            if (exactSkillCode in 3_000_000L..3_099_999L) {
+                exactSkillCode = exactSkillCode * 10L + 1L
+            }
 
             // Reject out-of-range skill codes immediately — indicates we're not on a real damage packet
             if (exactSkillCode !in 1L..299_999_999L) { reader.offset = checkpoint; break }
@@ -1349,6 +1354,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 )
             ) {
                 finalDamage = firstMultiHitValue!!
+            }
+
+            // When the encoded damage includes multi-hit damage as a component,
+            // extract the main hit by subtracting: e.g. Heart Gore 28737 - 4×2873 = 17245
+            if (multiHitCount > 0 && multiHitDamage > 0 && finalDamage > multiHitDamage) {
+                finalDamage -= multiHitDamage
             }
 
             val pendingCompactContext = pendingCompactSkillContext
@@ -1551,6 +1562,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val repeatedDamage = firstMultiHitValue ?: return false
         if (switchValue != 54) return false
         if (multiHitCount <= 0 || !allMultiHitsMatch) return false
+
+        // If encodedDamage minus multi-hit total yields a plausible main-hit value,
+        // the encoded damage is main_hit + multi_hits, NOT a scaled per-hit value.
+        // (e.g. Heart Gore: 28737 = 17245 main + 4×2873 multi — 28737/10==2873 is coincidence)
+        val mainHitComponent = encodedDamage - multiHitCount * repeatedDamage
+        if (mainHitComponent > repeatedDamage) return false
 
         // Some switch=54 packets encode the displayed per-hit damage in the repeated hit list,
         // while the "damage" field is just that value scaled by 10 with a trailing counter nibble.
