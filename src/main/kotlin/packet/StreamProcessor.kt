@@ -36,6 +36,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
      */
     private val seenEmbeddedHexes = mutableSetOf<String>()
 
+    /**
+     * Set of skill IDs that apply actual DOT damage, derived from game data:
+     * SkillAbnormalEffect entries with Dot_NormalCalc, Dot_TargetMaxHP, Dot_Dmg, or Dot_TargetHP.
+     * Skills NOT in this set (heals, barriers, buffs) are rejected by the DOT parser.
+     */
+    private val dotDamageSkillIds: Set<Int> by lazy {
+        val stream = StreamProcessor::class.java.classLoader
+            .getResourceAsStream("data/dot_skill_ids.json") ?: return@lazy emptySet()
+        val text = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val regex = Regex("\\d+")
+        regex.findAll(text).mapNotNull { it.value.toIntOrNull() }.toSet()
+    }
+
     private fun isActorAllowed(actorId: Int): Boolean {
         val rawFilter = PropertyHandler.getProperty(actorIdFilterKey)?.trim().orEmpty()
         if (rawFilter.isEmpty()) return true
@@ -219,9 +232,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         pendingCompactSkillContext = null
     }
 
-    private fun currentStoredDamageCount(): Int {
-        return dataStorage.getActorDataSnapshot().values.sumOf { it.size }
-    }
 
 
     private fun sanitizeNickname(nickname: String): String? {
@@ -583,8 +593,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size < offset) return
         pdp.setTargetId(targetInfo)
 
-        offset += 1 // padding
-        if (packet.size < offset) return
+        // Effect type byte: 0x00=status/passive, 0x01=heal, 0x02=damage, 0x03=AoE heal
+        // Only 0x02 represents actual damage DOT ticks.
+        if (offset >= packet.size) return
+        val effectType = packet[offset].toInt() and 0xFF
+        offset += 1
+        if (effectType != 0x02) return
 
         val actorInfo = readVarInt(packet,offset)
         if (actorInfo.length < 0) return
@@ -602,10 +616,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val skillCode:Int = parseUInt32le(packet,offset) / 100
         offset += 4
         if (packet.size <= offset) return
+        if (!isValidSkillCode(skillCode)) return
+
+        // Only accept skills that are known DOT damage skills from game data.
+        // This filters out heals (Light of Regeneration), barriers (Protection Circle),
+        // and buffs that share the 05 38 opcode with real damage DOTs.
+        if (skillCode !in dotDamageSkillIds) return
+
         pdp.setSkillCode(skillCode)
 
         val damageInfo = readVarInt(packet,offset)
         if (damageInfo.length < 0) return
+        if (damageInfo.value <= 0) return
         pdp.setDamage(damageInfo)
 
         if (logger.isDebugEnabled) {
@@ -823,20 +845,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
 
-    /**
-     * Scan the full bundle payload for embedded 40 36 spawn opcodes that weren't
-     * reached by the inner packet unwrapper. For each found, extract the summon ID
-     * and call parseSummonSpawnAt to process mob type/HP and queue for owner linking.
-     */
-    private fun scanBundleForSummonSpawns(payload: ByteArray) {
-        var searchOffset = 0
-        while (searchOffset + 1 < payload.size) {
-            val opcodeOffset = findArrayIndexFromOffset(payload, searchOffset, byteArrayOf(0x40, 0x36))
-            if (opcodeOffset == -1) break
-            parseSummonSpawnAt(payload, opcodeOffset + 2)
-            searchOffset = opcodeOffset + 2
-        }
-    }
 
     /**
      * Extract owner (player) actor ID from a packet by finding the fixed 8-byte marker
@@ -1361,23 +1369,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 pendingCompactSkillContext = null
             }
 
-            // 5. Extract Trailing Heals
-            var healAmount = 0
-            if (!firstValueIsDamage && reader.remainingBytes() >= 2 && packet[reader.offset + 1] == 0x00.toByte()) {
-                val marker = packet[reader.offset]
-                if (marker in 1..3) {
-                    reader.offset += 2
-                    val trailingValue = reader.tryReadVarInt()
-
-                    if (trailingValue != null) {
-                        healAmount = trailingValue
-                    } else if (marker == 0x01.toByte()) {
-                        healAmount = 0
-                    } else {
-                        healAmount = finalDamage
-                    }
-                }
-            }
+            // 5. Extract Trailing Heals (hp_drain / hp_recovery)
+            // The heal fields are deep in the packet tail after many intermediate fields
+            // (mp_dmg, sealstone_used, barrier_id_list, abnormal data, skill_process_uid).
+            // We cannot reliably skip to them, so only extract heal when we find the
+            // specific pattern: marker(1-3) + 0x00 + varint(0) indicating no heal,
+            // or marker + 0x00 + large varint that is a plausible heal (>= 100 and
+            // proportional to damage). Tiny values like 25-50 are intermediate fields
+            // being misread.
+            val healAmount = 0
 
             val appendedToMeter = pdpTargetActorMismatch(targetInfo.value, actorInfo.value)
             if (requireTrustedDamageShape && !isTrustedRecoveredDamageShape(
