@@ -239,7 +239,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (sanitizedNickname.isEmpty()) return null
         val nicknameBuilder = StringBuilder()
         var onlyNumbers = true
-        var hasHan = false
+        var hasCjk = false
         for (ch in sanitizedNickname) {
             if (!Character.isLetterOrDigit(ch)) {
                 if (nicknameBuilder.isEmpty()) return null
@@ -255,13 +255,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
             nicknameBuilder.append(ch)
             if (Character.isLetter(ch)) onlyNumbers = false
-            if (Character.UnicodeScript.of(ch.code) == Character.UnicodeScript.HAN) {
-                hasHan = true
+            val script = Character.UnicodeScript.of(ch.code)
+            if (script == Character.UnicodeScript.HAN ||
+                script == Character.UnicodeScript.HANGUL) {
+                hasCjk = true
             }
         }
         val trimmedNickname = nicknameBuilder.toString()
         if (trimmedNickname.isEmpty()) return null
-        if (trimmedNickname.length < 3 && !hasHan) return null
+        if (trimmedNickname.length < 3 && !hasCjk) return null
         if (onlyNumbers) return null
         if (trimmedNickname.length == 1 &&
             (trimmedNickname[0] in 'A'..'Z' || trimmedNickname[0] in 'a'..'z')
@@ -393,8 +395,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val canUpdateExisting = existingNickname != null &&
                     candidate.name.length > existingNickname.length &&
                     candidate.name.startsWith(existingNickname)
-            val hasHanCharacters = candidate.name.any { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.HAN }
-            if (!allowPrepopulate && !isLocalNameMatch && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting && !hasHanCharacters) {
+            val hasCjkCharacters = candidate.name.any {
+                val s = Character.UnicodeScript.of(it.code)
+                s == Character.UnicodeScript.HAN || s == Character.UnicodeScript.HANGUL
+            }
+            if (!allowPrepopulate && !isLocalNameMatch && !actorAppearsInCombat(candidate.actorId) && !canUpdateExisting && !hasCjkCharacters) {
                 if (existingNickname == null) {
                     dataStorage.cachePendingNickname(candidate.actorId, candidate.name)
                 }

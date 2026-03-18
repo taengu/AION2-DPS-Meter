@@ -162,6 +162,25 @@ tasks.named("nativeCompile").configure {
     }
 }
 
+val embedAdminManifest by tasks.registering(Exec::class) {
+    dependsOn("createDistributable")
+    val exeFile = layout.buildDirectory
+        .dir("compose/binaries/main/app/AION2 DPS Meter")
+        .map { it.asFile.resolve("AION2 DPS Meter.exe") }
+    val manifest = project.file("src/main/resources/native-image/app.manifest")
+    doFirst {
+        val exe = exeFile.get()
+        if (!exe.exists()) error("Launcher exe not found at: $exe")
+        commandLine("mt.exe", "-nologo",
+            "-manifest", manifest.absolutePath,
+            "-outputresource:${exe.absolutePath};#1")
+    }
+}
+
+tasks.named("packageMsi") {
+    dependsOn(embedAdminManifest)
+}
+
 compose.desktop {
     application {
         mainClass = "com.tbread.Launcher"

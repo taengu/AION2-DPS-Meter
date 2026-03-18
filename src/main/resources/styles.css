@@ -381,7 +381,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   display: flex;
   align-items: center;
   align-content: center;
-  gap: 16px;
+  gap: 8px;
   padding: 8px 12px;
   .bossIcon {
     display: flex;
@@ -831,8 +831,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     opacity: 0.8;
     transform-origin: left center;
     transform: scaleX(0);
-
-    transition: transform 150ms ease;
     overflow: hidden;
 
     &::after {
@@ -963,11 +961,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   &.state-fighting .status::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: -3px;
     border-radius: 999px;
     background: var(--indicator-combat);
-    will-change: transform, opacity;
-    animation: combatStatusRipple 1.4s ease-out infinite;
+    opacity: 0.35;
   }
   &.state-grace .status {
     background: var(--indicator-wait);
@@ -999,6 +996,31 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   height: 10px;
   border-right: 2px solid rgba(255, 255, 255, 0.7);
   border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+/* Ping display — sits below the meter, outside the meter viewport */
+.pingDisplay {
+  display: none;
+  margin-top: 2px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  width: fit-content;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.pingDisplay.isVisible {
+  display: block;
+}
+.pingDisplay.ping-good {
+  color: #5fcaff;
+}
+.pingDisplay.ping-warn {
+  color: #f2b94f;
+}
+.pingDisplay.ping-bad {
+  color: #e06b6b;
 }
 
 .detailsPanel {
@@ -1458,6 +1480,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .header .bossNames {
   flex: 1;
+  min-width: 0;
   color: var(--title);
   text-shadow: var(--text-shadow);
   font-weight: bold;
@@ -1465,9 +1488,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: flex;
   align-items: center;
   font-size: 18px;
+  overflow: hidden;
 }
-.header .bossNames .bossName.isAllTargets {
-  font-size: 19px;
+.header .bossNames .bossName {
+  white-space: nowrap;
 }
 .header .headerBtns {
   display: flex;
@@ -1958,7 +1982,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   opacity: var(--meter-fill-opacity, 0.8);
   transform-origin: left center;
   transform: scaleX(0);
-  transition: transform 150ms ease;
   overflow: hidden;
 }
 .list .item .fill::after {
@@ -2048,11 +2071,10 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .battleTime.state-fighting .status::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -3px;
   border-radius: 999px;
   background: var(--indicator-combat);
-  will-change: transform, opacity;
-  animation: combatStatusRipple 1.4s ease-out infinite;
+  opacity: 0.35;
 }
 .battleTime.state-grace .status {
   background: var(--indicator-wait);
@@ -2598,40 +2620,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   }
 }
 
-@keyframes combatStatusRipple {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  70% {
-    transform: scale(3);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(3);
-    opacity: 0;
-  }
-}
-/*
- * When any panel is open, suppress the infinite CSS animation and fill bar
- * transitions. Both force the WebKit renderer to schedule 60fps paint passes
- * on the JavaFX Application Thread, which throttles everything else rendered
- * in the same window. With a panel open the user isn't watching the meter
- * animate, so the trade-off is invisible.
- */
-.detailsPanel.open ~ .battleTime .status::after,
-.settingsPanel.isOpen ~ .battleTime .status::after {
-  animation: none;
-}
-.detailsPanel.open ~ .list .item .fill,
-.settingsPanel.isOpen ~ .list .item .fill {
-  transition: none;
-}
-.detailsPanel.open ~ .list .item .fill::after,
-.settingsPanel.isOpen ~ .list .item .fill::after {
-  animation: none !important;
-  will-change: auto;
-}
 
 .detailsPanel .detailsSkills .skills .skillRow {
   display: flex;

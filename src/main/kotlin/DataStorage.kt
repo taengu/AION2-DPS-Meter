@@ -30,6 +30,11 @@ class DataStorage {
     private val maxSnapshotPackets = 100_000
     // ----------------------
 
+    // Snapshot cache — rebuilt only when new packets arrive
+    private var snapshotDirty = true
+    private var cachedByTargetSnapshot: Map<Int, List<ParsedDamagePacket>> = emptyMap()
+    private var cachedByActorSnapshot: Map<Int, List<ParsedDamagePacket>> = emptyMap()
+
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
         // --- NEW: Log ANY use of an NPC skill before filtering ---
@@ -65,6 +70,7 @@ class DataStorage {
         byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
         byTargetStorage.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
         packetOrder.addLast(pdp)
+        snapshotDirty = true
         trimStoredDamageIfNeeded()
         applyPendingNickname(pdp.getActorId())
     }
@@ -78,14 +84,20 @@ class DataStorage {
     }
 
     private fun removePacketReferences(pdp: ParsedDamagePacket) {
+        // Packets are appended in chronological order, so the oldest packet
+        // for a given actor/target is always at index 0. O(1) instead of O(n).
         byActorStorage[pdp.getActorId()]?.let { actorPackets ->
-            actorPackets.removeIf { it.getId() == pdp.getId() }
+            if (actorPackets.isNotEmpty() && actorPackets[0].getId() == pdp.getId()) {
+                actorPackets.removeAt(0)
+            }
             if (actorPackets.isEmpty()) {
                 byActorStorage.remove(pdp.getActorId())
             }
         }
         byTargetStorage[pdp.getTargetId()]?.let { targetPackets ->
-            targetPackets.removeIf { it.getId() == pdp.getId() }
+            if (targetPackets.isNotEmpty() && targetPackets[0].getId() == pdp.getId()) {
+                targetPackets.removeAt(0)
+            }
             if (targetPackets.isEmpty()) {
                 byTargetStorage.remove(pdp.getTargetId())
             }
@@ -181,37 +193,47 @@ class DataStorage {
         summonStorage.clear()
         mobHpData.clear()
         currentTarget.set(0)
+        snapshotDirty = true
+        cachedByTargetSnapshot = emptyMap()
+        cachedByActorSnapshot = emptyMap()
         logger.info("Damage packets reset")
     }
 
-    private fun recentPacketsForSnapshot(): List<ParsedDamagePacket> {
-        if (packetOrder.isEmpty()) return emptyList()
-        val skip = (packetOrder.size - maxSnapshotPackets).coerceAtLeast(0)
-        val recent = ArrayList<ParsedDamagePacket>(packetOrder.size - skip)
-        var idx = 0
-        packetOrder.forEach { pdp ->
-            if (idx >= skip) recent.add(pdp)
-            idx++
+    @Synchronized
+    private fun rebuildSnapshotCaches() {
+        if (!snapshotDirty) return
+        val byTarget = HashMap<Int, MutableList<ParsedDamagePacket>>()
+        val byActor = HashMap<Int, MutableList<ParsedDamagePacket>>()
+        val size = packetOrder.size
+        val skip = (size - maxSnapshotPackets).coerceAtLeast(0)
+        if (size > 0) {
+            // Use iterator with index skip — avoids copying into an intermediate list
+            val iter = packetOrder.iterator()
+            var idx = 0
+            while (iter.hasNext()) {
+                val pdp = iter.next()
+                if (idx >= skip) {
+                    byTarget.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
+                    byActor.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
+                }
+                idx++
+            }
         }
-        return recent
+        cachedByTargetSnapshot = byTarget
+        cachedByActorSnapshot = byActor
+        snapshotDirty = false
     }
 
     @Synchronized
     fun getBossModeDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
-        val snapshot = HashMap<Int, MutableList<ParsedDamagePacket>>()
-        recentPacketsForSnapshot().forEach { pdp ->
-            snapshot.getOrPut(pdp.getTargetId()) { ArrayList() }.add(pdp)
-        }
-        return snapshot
+        rebuildSnapshotCaches()
+        return cachedByTargetSnapshot
     }
 
     @Synchronized
     fun getActorDataSnapshot(): Map<Int, List<ParsedDamagePacket>> {
-        val snapshot = HashMap<Int, MutableList<ParsedDamagePacket>>()
-        recentPacketsForSnapshot().forEach { pdp ->
-            snapshot.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
-        }
-        return snapshot
+        rebuildSnapshotCaches()
+        return cachedByActorSnapshot
     }
 
     fun appendMobHp(mid: Int, hp: Int) {

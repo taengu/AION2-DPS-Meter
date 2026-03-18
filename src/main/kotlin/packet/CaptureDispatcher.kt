@@ -42,13 +42,20 @@ class CaptureDispatcher(
                     continue
                 }
 
+                // Feed packets to PingTracker before device/port filtering —
+                // external proxy connections (e.g. ExitLag) use a different device
+                // and different ports than the locked loopback connection.
+                val currentLockedPort = CombatPortDetector.currentPort()
+                if (currentLockedPort != null) {
+                    PingTracker.onPacket(cap)
+                }
+
                 val lockedDevice = CombatPortDetector.currentDevice()
                 if (!isOfflineReplay && lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
                 }
 
                 // 1. If we are securely locked to AION, completely ignore all other background ports
-                val currentLockedPort = CombatPortDetector.currentPort()
                 if (currentLockedPort != null && cap.srcPort != currentLockedPort && cap.dstPort != currentLockedPort) {
                     continue
                 }
@@ -180,6 +187,7 @@ class CaptureDispatcher(
             val running = WindowTitleDetector.findAion2WindowTitle() != null
             if (!running && isAionRunning) {
                 CombatPortDetector.reset()
+                PingTracker.reset()
                 assemblers.clear()
             }
             isAionRunning = running

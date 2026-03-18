@@ -140,14 +140,6 @@ object CombatPortDetector {
         lock(port, deviceForLock)
     }
 
-    @Synchronized
-    fun clearCandidates() {
-        if (lockedPort == null) {
-            candidates.clear()
-            deviceFlows.clear()
-        }
-    }
-
     fun currentPort(): Int? = lockedPort
     fun currentDevice(): String? = lockedDevice
     fun lastParsedAtMs(): Long = lastParsedAtMs
@@ -166,5 +158,6 @@ object CombatPortDetector {
         lastParsedAtMs = 0
         candidates.clear()
         deviceFlows.clear()
+        PingTracker.reset()
     }
 }

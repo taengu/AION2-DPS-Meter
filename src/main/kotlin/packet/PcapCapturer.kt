@@ -4,13 +4,14 @@ import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.UnifiedLogger
 import kotlinx.coroutines.channels.Channel
 import org.pcap4j.core.*
+import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.Packet
 import org.pcap4j.packet.TcpPacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
+
 
 class PcapCapturer(
     private val config: PcapCapturerConfig,
@@ -107,7 +108,14 @@ class PcapCapturer(
                 val src = tcp.header.srcPort.valueAsInt()
                 val dst = tcp.header.dstPort.valueAsInt()
 
-                channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                val ipv4 = packet.get(IpV4Packet::class.java)
+                val srcIp = ipv4?.header?.srcAddr?.hostAddress
+                val dstIp = ipv4?.header?.dstAddr?.hostAddress
+                val seq = tcp.header.sequenceNumberAsLong
+                val ack = tcp.header.acknowledgmentNumberAsLong
+
+                channel.trySend(CapturedPayload(src, dst, data, deviceLabel,
+                    srcIp = srcIp, dstIp = dstIp, tcpSeq = seq, tcpAck = ack))
             }
 
             handle.use { h -> h.loop(-1, listener) }
@@ -274,11 +282,17 @@ class PcapCapturer(
             return
         }
 
+        // Always start physical adapters for ping measurement — ExitLag/VPN
+        // traffic flows on external NICs even when the game is locked to loopback.
         thread(name = "pcap-fallback") {
             Thread.sleep(FALLBACK_DELAY_MS)
-            if (CombatPortDetector.currentPort() == null) {
-                logger.warn("No combat port lock detected on virtual adapters; checking physical adapters")
-                startDevices(physicalDevices, "fallback from virtual adapters")
+            if (physicalDevices.isNotEmpty()) {
+                val reason = if (CombatPortDetector.currentPort() == null) {
+                    "fallback from virtual adapters"
+                } else {
+                    "external ping measurement"
+                }
+                startDevices(physicalDevices, reason)
             }
         }
     }

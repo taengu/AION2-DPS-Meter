@@ -6,6 +6,7 @@ import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
 import com.tbread.packet.PcapCapturer
+import com.tbread.packet.PingTracker
 import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PropertyHandler
 import com.tbread.windows.WindowTitleDetector
@@ -268,6 +269,11 @@ class BrowserApp(
         @Suppress("unused")
         fun getParsingBacklog(): Int {
             return captureDispatcher.getParsingBacklog()
+        }
+
+        @Suppress("unused")
+        fun getPingMs(): Int {
+            return PingTracker.currentPingMs() ?: -1
         }
 
         @Suppress("unused")

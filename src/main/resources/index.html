@@ -464,6 +464,13 @@
                   </button>
                 </div>
                 <div class="settingsAdvancedBody" style="display: none;">
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel" data-i18n="settings.showPing">Show ping</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="showPingCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.targetWindow.label">
@@ -548,6 +555,7 @@
         </div>
         <div class="resizeHandle" aria-hidden="true"></div>
       </div>
+      <div class="pingDisplay"></div>
       <div
         class="console"
         style="

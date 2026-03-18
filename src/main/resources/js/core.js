@@ -35,6 +35,7 @@ class DpsApp {
       pinMeToTop: "dpsMeter.pinMeToTop",
       mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
       mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
+      showPing: "dpsMeter.showPing",
       theme: "dpsMeter.theme",
       slimMode: "dpsMeter.slimMode",
       bossLogs: "dpsMeter.bossLogsEnabled",
@@ -274,6 +275,10 @@ class DpsApp {
     });
     this.battleTime.setVisible(false);
     this.updateConnectionStatusUi();
+
+    this.pingEl = document.querySelector(".pingDisplay");
+    this.showPing = this.safeGetSetting(this.storageKeys.showPing) === "true";
+    this._pingTimer = setInterval(() => this.updatePing(), 2000);
 
     this.detailsPanel = document.querySelector(".detailsPanel");
     this.detailsClose = document.querySelector(".detailsClose");
@@ -852,6 +857,7 @@ class DpsApp {
     if (this.elBossName) {
       if (this.elBossName.textContent !== nextTargetLabel) {
         this.elBossName.textContent = nextTargetLabel;
+        this.fitBossName();
       }
       this.elBossName.classList.toggle("isAllTargets", targetMode === "allTargets");
     }
@@ -1500,6 +1506,7 @@ class DpsApp {
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
+    this.showPingCheckbox = document.querySelector(".showPingCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
     this.slimModeCheckbox = document.querySelector(".slimModeCheckbox");
     this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
@@ -1648,6 +1655,13 @@ class DpsApp {
       this.debugLoggingCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
         this.setDebugLogging(isChecked, { persist: true, syncBackend: true });
+      });
+    }
+    if (this.showPingCheckbox) {
+      this.showPingCheckbox.checked = this.showPing;
+      this.showPingCheckbox.addEventListener("change", (event) => {
+        this.showPing = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.showPing, String(this.showPing));
       });
     }
     if (this.pinMeToTopCheckbox) {
@@ -2646,7 +2660,6 @@ class DpsApp {
 
   closeSettingsPanel() {
     this.settingsPanel?.classList.remove("isOpen");
-    window._resumeFpsMonitor?.();
   }
 
   setUserName(name, { persist = false, syncBackend = false } = {}) {
@@ -3004,6 +3017,39 @@ class DpsApp {
     const rawVersion = String(window.dpsData?.getVersion?.() || "").trim();
     const normalized = rawVersion.replace(/^v/i, "");
     this.settingsVersionValue.textContent = normalized ? `v${normalized}` : "-";
+  }
+
+  fitBossName() {
+    const el = this.elBossName;
+    if (!el) return;
+    const container = el.parentElement;
+    if (!container) return;
+    const maxFs = this.slimMode ? 16 : 18;
+    const minFs = 10;
+    el.style.fontSize = "";
+    for (let fs = maxFs; fs >= minFs; fs--) {
+      el.style.fontSize = `${fs}px`;
+      if (el.scrollWidth <= container.clientWidth) return;
+    }
+  }
+
+  updatePing() {
+    if (!this.pingEl) return;
+    if (!this.showPing) {
+      this.pingEl.classList.remove("isVisible");
+      return;
+    }
+    const ms = window.javaBridge?.getPingMs?.();
+    if (typeof ms !== "number" || ms < 0) {
+      this.pingEl.classList.remove("isVisible");
+      return;
+    }
+    this.pingEl.textContent = `${ms}ms`;
+    this.pingEl.classList.add("isVisible");
+    this.pingEl.classList.remove("ping-good", "ping-warn", "ping-bad");
+    this.pingEl.classList.add(
+      ms <= 80 ? "ping-good" : ms <= 200 ? "ping-warn" : "ping-bad"
+    );
   }
 
   updateConnectionStatusUi() {
@@ -3389,55 +3435,6 @@ window.addEventListener("unhandledrejection", (event) => {
   debug?.log?.("unhandledrejection", event.reason);
 });
 
-// Frame rate monitor: logs actual rAF fps to console every 5 seconds.
-// Open the JavaFX WebView console to read these numbers.
-// If fps is low (~1-5) even when panels are closed, the WebKit renderer itself
-// is the bottleneck. If fps is fine when closed but drops when a panel opens,
-// the panel's CSS rendering is the culprit.
-// Frame rate monitor: logs actual rAF fps via the Java logger every 5 seconds.
-// Check debug.log for "[FPS]" lines to see the actual render frame rate.
-// Low fps (< 30) when panels are CLOSED points to an animation/rendering loop.
-// Low fps only when panels are OPEN means the panel content itself is the bottleneck.
-const startFpsMonitor = () => {
-  let frames = 0;
-  let lastReport = performance.now();
-  let paused = false;
-  const tick = (now) => {
-    // Pause the rAF loop when a panel is open.  A continuous rAF keeps
-    // JavaFX WebView in repaint mode (software renderer re-composites every
-    // frame) even when nothing changed, wasting CPU and starving input events.
-    const panelOpen =
-      document.querySelector(".detailsPanel")?.classList?.contains("open") ||
-      document.querySelector(".settingsPanel")?.classList?.contains("isOpen");
-    if (panelOpen) {
-      paused = true;
-      frames = 0;
-      lastReport = now;
-      return; // stop scheduling — resumed when panel closes
-    }
-    paused = false;
-    frames++;
-    if (now - lastReport >= 5000) {
-      const elapsed = now - lastReport;
-      const fps = (frames / (elapsed / 1000)).toFixed(1);
-      const msg = `[FPS] rAF rate: ${fps} fps (${frames} frames in ${Math.round(elapsed)}ms)`;
-      try { window.javaBridge?.logDebug?.(msg); } catch (_) {}
-      frames = 0;
-      lastReport = now;
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-  // Allow external code to restart the loop after a panel closes.
-  window._resumeFpsMonitor = () => {
-    if (paused) {
-      paused = false;
-      frames = 0;
-      lastReport = performance.now();
-      requestAnimationFrame(tick);
-    }
-  };
-};
 
 let appStarted = false;
 const startApp = async ({ forced = false } = {}) => {
@@ -3454,7 +3451,7 @@ const startApp = async ({ forced = false } = {}) => {
     window.lucide?.createIcons?.();
     dpsApp.start();
     window.javaBridge?.notifyUiReady?.();
-    startFpsMonitor();
+
   } catch (err) {
     debug?.log?.("startApp.error", err);
   }
