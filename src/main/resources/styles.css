@@ -1313,39 +1313,29 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 
   .detailsSkills {
     .cell {
-      min-width: 46px;
+      min-width: 0;
       display: flex;
       align-items: center;
+      overflow: hidden;
     }
     .cell.center {
       justify-content: center;
-      flex: 0 0 56px;
     }
     .cell.name {
-      flex: 0 0 200px;
       justify-content: flex-start;
       white-space: nowrap;
-
       color: var(--isUser-fill);
     }
 
-
     .cell.dmg {
-      flex: 0 0 220px;
       text-align: center;
-    }
-    .cell.right {
-      justify-content: flex-end;
-    }
-    .cell.center {
-      justify-content: center;
-      flex: 0 0 56px;
     }
 
     .skillHeader {
-      display: flex;
+      display: grid;
+      grid-template-columns: var(--skill-grid-cols);
+      gap: 8px;
       align-items: center;
-      gap: 12px;
       padding: 6px 12px;
       font-weight: 700;
 
@@ -1382,9 +1372,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
         background: transparent;
       }
       .skillRow {
-        display: flex;
+        display: grid;
+        grid-template-columns: var(--skill-grid-cols);
+        gap: 8px;
         align-items: center;
-        gap: 12px;
         padding: 2px 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         &:last-child {
@@ -2445,6 +2436,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  overflow-y: auto;
   font-size: var(--details-font-size, var(--font));
 }
 .detailsPanel .detailsSkills {
@@ -2454,6 +2446,30 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   min-height: 0;
   overflow-x: hidden;
   overflow-y: hidden;
+  --skill-grid-cols:
+    minmax(90px, 1.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.7fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.6fr)
+    minmax(36px, 0.7fr)
+    minmax(100px, 2fr);
+}
+/* Column-hiding: when .detailsPanel has .hide-col-X, collapse that column to 0 */
+.detailsPanel.hide-col-hit  .detailsSkills .cell.hit,
+.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
+.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg,
+.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
+.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
+.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
+.detailsPanel.hide-col-double .detailsSkills .cell.double,
+.detailsPanel.hide-col-back .detailsSkills .cell.back,
+.detailsPanel.hide-col-heal .detailsSkills .cell.heal {
+  display: none;
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-sort-key] {
   cursor: pointer;
@@ -2462,13 +2478,11 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   min-width: 0;
   display: flex;
   align-items: center;
+  overflow: hidden;
 }
 .detailsPanel .detailsSkills .skillHeader .cell,
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   white-space: nowrap;
-}
-.detailsPanel .detailsSkills .skillHeader .cell {
-  min-width: max-content;
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   font-weight: 400;
@@ -2479,8 +2493,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 var(--details-skill-name-width, 144px);
-  min-width: var(--details-skill-name-width, 144px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
@@ -2512,29 +2524,16 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 0 1 auto;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
-.detailsPanel .detailsSkills .cell.heal {
-  flex: 0.9 1 0;
-}
-.detailsPanel .detailsSkills .cell.mhit,
-.detailsPanel .detailsSkills .cell.mdmg {
-  flex: 0.9 1 0;
-}
 .detailsPanel .detailsSkills .cell.dmg {
-  flex: 2.5 1 0;
-  min-width: 170px;
   justify-content: center;
 }
-.detailsPanel .detailsSkills .cell.right {
-  justify-content: flex-end;
-}
 .detailsPanel .detailsSkills .skillHeader {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: var(--skill-grid-cols);
   gap: 8px;
+  align-items: center;
   padding: 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
@@ -2622,9 +2621,10 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 
 
 .detailsPanel .detailsSkills .skills .skillRow {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: var(--skill-grid-cols);
   gap: 8px;
+  align-items: center;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -2659,6 +2659,118 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   opacity: 0.6;
   padding: 6px 12px 0;
   font-weight: 400;
+}
+
+/* ── Collapsible sections ── */
+.detailsPanel .detailsSection {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.detailsPanel .detailsSection.isExpanded {
+  flex: 1 1 auto;
+}
+.detailsPanel .detailsSection .detailsSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.75);
+  transition: color 0.15s;
+}
+.detailsPanel .detailsSection .detailsSectionHeader:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+.detailsPanel .detailsSection .detailsSectionArrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.2s;
+}
+.detailsPanel .detailsSection.isExpanded > .detailsSectionHeader .detailsSectionArrow {
+  transform: rotate(90deg);
+}
+.detailsPanel .detailsSection .detailsSectionContent {
+  display: none;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.detailsPanel .detailsSection.isExpanded > .detailsSectionContent {
+  display: flex;
+}
+
+/* ── Timeline chart ── */
+.detailsPanel .timelineChart {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 0;
+}
+.detailsPanel .timelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 4px 12px 6px;
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.8);
+}
+.detailsPanel .timelineLegend .legendItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.detailsPanel .timelineLegend .legendItem img {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.detailsPanel .timelineViewport {
+  flex: 1 1 auto;
+  min-height: 80px;
+  max-height: 320px;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-track {
+  background: rgb(30, 30, 30);
+  border-radius: 999px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.detailsPanel .timelineCanvas {
+  display: block;
+}
+.detailsPanel .timelineXAxis {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 12px 0;
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.5);
+}
+.detailsPanel .timelineXAxis span {
+  flex-shrink: 0;
 }
 
 .updateModal.isOpen {

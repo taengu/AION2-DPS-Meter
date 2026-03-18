@@ -177,7 +177,7 @@ val embedAdminManifest by tasks.registering(Exec::class) {
     }
 }
 
-tasks.named("packageMsi") {
+tasks.matching { it.name == "packageMsi" }.configureEach {
     dependsOn(embedAdminManifest)
 }
 

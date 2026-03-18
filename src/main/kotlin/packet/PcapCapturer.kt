@@ -148,7 +148,8 @@ class PcapCapturer(
                     device.addresses.isEmpty() -> "not capturing: no interface addresses"
                     else -> "not capturing: handle inactive (not started yet, failed, or waiting)"
                 }
-                logger.debug(
+                UnifiedLogger.debug(
+                    logger,
                     "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
                     index,
                     device.name,
@@ -160,21 +161,6 @@ class PcapCapturer(
                     addresses,
                     reason
                 )
-                if (UnifiedLogger.isDebugEnabled()) {
-                    UnifiedLogger.debug(
-                        logger,
-                        "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
-                        index,
-                        device.name,
-                        label,
-                        device.isLoopBack,
-                        device.isUp,
-                        device.isRunning,
-                        hasHandle,
-                        addresses,
-                        reason
-                    )
-                }
             }
         }
     }
@@ -192,32 +178,20 @@ class PcapCapturer(
             return
         }
 
-        if (UnifiedLogger.isDebugEnabled()) {
-            devices.forEachIndexed { index, device ->
-                val label = device.description ?: device.name
-                val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
-                logger.debug(
-                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
-                    index,
-                    device.name,
-                    label,
-                    device.isLoopBack,
-                    device.isUp,
-                    device.isRunning,
-                    addresses
-                )
-                UnifiedLogger.debug(
-                    logger,
-                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
-                    index,
-                    device.name,
-                    label,
-                    device.isLoopBack,
-                    device.isUp,
-                    device.isRunning,
-                    addresses
-                )
-            }
+        devices.forEachIndexed { index, device ->
+            val label = device.description ?: device.name
+            val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
+            UnifiedLogger.debug(
+                logger,
+                "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
+                index,
+                device.name,
+                label,
+                device.isLoopBack,
+                device.isUp,
+                device.isRunning,
+                addresses
+            )
         }
 
         logDeviceStatusesWhileUnlocked()
@@ -241,21 +215,13 @@ class PcapCapturer(
                 }
 
                 if (reasonDetail != null) {
-                    if (UnifiedLogger.isDebugEnabled()) {
-                        logger.debug(
-                            "PCAP device not started: {} ({}) reason={}",
-                            target.description ?: target.name,
-                            reason,
-                            reasonDetail
-                        )
-                        UnifiedLogger.debug(
-                            logger,
-                            "PCAP device not started: {} ({}) reason={}",
-                            target.description ?: target.name,
-                            reason,
-                            reasonDetail
-                        )
-                    }
+                    UnifiedLogger.debug(
+                        logger,
+                        "PCAP device not started: {} ({}) reason={}",
+                        target.description ?: target.name,
+                        reason,
+                        reasonDetail
+                    )
                     return@forEach
                 }
 

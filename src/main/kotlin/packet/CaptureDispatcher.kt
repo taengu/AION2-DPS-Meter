@@ -2,18 +2,17 @@ package com.tbread.packet
 
 import com.tbread.DataStorage
 import com.tbread.logging.UnifiedLogger
+import com.tbread.util.HexUtil
 import com.tbread.windows.WindowTitleDetector
 import kotlinx.coroutines.channels.Channel
 import org.slf4j.LoggerFactory
 
 class CaptureDispatcher(
     private val channel: Channel<CapturedPayload>,
-    dataStorage: DataStorage,
+    private val dataStorage: DataStorage,
     private val isOfflineReplay: Boolean = false
 ) {
     private val logger = LoggerFactory.getLogger(CaptureDispatcher::class.java)
-
-    private val sharedDataStorage = dataStorage
     private var lastWindowCheckMs = 0L
     private var isAionRunning = false
 
@@ -92,7 +91,7 @@ class CaptureDispatcher(
                     StreamAssembler(offlineReplayProcessor!!)
                 } else {
                     assemblers.getOrPut(key) {
-                        StreamAssembler(StreamProcessor(sharedDataStorage))
+                        StreamAssembler(StreamProcessor(dataStorage))
                     }
                 }
 
@@ -166,17 +165,7 @@ class CaptureDispatcher(
         )
     }
 
-    private fun toHex(bytes: ByteArray): String {
-        if (bytes.isEmpty()) return ""
-        val chars = CharArray(bytes.size * 2)
-        var idx = 0
-        for (b in bytes) {
-            val v = b.toInt() and 0xFF
-            chars[idx++] = HEX_DIGITS[v ushr 4]
-            chars[idx++] = HEX_DIGITS[v and 0x0F]
-        }
-        return String(chars)
-    }
+    private fun toHex(bytes: ByteArray): String = HexUtil.toHexCompact(bytes)
 
     private fun ensureAionRunning(): Boolean {
         if (isOfflineReplay) return true
@@ -227,7 +216,6 @@ class CaptureDispatcher(
     }
 
     companion object {
-        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
         private const val SKIP_LOG_WINDOW_MS = 30_000L

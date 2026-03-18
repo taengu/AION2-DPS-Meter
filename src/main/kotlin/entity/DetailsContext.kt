@@ -43,7 +43,8 @@ data class DetailSkillEntry(
     val double: Int,
     val heal: Int,
     val job: String = "",
-    val isDot: Boolean = false
+    val isDot: Boolean = false,
+    val hitTimestamps: List<Long> = emptyList()
 )
 
 @Serializable
@@ -52,5 +53,6 @@ data class TargetDetailsResponse(
     val maxHp: Int = 0,
     val totalTargetDamage: Int,
     val battleTime: Long,
+    val startTime: Long = 0L,
     val skills: List<DetailSkillEntry>
 )

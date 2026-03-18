@@ -166,6 +166,31 @@
     return [buildIconUrl(classCode, sub, false), CROSSED_SWORDS_ICON];
   };
 
+  // In-memory blob URL cache: CDN url → blob URL (instant, no decode cost)
+  const blobCache = new Map();    // url → blobUrl
+  const blobPending = new Map();  // url → Promise<blobUrl|null>
+
+  const fetchAsBlob = (url) => {
+    if (blobCache.has(url)) return Promise.resolve(blobCache.get(url));
+    if (blobPending.has(url)) return blobPending.get(url);
+    // Only cache CDN URLs (not data: URIs)
+    if (!url.startsWith("http")) return Promise.resolve(null);
+    const p = fetch(url, { mode: "cors", credentials: "omit" })
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status);
+        return r.blob();
+      })
+      .then((blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        blobCache.set(url, blobUrl);
+        return blobUrl;
+      })
+      .catch(() => null)
+      .finally(() => blobPending.delete(url));
+    blobPending.set(url, p);
+    return p;
+  };
+
   const applyIconToImage = (imgEl, skill = {}) => {
     if (!imgEl) return;
     const candidates = getIconCandidates(skill);
@@ -177,11 +202,49 @@
       imgEl.style.display = "";
       return;
     }
+
+    const primaryUrl = candidates[0];
+
+    // Fast path: element already shows this icon — skip entirely
+    if (imgEl.dataset.iconUrl === primaryUrl) {
+      imgEl.style.display = "";
+      return;
+    }
+
+    imgEl.dataset.iconUrl = primaryUrl;
     imgEl.dataset.iconCandidates = JSON.stringify(candidates);
     imgEl.dataset.iconIndex = "0";
-    imgEl.classList.remove("isPlaceholder");
-    imgEl.src = candidates[0];
     imgEl.style.display = "";
+
+    // Try cached blob first (instant, no flash)
+    const cached = blobCache.get(primaryUrl);
+    if (cached) {
+      imgEl.classList.remove("isPlaceholder");
+      imgEl.src = cached;
+      return;
+    }
+
+    // For data: URIs (SVG fallbacks), apply directly
+    if (!primaryUrl.startsWith("http")) {
+      imgEl.classList.remove("isPlaceholder");
+      imgEl.src = primaryUrl;
+      return;
+    }
+
+    // Show placeholder while fetching, then swap in blob
+    imgEl.classList.add("isPlaceholder");
+    imgEl.src = TRANSPARENT_PIXEL;
+    fetchAsBlob(primaryUrl).then((blobUrl) => {
+      // Only apply if this element still wants this icon
+      if (imgEl.dataset.iconUrl !== primaryUrl) return;
+      if (blobUrl) {
+        imgEl.classList.remove("isPlaceholder");
+        imgEl.src = blobUrl;
+      } else {
+        // CDN fetch failed — fall through to next candidate
+        handleImgError(imgEl);
+      }
+    });
   };
 
   const handleImgError = (imgEl) => {
@@ -202,8 +265,18 @@
       return;
     }
     imgEl.dataset.iconIndex = String(idx);
+    const nextUrl = candidates[idx];
+
+    // Use blob cache for CDN fallbacks too
+    const cached = blobCache.get(nextUrl);
+    if (cached) {
+      imgEl.classList.remove("isPlaceholder");
+      imgEl.src = cached;
+      return;
+    }
+
     imgEl.classList.remove("isPlaceholder");
-    imgEl.src = candidates[idx];
+    imgEl.src = nextUrl;
   };
 
   global.skillIcons = {

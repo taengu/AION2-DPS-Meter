@@ -1214,6 +1214,7 @@ class DpsApp {
       job = "",
       actorId = null,
       isDot = false,
+      hitTimestamps = null,
     }) => {
       const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
       if (dmgInt <= 0) {
@@ -1250,6 +1251,7 @@ class DpsApp {
         job,
         actorId,
         isDot,
+        hitTimestamps: Array.isArray(hitTimestamps) ? hitTimestamps : [],
       });
     };
 
@@ -1287,6 +1289,7 @@ class DpsApp {
           countForTotals: !isDot,
           actorId: Number.isFinite(actorId) ? actorId : null,
           isDot,
+          hitTimestamps: Array.isArray(value.hitTimestamps) ? value.hitTimestamps : [],
         });
       }
     } else {
@@ -2241,6 +2244,7 @@ class DpsApp {
       columns.forEach((column) => {
         this.detailsPanel.classList.toggle(`hide-col-${column}`, hiddenColumns.has(column));
       });
+      this.detailsUI?.updateGridColumns?.();
     };
     if (this.detailsColumnToggles && this.detailsColumnToggles.length) {
       this.detailsColumnToggles.forEach((toggle) => {

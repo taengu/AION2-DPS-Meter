@@ -37,23 +37,6 @@ class DataStorage {
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
-        // --- NEW: Log ANY use of an NPC skill before filtering ---
-        if (logger.isDebugEnabled()) {
-            val skillCode = pdp.getSkillCode1()
-
-            // NPC skills and effects are generally in the 1M to 9M range
-            if (skillCode in 1_000_000..9_999_999) {
-                // Access the SKILL_MAP safely from the DpsCalculator companion
-                val skillName = DpsCalculator.SKILL_MAP[skillCode] ?: skillCode.toString()
-
-                logger.debug("NPC {} attacked {} with {}", pdp.getActorId(), pdp.getTargetId(), skillName)
-                if (UnifiedLogger.isDebugEnabled()) {
-                    UnifiedLogger.debug(logger, "NPC {} attacked {} with {}", pdp.getActorId(), pdp.getTargetId(), skillName)
-                }
-            }
-        }
-        // ---------------------------------------------------------
-
         // Drop packets from known mobs to save memory, but only when the skill id also
         // looks like an NPC skill. False-positive mob mappings can happen during noisy
         // stream recovery, and we must not discard valid player damage in that case.

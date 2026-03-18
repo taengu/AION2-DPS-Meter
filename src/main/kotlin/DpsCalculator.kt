@@ -9,6 +9,7 @@ import com.tbread.entity.JobClass
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
 import com.tbread.entity.SpecialDamage
+import com.tbread.entity.SummonResolver
 import com.tbread.entity.TargetDetailsResponse
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.UnifiedLogger
@@ -251,25 +252,22 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val isRecentCombined = targetDecision.mode == TargetSelectionMode.LAST_HIT_BY_ME &&
                 targetDecision.trackingTargetId == 0 &&
                 targetDecision.targetIds.isNotEmpty()
-        val isTrainCombined = targetDecision.mode == TargetSelectionMode.TRAIN_TARGETS
+        val useRecentWindow = isRecentCombined ||
+                targetDecision.mode == TargetSelectionMode.TRAIN_TARGETS ||
+                targetDecision.mode == TargetSelectionMode.ALL_TARGETS
 
         var battleTime = when {
-            isRecentCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
-            isTrainCombined -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
+            useRecentWindow -> parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
             localActorsForBattleTime != null ->
                 parseActorBattleTimeForTarget(localActorsForBattleTime, currentTarget, actorMap)
-            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
-                parseRecentBattleTime(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
             else -> targetInfoMap[currentTarget]?.parseBattleTime() ?: 0
         }
 
         // 1. Collect the packets BEFORE checking if battleTime is 0
-        val pdps = when {
-            isRecentCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
-            isTrainCombined -> collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
-            targetDecision.mode == TargetSelectionMode.ALL_TARGETS ->
-                collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
-            else -> pdpMap[currentTarget] ?: emptyList()
+        val pdps = if (useRecentWindow) {
+            collectRecentPdp(targetDecision.targetIds, allTargetsWindowMs, pdpMap)
+        } else {
+            pdpMap[currentTarget] ?: emptyList()
         }
 
         // 2. Force a 1-second minimum combat time for the very first hit!
@@ -374,19 +372,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return dpsData
     }
 
-    private fun resolveSummonerUid(actorId: Int, summonData: Map<Int, Int>): Int {
-        if (actorId <= 0) return actorId
-        var resolved = actorId
-        val visited = mutableSetOf<Int>()
-        var hops = 0
-        while (hops < 16 && visited.add(resolved)) {
-            val parent = summonData[resolved] ?: break
-            if (parent <= 0) break
-            resolved = parent
-            hops++
-        }
-        return resolved
-    }
+    private fun resolveSummonerUid(actorId: Int, summonData: Map<Int, Int>): Int =
+        SummonResolver.resolve(actorId, summonData)
 
     private fun resolveNickname(uid: Int, nicknameData: Map<Int, String>): String {
         val summonData = dataStorage.getSummonData()
@@ -520,6 +507,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val mobHpData = dataStorage.getMobHpData()
         val actorJobs = mutableMapOf<Int, String>()
         val skillMap = mutableMapOf<String, DetailSkillEntry>()
+        val hitTimestampsMap = mutableMapOf<String, MutableList<Long>>()
         var totalTargetDamage = 0
         var startTime: Long? = null
         var endTime: Long? = null
@@ -625,8 +613,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
 
             skillMap[key] = updated
+            hitTimestampsMap.getOrPut(key) { mutableListOf() }.add(timestamp)
         }
 
+        val resolvedStartTime = startTime ?: 0L
         val battleTime = run {
             val start = startTime
             val end = endTime
@@ -636,12 +626,18 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 targetInfoMap[targetId]?.parseBattleTime() ?: 0L
             }
         }
+        val skillsWithTimestamps = skillMap.map { (key, entry) ->
+            val timestamps = hitTimestampsMap[key] ?: emptyList()
+            val relativeTimestamps = timestamps.map { it - resolvedStartTime }.sorted()
+            entry.copy(hitTimestamps = relativeTimestamps)
+        }
         return TargetDetailsResponse(
             targetId = targetId,
             maxHp = mobHpData[targetId] ?: 0,
             totalTargetDamage = totalTargetDamage,
             battleTime = battleTime,
-            skills = skillMap.values.toList()
+            startTime = resolvedStartTime,
+            skills = skillsWithTimestamps
         )
     }
 
@@ -882,12 +878,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     fun isBossTargetPublic(targetId: Int): Boolean = isBossTarget(targetId)
 
     private fun resolveTargetName(target: Int): String {
-        if (!dataStorage.getMobData().containsKey(target)) return ""
         val mobCode = dataStorage.getMobData()[target] ?: return ""
         val language = PropertyHandler.getProperty("dpsMeter.language", "en") ?: "en"
         val npcMap = getNpcMapForLanguage(language)
-
-        // Check localized static NPC map first, then fallback to dynamic data storage
         return npcMap[mobCode]?.name ?: dataStorage.getMobCodeData()[mobCode] ?: ""
     }
 

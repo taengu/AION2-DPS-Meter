@@ -5,12 +5,13 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import com.tbread.DpsCalculator
 import com.tbread.logging.UnifiedLogger
+import com.tbread.util.HexUtil
 import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
     companion object {
-        private val HEX_DIGITS = "0123456789ABCDEF".toCharArray()
+        private val HEX_DIGITS = HexUtil.HEX_DIGITS
     }
 
     private data class PendingCompactSkillContext(
@@ -382,9 +383,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         if (candidates.isEmpty()) {
-            val boundLocal = bindLocalNameFromLootAttributionPacket(packet)
-            if (boundLocal) return true
-            return false
+            return bindLocalNameFromLootAttributionPacket(packet)
         }
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         val allowPrepopulate = candidates.size > 1

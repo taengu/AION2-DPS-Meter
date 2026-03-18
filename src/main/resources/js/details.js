@@ -29,13 +29,9 @@ const createDetailsUI = ({
   let detectedJobByActorId = new Map();
   let skillSortKey = "dmg";
   let skillSortDir = "desc";
-  let lastSkillNameColumnWidth = 0;
   let activeCompactMode = false;
-  let skillColumnSyncRafId = 0;
-  let skillColumnSyncDebounceId = 0;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
-  const skillNameMeasureCtx = document.createElement("canvas").getContext("2d");
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -305,7 +301,7 @@ const createDetailsUI = ({
       }
     }
     updateHeaderText();
-    scheduleSkillColumnMinWidths();
+    updateGridColumns();
   };
 
   const resolveStatValue = (statKey, data) => {
@@ -570,234 +566,30 @@ const createDetailsUI = ({
     });
   };
 
-  const clearSkillColumnInlineWidths = () => {
-    const cells = detailsPanel?.querySelectorAll?.(".detailsSkills .cell");
-    if (!cells?.length) return;
-    cells.forEach((cell) => {
-      cell.style.removeProperty("min-width");
-      cell.style.removeProperty("width");
-      cell.style.removeProperty("max-width");
-      cell.style.removeProperty("flex");
-    });
+  // Column definitions: name → grid track template fragment
+  const GRID_COL_DEFS = {
+    name: "minmax(90px, 1.6fr)",
+    hit: "minmax(36px, 0.6fr)",
+    mhit: "minmax(36px, 0.6fr)",
+    mdmg: "minmax(36px, 0.7fr)",
+    crit: "minmax(36px, 0.6fr)",
+    parry: "minmax(36px, 0.6fr)",
+    perfect: "minmax(36px, 0.6fr)",
+    double: "minmax(36px, 0.6fr)",
+    back: "minmax(36px, 0.6fr)",
+    heal: "minmax(36px, 0.7fr)",
+    dmg: "minmax(100px, 2fr)",
   };
+  const GRID_COL_ORDER = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"];
 
-  const syncSkillColumnMinWidths = () => {
-    clearSkillColumnInlineWidths();
-    const headerEl = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
-    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
-    if (!headerEl || !headerCells?.length) return;
-
-    const compactColumns = ["hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal"];
-    const compactSet = new Set(compactColumns);
-    const columnOrder = ["name", ...compactColumns, "dmg"];
-
-    const compactColumnMaxWidths = {
-      hit: 56,
-      mhit: 66,
-      mdmg: 78,
-      crit: 64,
-      parry: 64,
-      perfect: 68,
-      double: 66,
-      back: 62,
-      heal: 72,
-    };
-
-    const compactColumnMinWidths = {
-      hit: 40,
-      mhit: 48,
-      mdmg: 56,
-      crit: 46,
-      parry: 46,
-      perfect: 50,
-      double: 48,
-      back: 44,
-      heal: 50,
-    };
-
-    const isVisibleCell = (cell) => {
-      // Cells are only ever hidden via inline style (row-level: rowEl.style.display="none")
-      // or the iconEl. Individual column cells are never hidden via CSS class.
-      // Avoid getComputedStyle — it forces a synchronous layout recalculation
-      // for every cell, causing 400+ forced reflows per sync call.
-      if (!cell) return false;
-      return cell.style.display !== "none";
-    };
-
-    const measuredWidths = new Map();
-    const headerMinWidths = new Map();
-
-    columnOrder.forEach((columnClass) => {
-      const headerCell = [...headerCells].find(
-        (cell) => cell.classList.contains(columnClass) && isVisibleCell(cell)
-      );
-      if (!headerCell) return;
-
-      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`) || [];
-      const visibleCells = [...columnCells].filter((cell) => {
-        if (!isVisibleCell(cell)) return false;
-        const row = cell?.closest?.(".skillRow");
-        return !row || row.style.display !== "none";
-      });
-      if (!visibleCells.length) return;
-
-      const headerWidth = Math.ceil(headerCell.scrollWidth || 0);
-      if (!Number.isFinite(headerWidth) || headerWidth <= 0) return;
-
-      headerMinWidths.set(columnClass, headerWidth + 4);
-
-      let targetWidth = headerWidth + 4;
-      if (columnClass === "name") {
-        const currentNameWidth = parseFloat(
-          detailsPanel?.style?.getPropertyValue?.("--details-skill-name-width") || "144"
-        );
-        if (Number.isFinite(currentNameWidth) && currentNameWidth > 0) {
-          targetWidth = Math.max(targetWidth, Math.ceil(currentNameWidth));
-        }
-        targetWidth = Math.min(Math.max(96, targetWidth), 176);
-      } else if (compactSet.has(columnClass)) {
-        visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
-        });
-        targetWidth = Math.min(targetWidth, compactColumnMaxWidths[columnClass] || 74);
-      } else if (columnClass === "dmg") {
-        visibleCells.forEach((cell) => {
-          targetWidth = Math.max(targetWidth, Math.ceil(cell.scrollWidth || 0) + 4);
-        });
-        targetWidth = Math.min(Math.max(120, targetWidth), 170);
-      }
-
-      measuredWidths.set(columnClass, Math.ceil(targetWidth));
-    });
-
-    const visibleColumns = columnOrder.filter((columnClass) => measuredWidths.has(columnClass));
-    if (!visibleColumns.length) return;
-
-    const gap = 6;
-    const totalGap = Math.max(0, visibleColumns.length - 1) * gap;
-    const availableWidth = Math.max(300, Math.floor(headerEl.clientWidth - 4));
-    const getTotalWidth = () => visibleColumns.reduce((sum, key) => sum + (measuredWidths.get(key) || 0), 0) + totalGap;
-
-    let overflow = getTotalWidth() - availableWidth;
-
-    if (overflow > 0 && measuredWidths.has("name")) {
-      const current = measuredWidths.get("name") || 0;
-      const minName = Math.max(headerMinWidths.get("name") || 84, 108);
-      const reducible = Math.max(0, current - minName);
-      const delta = Math.min(reducible, overflow);
-      measuredWidths.set("name", current - delta);
-      overflow -= delta;
-    }
-
-    if (overflow > 0 && measuredWidths.has("dmg")) {
-      const current = measuredWidths.get("dmg") || 0;
-      const minDmg = Math.max(headerMinWidths.get("dmg") || 100, 108);
-      const reducible = Math.max(0, current - minDmg);
-      const delta = Math.min(reducible, overflow);
-      measuredWidths.set("dmg", current - delta);
-      overflow -= delta;
-    }
-
-    if (overflow > 0) {
-      const shrinkable = compactColumns.filter((columnClass) => measuredWidths.has(columnClass));
-      let safety = 2000;
-      while (overflow > 0 && safety > 0) {
-        safety -= 1;
-        let changed = false;
-        for (let i = 0; i < shrinkable.length && overflow > 0; i++) {
-          const key = shrinkable[i];
-          const current = measuredWidths.get(key) || 0;
-          const minWidth = Math.max(compactColumnMinWidths[key] || 40, headerMinWidths.get(key) || 40);
-          if (current <= minWidth) continue;
-          measuredWidths.set(key, current - 1);
-          overflow -= 1;
-          changed = true;
-        }
-        if (!changed) break;
-      }
-    }
-
-    visibleColumns.forEach((columnClass) => {
-      const width = Math.max(36, Math.floor(measuredWidths.get(columnClass) || 0));
-      const columnCells = detailsPanel?.querySelectorAll?.(`.detailsSkills .cell.${columnClass}`);
-      if (!columnCells?.length) return;
-
-      columnCells.forEach((cell) => {
-        if (!isVisibleCell(cell)) return;
-        cell.style.minWidth = `${width}px`;
-        cell.style.width = `${width}px`;
-        cell.style.maxWidth = `${width}px`;
-        cell.style.flex = `0 0 ${width}px`;
-      });
-
-      if (columnClass === "name") {
-        detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${width}px`);
-      }
-    });
-
-    const panelRect = detailsPanel?.getBoundingClientRect?.();
-    const currentWidth = Math.ceil(panelRect?.width || 0);
-    const maxAllowedWidth = Math.max(280, Math.floor(window.innerWidth - Math.max(0, panelRect?.left || 0) - 12));
-    if (currentWidth > maxAllowedWidth) {
-      detailsPanel.style.width = `${maxAllowedWidth}px`;
-    }
-
-  };
-
-  const scheduleSkillColumnMinWidths = () => {
-    // Debounce: cancel any pending RAF and restart the 80ms quiet-period timer.
-    // This prevents a burst of ResizeObserver or render calls from running the
-    // expensive reflow loop on every animation frame.
-    if (skillColumnSyncRafId) {
-      cancelAnimationFrame(skillColumnSyncRafId);
-      skillColumnSyncRafId = 0;
-    }
-    if (skillColumnSyncDebounceId) {
-      clearTimeout(skillColumnSyncDebounceId);
-    }
-    skillColumnSyncDebounceId = setTimeout(() => {
-      skillColumnSyncDebounceId = 0;
-      skillColumnSyncRafId = requestAnimationFrame(() => {
-        skillColumnSyncRafId = 0;
-        syncSkillColumnMinWidths();
-      });
-    }, 80);
-  };
-
-  const getSkillIconReserveWidth = () => {
-    const rawSize = detailsPanel ? window.getComputedStyle(detailsPanel).getPropertyValue("--details-skill-icon-size") : "";
-    const iconSize = Number.parseFloat(rawSize);
-    const resolved = Number.isFinite(iconSize) && iconSize > 0 ? iconSize : 36;
-    return resolved + 8;
-  };
-
-  const syncSkillNameColumnWidth = (skills = []) => {
-    if (!skillNameMeasureCtx) return;
-    const fontSource =
-      detailsPanel?.querySelector?.(".detailsSkills .skills .skillRow .skillNameText") ||
-      detailsPanel?.querySelector?.(".detailsSkills .skillHeader .cell.name");
-    if (!fontSource) return;
-
-    const computed = window.getComputedStyle(fontSource);
-    const font = computed?.font || `${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
-    if (!font) return;
-
-    skillNameMeasureCtx.font = font;
-    let widest = 0;
-    for (let i = 0; i < skills.length; i++) {
-      const width = skillNameMeasureCtx.measureText(String(skills[i]?.name ?? "")).width;
-      const hasIcon = (window.skillIcons?.getIconCandidates?.(skills[i]) || []).length > 0;
-      const withIcon = hasIcon ? width + getSkillIconReserveWidth() : width;
-      if (withIcon > widest) widest = withIcon;
-    }
-
-    const panelRect = detailsPanel?.getBoundingClientRect?.();
-    const panelWidth = Math.ceil(panelRect?.width || detailsPanel?.clientWidth || 0);
-    const maxNameColumnWidth = Math.max(112, Math.floor(panelWidth * 0.224));
-    const nextWidth = Math.min(Math.max(84, Math.ceil(widest + 16)), maxNameColumnWidth);
-    if (Math.abs(nextWidth - lastSkillNameColumnWidth) <= 1) return;
-    lastSkillNameColumnWidth = nextWidth;
-    detailsPanel?.style?.setProperty?.("--details-skill-name-width", `${nextWidth}px`);
+  const updateGridColumns = () => {
+    if (!detailsPanel) return;
+    const skillsContainer = detailsPanel.querySelector(".detailsSkills");
+    if (!skillsContainer) return;
+    const cols = GRID_COL_ORDER
+      .filter((col) => !detailsPanel.classList.contains(`hide-col-${col}`))
+      .map((col) => GRID_COL_DEFS[col]);
+    skillsContainer.style.setProperty("--skill-grid-cols", cols.join(" "));
   };
 
 
@@ -823,18 +615,7 @@ const createDetailsUI = ({
   };
 
   bindSkillHeaderSorting();
-  scheduleSkillColumnMinWidths();
-
-  // Recalculate column widths when the window resizes (panel width depends
-  // on viewport via CSS calc).  Do NOT use ResizeObserver on .skills or
-  // .skillHeader — clearSkillColumnInlineWidths() inside syncSkillColumnMinWidths
-  // mutates cell widths which changes the observed element's size, creating an
-  // infinite 80ms reflow loop that blocks the JAT and causes 1-2s interaction lag.
-  window.addEventListener("resize", () => {
-    if (detailsPanel?.classList?.contains("open")) {
-      scheduleSkillColumnMinWidths();
-    }
-  });
+  updateGridColumns();
 
   const renderSkills = (details, { compact = false } = {}) => {
     const skills = Array.isArray(details?.skills) ? details.skills : [];
@@ -878,7 +659,6 @@ const createDetailsUI = ({
     const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
 
     ensureSkillSlots(topSkills.length);
-    syncSkillNameColumnWidth(topSkills);
 
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
@@ -935,8 +715,245 @@ const createDetailsUI = ({
       view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
+  };
 
-    scheduleSkillColumnMinWidths();
+  // ── Collapsible section toggle ──
+  const sectionHeaders = detailsPanel?.querySelectorAll?.(".detailsSectionHeader");
+  sectionHeaders?.forEach?.((header) => {
+    header.addEventListener("click", () => {
+      const section = header.closest(".detailsSection");
+      if (section) section.classList.toggle("isExpanded");
+    });
+  });
+
+  // ── Timeline chart ──
+  const timelineCanvas = detailsPanel?.querySelector?.(".timelineCanvas");
+  const timelineViewport = detailsPanel?.querySelector?.(".timelineViewport");
+  const timelineLegend = detailsPanel?.querySelector?.(".timelineLegend");
+  const timelineXAxis = detailsPanel?.querySelector?.(".timelineXAxis");
+  const timelineSection = detailsPanel?.querySelector?.(".timelineSection");
+
+  // Color palette for skill lanes
+  const LANE_COLORS = [
+    "#6aa6ff", "#ff7eb3", "#7be35a", "#ffc658", "#b580ff",
+    "#5fcaff", "#ff6f4f", "#41d98a", "#e06bff", "#f2b94f",
+    "#8fd3ff", "#ff4f7a", "#ffe062", "#7b6dff", "#52b35c",
+  ];
+
+  const timelineIconCache = new Map(); // skill key → { img, ready }
+
+  const loadTimelineIcon = (skill) => {
+    const key = `${skill.code}::${skill.isDot ? "dot" : "hit"}`;
+    if (timelineIconCache.has(key)) return timelineIconCache.get(key);
+
+    const candidates = window.skillIcons?.getIconCandidates?.(skill) || [];
+    if (!candidates.length) {
+      timelineIconCache.set(key, null);
+      return null;
+    }
+
+    const entry = { img: new Image(), ready: false };
+    entry.img.crossOrigin = "anonymous";
+
+    const tryLoad = (idx) => {
+      if (idx >= candidates.length) return;
+      const url = candidates[idx];
+      // For data: URIs, load directly
+      if (!url.startsWith("http")) {
+        entry.img.src = url;
+        entry.img.onload = () => { entry.ready = true; };
+        return;
+      }
+      // For CDN URLs, fetch as blob to avoid CORS/canvas tainting
+      fetch(url, { mode: "cors", credentials: "omit" })
+        .then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+        .then((blob) => {
+          entry.img.src = URL.createObjectURL(blob);
+          entry.img.onload = () => { entry.ready = true; };
+        })
+        .catch(() => tryLoad(idx + 1));
+    };
+    tryLoad(0);
+    timelineIconCache.set(key, entry);
+    return entry;
+  };
+
+  const renderTimeline = (details) => {
+    if (!timelineCanvas || !timelineViewport || !timelineLegend || !timelineXAxis) return;
+
+    const skills = Array.isArray(details?.skills) ? details.skills : [];
+    const battleTimeMs = Number(details?.battleTimeMs) || 0;
+    if (battleTimeMs <= 0 || skills.length === 0) {
+      timelineCanvas.width = 0;
+      timelineCanvas.height = 0;
+      timelineLegend.innerHTML = "";
+      timelineXAxis.innerHTML = "";
+      return;
+    }
+
+    // Group skills and collect all hit timestamps
+    const laneMap = new Map();
+    skills.forEach((skill) => {
+      if (!skill) return;
+      const timestamps = Array.isArray(skill.hitTimestamps) ? skill.hitTimestamps : [];
+      if (timestamps.length === 0) return;
+      const name = String(skill.name ?? "");
+      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
+      const existing = laneMap.get(key);
+      if (existing) {
+        existing.timestamps.push(...timestamps);
+        existing.totalDmg += Number(skill.dmg) || 0;
+      } else {
+        laneMap.set(key, {
+          name,
+          code: skill.code,
+          job: skill.job || getActorJob(skill.actorId),
+          isDot: !!skill.isDot,
+          timestamps: [...timestamps],
+          totalDmg: Number(skill.dmg) || 0,
+          skill,
+        });
+      }
+    });
+
+    // Sort lanes by total damage (highest at top)
+    const lanes = [...laneMap.values()]
+      .sort((a, b) => b.totalDmg - a.totalDmg)
+      .slice(0, 15); // max 15 lanes
+
+    if (lanes.length === 0) {
+      timelineCanvas.width = 0;
+      timelineCanvas.height = 0;
+      timelineLegend.innerHTML = "";
+      timelineXAxis.innerHTML = "";
+      return;
+    }
+
+    // Sort timestamps within each lane
+    lanes.forEach((lane) => lane.timestamps.sort((a, b) => a - b));
+
+    // Dimensions
+    const ICON_SIZE = 22;
+    const LANE_HEIGHT = 30;
+    const LANE_PAD = 4;
+    const LEFT_MARGIN = 0;
+    const durationSec = battleTimeMs / 1000;
+    const minCanvasWidth = timelineViewport.clientWidth - 24;
+    const pixelsPerSecond = Math.max(8, minCanvasWidth / durationSec);
+    const chartWidth = Math.max(minCanvasWidth, Math.ceil(durationSec * pixelsPerSecond));
+    const chartHeight = lanes.length * LANE_HEIGHT;
+    const dpr = window.devicePixelRatio || 1;
+
+    timelineCanvas.width = Math.ceil(chartWidth * dpr);
+    timelineCanvas.height = Math.ceil(chartHeight * dpr);
+    timelineCanvas.style.width = `${chartWidth}px`;
+    timelineCanvas.style.height = `${chartHeight}px`;
+
+    const ctx = timelineCanvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, chartWidth, chartHeight);
+
+    // Draw lane backgrounds
+    lanes.forEach((lane, i) => {
+      const y = i * LANE_HEIGHT;
+      ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.1)";
+      ctx.fillRect(0, y, chartWidth, LANE_HEIGHT);
+    });
+
+    // Draw vertical grid lines (every 30s)
+    const gridIntervalSec = durationSec > 300 ? 60 : durationSec > 60 ? 30 : 10;
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    for (let sec = gridIntervalSec; sec < durationSec; sec += gridIntervalSec) {
+      const x = Math.round((sec / durationSec) * chartWidth) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, chartHeight);
+      ctx.stroke();
+    }
+
+    // Draw skill icons on each lane
+    const pendingDraws = [];
+    lanes.forEach((lane, laneIdx) => {
+      const y = laneIdx * LANE_HEIGHT + LANE_PAD;
+      const color = LANE_COLORS[laneIdx % LANE_COLORS.length];
+      const entry = loadTimelineIcon({
+        code: lane.code,
+        job: lane.job,
+        isDot: lane.isDot,
+      });
+
+      lane.timestamps.forEach((ts) => {
+        const x = LEFT_MARGIN + (ts / battleTimeMs) * (chartWidth - LEFT_MARGIN);
+        const iconX = x - ICON_SIZE / 2;
+        const iconY = y;
+
+        if (entry && entry.ready && entry.img.complete && entry.img.naturalWidth > 0) {
+          ctx.drawImage(entry.img, iconX, iconY, ICON_SIZE, ICON_SIZE);
+        } else if (entry) {
+          // Draw placeholder, queue redraw
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.6;
+          ctx.fillRect(iconX, iconY, ICON_SIZE, ICON_SIZE);
+          ctx.globalAlpha = 1.0;
+          pendingDraws.push({ entry, iconX, iconY });
+        } else {
+          // No icon - draw colored dot
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          ctx.arc(x, y + ICON_SIZE / 2, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+        }
+      });
+    });
+
+    // Redraw pending icons once loaded
+    if (pendingDraws.length > 0) {
+      const redraw = () => {
+        pendingDraws.forEach(({ entry, iconX, iconY }) => {
+          if (entry.ready && entry.img.complete && entry.img.naturalWidth > 0) {
+            ctx.drawImage(entry.img, iconX, iconY, ICON_SIZE, ICON_SIZE);
+          }
+        });
+      };
+      setTimeout(redraw, 500);
+      setTimeout(redraw, 1500);
+    }
+
+    // Render legend
+    timelineLegend.innerHTML = "";
+    lanes.forEach((lane, i) => {
+      const item = document.createElement("div");
+      item.className = "legendItem";
+      const iconImg = document.createElement("img");
+      iconImg.alt = "";
+      iconImg.loading = "lazy";
+      iconImg.referrerPolicy = "no-referrer";
+      window.skillIcons?.applyIconToImage?.(iconImg, {
+        code: lane.code,
+        job: lane.job,
+        isDot: lane.isDot,
+      });
+      const label = document.createElement("span");
+      label.textContent = lane.name || `Skill ${lane.code}`;
+      item.appendChild(iconImg);
+      item.appendChild(label);
+      timelineLegend.appendChild(item);
+    });
+
+    // Render X axis labels
+    timelineXAxis.innerHTML = "";
+    const tickCount = Math.min(12, Math.ceil(durationSec / gridIntervalSec) + 1);
+    for (let i = 0; i <= tickCount; i++) {
+      const sec = Math.round((i / tickCount) * durationSec);
+      const minutes = Math.floor(sec / 60);
+      const seconds = sec % 60;
+      const span = document.createElement("span");
+      span.textContent = `${minutes}:${String(seconds).padStart(2, "0")}`;
+      timelineXAxis.appendChild(span);
+    }
   };
 
   const loadDetailsContext = () => {
@@ -1378,6 +1395,7 @@ const createDetailsUI = ({
     updateHeaderText();
     renderStats(details, { compact: activeCompactMode });
     renderSkills(details, { compact: activeCompactMode });
+    renderTimeline(details);
     lastRow = row;
     lastDetails = details;
     const cacheRowId = String(row?.id ?? "").trim();
@@ -1459,8 +1477,7 @@ const createDetailsUI = ({
     updateHeaderText();
     detailsPanel.classList.add("open");
     detailsPanel.style.removeProperty("width");
-    clearSkillColumnInlineWidths();
-    scheduleSkillColumnMinWidths();
+    updateGridColumns();
 
     const cachedDetails = getCachedDetails(rowId);
     if (cachedDetails) {
@@ -1496,9 +1513,7 @@ const createDetailsUI = ({
     lastRow = null;
     lastDetails = null;
     activeCompactMode = false;
-    lastSkillNameColumnWidth = 0;
     detailsPanel.style.removeProperty("width");
-    clearSkillColumnInlineWidths();
     for (let i = 0; i < statSlots.length; i++) {
       statSlots[i].statEl.style.display = "";
     }
@@ -1529,5 +1544,5 @@ const createDetailsUI = ({
 
   const isPinned = () => pinnedRowId !== null;
 
-  return { open, close, isOpen, isPinned, render, updateLabels, refresh };
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns };
 };

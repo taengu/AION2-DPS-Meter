@@ -308,95 +308,75 @@ class BrowserApp(
             keyHookEvent.stop()
         }
 
-        @Suppress("unused")
-        fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
-            val scene = stage.scene ?: return false
+        private fun computeCrop(
+            x: Double, y: Double, width: Double, height: Double,
+            scale: Double, imageWidth: Int, imageHeight: Int
+        ): IntArray {
+            val sx = (x * scale).toInt().coerceAtLeast(0)
+            val sy = (y * scale).toInt().coerceAtLeast(0)
+            val sw = (width * scale).toInt().coerceAtLeast(1).coerceAtMost(imageWidth - sx)
+            val sh = (height * scale).toInt().coerceAtLeast(1).coerceAtMost(imageHeight - sy)
+            return intArrayOf(sx, sy, sw, sh)
+        }
+
+        private fun <T> runOnFxThread(timeoutSeconds: Long = 2, action: () -> T?): T? {
             val latch = CountDownLatch(1)
-            var success = false
+            var result: T? = null
             Platform.runLater {
                 try {
-                    val image = scene.snapshot(null)
-                    val pixelReader = image.pixelReader
-                    if (pixelReader == null) {
-                        latch.countDown()
-                        return@runLater
-                    }
-                    val imageWidth = image.width.toInt()
-                    val imageHeight = image.height.toInt()
-                    val scaledX = (x * scale).toInt()
-                    val scaledY = (y * scale).toInt()
-                    val scaledWidth = (width * scale).toInt()
-                    val scaledHeight = (height * scale).toInt()
-                    val safeX = scaledX.coerceAtLeast(0)
-                    val safeY = scaledY.coerceAtLeast(0)
-                    val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
-                    val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
-                    val cropped = javafx.scene.image.WritableImage(pixelReader, safeX, safeY, safeWidth, safeHeight)
-                    val clipboard = Clipboard.getSystemClipboard()
-                    val content = ClipboardContent()
-                    content.putImage(cropped)
-                    success = clipboard.setContent(content)
-                } catch (e: Exception) {
-                    logger.warn("Failed to capture screenshot", e)
+                    result = action()
                 } finally {
                     latch.countDown()
                 }
             }
-            latch.await(2, TimeUnit.SECONDS)
-            return success
+            latch.await(timeoutSeconds, TimeUnit.SECONDS)
+            return result
+        }
+
+        @Suppress("unused")
+        fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
+            val scene = stage.scene ?: return false
+            return runOnFxThread {
+                try {
+                    val image = scene.snapshot(null)
+                    val pixelReader = image.pixelReader ?: return@runOnFxThread false
+                    val (cx, cy, cw, ch) = computeCrop(x, y, width, height, scale, image.width.toInt(), image.height.toInt())
+                    val cropped = javafx.scene.image.WritableImage(pixelReader, cx, cy, cw, ch)
+                    val content = ClipboardContent()
+                    content.putImage(cropped)
+                    Clipboard.getSystemClipboard().setContent(content)
+                } catch (e: Exception) {
+                    logger.warn("Failed to capture screenshot", e)
+                    false
+                }
+            } ?: false
         }
 
         @Suppress("unused")
         fun captureScreenshotToFile(
-            x: Double,
-            y: Double,
-            width: Double,
-            height: Double,
-            scale: Double,
-            folderPath: String?,
-            filename: String?
+            x: Double, y: Double, width: Double, height: Double,
+            scale: Double, folderPath: String?, filename: String?
         ): Boolean {
             val scene = stage.scene ?: return false
             if (folderPath.isNullOrBlank() || filename.isNullOrBlank()) return false
-            val latch = CountDownLatch(1)
-            var success = false
-            Platform.runLater {
+            return runOnFxThread {
                 try {
                     val image = scene.snapshot(null)
-                    val pixelReader = image.pixelReader
-                    if (pixelReader == null) {
-                        latch.countDown()
-                        return@runLater
-                    }
-                    val imageWidth = image.width.toInt()
-                    val imageHeight = image.height.toInt()
-                    val scaledX = (x * scale).toInt()
-                    val scaledY = (y * scale).toInt()
-                    val scaledWidth = (width * scale).toInt()
-                    val scaledHeight = (height * scale).toInt()
-                    val safeX = scaledX.coerceAtLeast(0)
-                    val safeY = scaledY.coerceAtLeast(0)
-                    val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
-                    val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
+                    val pixelReader = image.pixelReader ?: return@runOnFxThread false
+                    val (cx, cy, cw, ch) = computeCrop(x, y, width, height, scale, image.width.toInt(), image.height.toInt())
                     val folder = File(folderPath)
-                    if (!folder.exists()) {
-                        folder.mkdirs()
-                    }
-                    val targetFile = File(folder, filename)
-                    val buffer = IntArray(safeWidth * safeHeight)
+                    if (!folder.exists()) folder.mkdirs()
+                    val buffer = IntArray(cw * ch)
                     val format = WritablePixelFormat.getIntArgbInstance()
-                    pixelReader.getPixels(safeX, safeY, safeWidth, safeHeight, format, buffer, 0, safeWidth)
-                    val buffered = BufferedImage(safeWidth, safeHeight, BufferedImage.TYPE_INT_ARGB)
-                    buffered.setRGB(0, 0, safeWidth, safeHeight, buffer, 0, safeWidth)
-                    success = ImageIO.write(buffered, "png", targetFile)
+                    pixelReader.getPixels(cx, cy, cw, ch, format, buffer, 0, cw)
+                    val buffered = BufferedImage(cw, ch, BufferedImage.TYPE_INT_ARGB)
+                    buffered.setRGB(0, 0, cw, ch, buffer, 0, cw)
+                    ImageIO.write(buffered, "png", File(folder, filename))
                 } catch (e: Exception) {
                     logger.warn("Failed to capture screenshot to file", e)
-                } finally {
-                    latch.countDown()
+                    false
                 }
-            }
-            latch.await(2, TimeUnit.SECONDS)
-            return success
+            } ?: false
         }
 
         @Suppress("unused")

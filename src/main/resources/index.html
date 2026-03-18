@@ -276,25 +276,49 @@
           <div class="detailsBody">
             <div class="detailsStats"></div>
 
-            <div class="detailsSkills">
-              <div class="skillHeader">
-                <div class="cell name" data-sort-key="name" data-i18n="details.skills.skill">Skill</div>
-                <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits">Hits</div>
-                <div class="cell center mhit" data-sort-key="mhit" data-i18n="details.skills.multiHit">MHits</div>
-                <div class="cell center mdmg" data-sort-key="mdmg" data-i18n="details.skills.multiHitDamage">MHDmg</div>
-                <div class="cell center crit" data-sort-key="crit" data-i18n="details.skills.crit">Crit</div>
-                <div class="cell center parry" data-sort-key="parry" data-i18n="details.skills.parry">Parry</div>
-                <div class="cell center perfect" data-sort-key="perfect" data-i18n="details.skills.perfect">Perfect</div>
-                <div class="cell center double" data-sort-key="double" data-i18n="details.skills.double">Double</div>
-                <div class="cell center back" data-sort-key="back" data-i18n="details.skills.back">Back</div>
-                <div class="cell center heal" data-sort-key="heal" data-i18n="details.skills.heal">Heal</div>
-                <div class="cell dmg" data-sort-key="dmg" data-i18n="details.skills.totalDamage">Total Damage</div>
+            <div class="detailsSection skillsSection isExpanded">
+              <div class="detailsSectionHeader" data-section="skills">
+                <span class="detailsSectionArrow"></span>
+                <span class="detailsSectionTitle" data-i18n="details.skills.skill">Skills</span>
               </div>
+              <div class="detailsSectionContent">
+                <div class="detailsSkills">
+                  <div class="skillHeader">
+                    <div class="cell name" data-sort-key="name" data-i18n="details.skills.skill">Skill</div>
+                    <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits">Hits</div>
+                    <div class="cell center mhit" data-sort-key="mhit" data-i18n="details.skills.multiHit">MHits</div>
+                    <div class="cell center mdmg" data-sort-key="mdmg" data-i18n="details.skills.multiHitDamage">MHDmg</div>
+                    <div class="cell center crit" data-sort-key="crit" data-i18n="details.skills.crit">Crit</div>
+                    <div class="cell center parry" data-sort-key="parry" data-i18n="details.skills.parry">Parry</div>
+                    <div class="cell center perfect" data-sort-key="perfect" data-i18n="details.skills.perfect">Perfect</div>
+                    <div class="cell center double" data-sort-key="double" data-i18n="details.skills.double">Double</div>
+                    <div class="cell center back" data-sort-key="back" data-i18n="details.skills.back">Back</div>
+                    <div class="cell center heal" data-sort-key="heal" data-i18n="details.skills.heal">Heal</div>
+                    <div class="cell dmg" data-sort-key="dmg" data-i18n="details.skills.totalDamage">Total Damage</div>
+                  </div>
 
-              <div class="skills"></div>
-              <div class="detailsFootnote" data-i18n="details.tooltip">
-                Damage over time hits are not included in total crit, double, perfect, back attack,
-                or parry ratios.
+                  <div class="skills"></div>
+                  <div class="detailsFootnote" data-i18n="details.tooltip">
+                    Damage over time hits are not included in total crit, double, perfect, back attack,
+                    or parry ratios.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="detailsSection timelineSection">
+              <div class="detailsSectionHeader" data-section="timeline">
+                <span class="detailsSectionArrow"></span>
+                <span class="detailsSectionTitle">Timeline</span>
+              </div>
+              <div class="detailsSectionContent">
+                <div class="timelineChart">
+                  <div class="timelineLegend"></div>
+                  <div class="timelineViewport">
+                    <canvas class="timelineCanvas"></canvas>
+                  </div>
+                  <div class="timelineXAxis"></div>
+                </div>
               </div>
             </div>
           </div>
