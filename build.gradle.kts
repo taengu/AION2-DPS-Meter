@@ -168,10 +168,21 @@ val embedAdminManifest by tasks.registering(Exec::class) {
         .dir("compose/binaries/main/app/AION2 DPS Meter")
         .map { it.asFile.resolve("AION2 DPS Meter.exe") }
     val manifest = project.file("src/main/resources/native-image/app.manifest")
+    // Locate mt.exe from Windows SDK at configuration time (avoids config cache issues)
+    val sdkBase = File("C:/Program Files (x86)/Windows Kits/10/bin")
+    val mtExePath = sdkBase.listFiles()
+        ?.filter { it.isDirectory }
+        ?.sortedDescending()
+        ?.map { File(it, "x64/mt.exe") }
+        ?.firstOrNull { it.exists() }
+        ?.absolutePath
+        ?: "mt.exe"
     doFirst {
         val exe = exeFile.get()
         if (!exe.exists()) error("Launcher exe not found at: $exe")
-        commandLine("mt.exe", "-nologo",
+        // jpackage creates the exe as read-only; make it writable so mt.exe can modify it
+        exe.setWritable(true)
+        commandLine(mtExePath, "-nologo",
             "-manifest", manifest.absolutePath,
             "-outputresource:${exe.absolutePath};#1")
     }
@@ -218,7 +229,7 @@ compose.desktop {
             }
             targetFormats(TargetFormat.Msi)
             packageName = "AION2 DPS Meter"
-            packageVersion = appVersion
+            packageVersion = computePackageVersion(appVersion)
         }
     }
 }
