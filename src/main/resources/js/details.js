@@ -107,7 +107,7 @@ const createDetailsUI = ({
     { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
     { key: "details.stats.combatTime", fallback: "Combat Time", getValue: (d) => d?.combatTime ?? "-" },
     { key: "details.skills.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
-    { key: "details.stats.multiHitHits", fallback: "Multi-Hits", getValue: (d) => formatCount(d?.multiHitCount) },
+    { key: "details.stats.multiHitHits", fallback: "Multi-Hits", getValue: (d) => pctText(d?.multiHitPct) },
     {
       key: "details.stats.multiHitDamage",
       fallback: "Multi-Hit Damage",
@@ -117,7 +117,6 @@ const createDetailsUI = ({
     { key: "details.stats.perfectRate", fallback: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
     { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
     { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
-    { key: "details.skills.heal", fallback: "Heal", getValue: (d) => formatCount(d?.totalHeal) },
     { key: "details.stats.empty", fallback: "", getValue: () => "", isPlaceholder: true },
   ];
 
@@ -328,9 +327,6 @@ const createDetailsUI = ({
         return pctText(data.totalBackPct);
       case "details.stats.parryRate":
         return pctText(data.totalParryPct);
-      case "details.stats.selfHealing":
-      case "details.skills.heal":
-        return formatCount(data.totalHeal);
       case "details.stats.empty":
         return "";
       case "details.stats.combatTime":
@@ -411,6 +407,10 @@ const createDetailsUI = ({
     const rowEl = document.createElement("div");
     rowEl.className = "skillRow";
 
+    const rowFillEl = document.createElement("div");
+    rowFillEl.className = "rowFill";
+    rowEl.appendChild(rowFillEl);
+
     const nameEl = document.createElement("div");
     nameEl.className = "cell name";
 
@@ -431,6 +431,12 @@ const createDetailsUI = ({
     const hitEl = document.createElement("div");
     hitEl.className = "cell center hit";
 
+    const dmgEl = document.createElement("div");
+    dmgEl.className = "cell center dmg";
+
+    const dmgPctEl = document.createElement("div");
+    dmgPctEl.className = "cell center dmgpct";
+
     const multiHitEl = document.createElement("div");
     multiHitEl.className = "cell center mhit";
 
@@ -441,8 +447,8 @@ const createDetailsUI = ({
     critEl.className = "cell center crit";
 
     const parryEl = document.createElement("div");
-
     parryEl.className = "cell center parry";
+
     const backEl = document.createElement("div");
     backEl.className = "cell center back";
 
@@ -452,23 +458,18 @@ const createDetailsUI = ({
     const doubleEl = document.createElement("div");
     doubleEl.className = "cell center double";
 
-    const healEl = document.createElement("div");
-    healEl.className = "cell center heal";
+    const minDmgEl = document.createElement("div");
+    minDmgEl.className = "cell center mindmg";
 
-    const dmgEl = document.createElement("div");
-    dmgEl.className = "cell dmg right";
+    const avgDmgEl = document.createElement("div");
+    avgDmgEl.className = "cell center avgdmg";
 
-    const dmgFillEl = document.createElement("div");
-    dmgFillEl.className = "dmgFill";
-
-    const dmgTextEl = document.createElement("div");
-    dmgTextEl.className = "dmgText";
-
-    dmgEl.appendChild(dmgFillEl);
-    dmgEl.appendChild(dmgTextEl);
+    const maxDmgEl = document.createElement("div");
+    maxDmgEl.className = "cell center maxdmg";
 
     rowEl.appendChild(nameEl);
-    rowEl.appendChild(hitEl);
+    rowEl.appendChild(dmgEl);
+    rowEl.appendChild(dmgPctEl);
     rowEl.appendChild(multiHitEl);
     rowEl.appendChild(multiHitDamageEl);
     rowEl.appendChild(critEl);
@@ -476,16 +477,20 @@ const createDetailsUI = ({
     rowEl.appendChild(perfectEl);
     rowEl.appendChild(doubleEl);
     rowEl.appendChild(backEl);
-    rowEl.appendChild(healEl);
-
-    rowEl.appendChild(dmgEl);
+    rowEl.appendChild(hitEl);
+    rowEl.appendChild(minDmgEl);
+    rowEl.appendChild(avgDmgEl);
+    rowEl.appendChild(maxDmgEl);
 
     return {
       rowEl,
+      rowFillEl,
       nameEl,
       iconEl,
       nameTextEl,
       hitEl,
+      dmgEl,
+      dmgPctEl,
       multiHitEl,
       multiHitDamageEl,
       critEl,
@@ -493,9 +498,9 @@ const createDetailsUI = ({
       backEl,
       perfectEl,
       doubleEl,
-      healEl,
-      dmgFillEl,
-      dmgTextEl,
+      minDmgEl,
+      avgDmgEl,
+      maxDmgEl,
     };
   };
 
@@ -510,15 +515,21 @@ const createDetailsUI = ({
 
   const getSkillSortValue = (skill, key) => {
     const hits = Number(skill?.time) || 0;
+    const dmg = Number(skill?.dmg) || 0;
     switch (key) {
       case "name":
         return String(skill?.name || "").toLowerCase();
       case "hit":
         return hits;
-      case "mhit":
-        return Number(skill?.multiHitCount) || 0;
+      case "mhit": {
+        const mhHits = Number(skill?.multiHitHits) || 0;
+        return hits > 0 ? mhHits / hits : 0;
+      }
       case "mdmg":
         return Number(skill?.multiHitDamage) || 0;
+      case "dmgpct":
+      case "dmg":
+        return dmg;
       case "crit":
         return hits > 0 ? (Number(skill?.crit) || 0) / hits : 0;
       case "parry":
@@ -529,11 +540,14 @@ const createDetailsUI = ({
         return hits > 0 ? (Number(skill?.double) || 0) / hits : 0;
       case "back":
         return hits > 0 ? (Number(skill?.back) || 0) / hits : 0;
-      case "heal":
-        return Number(skill?.heal) || 0;
-      case "dmg":
+      case "mindmg":
+        return Number(skill?.minDmg) || 0;
+      case "avgdmg":
+        return hits > 0 ? dmg / hits : 0;
+      case "maxdmg":
+        return Number(skill?.maxDmg) || 0;
       default:
-        return Number(skill?.dmg) || 0;
+        return dmg;
     }
   };
 
@@ -568,28 +582,37 @@ const createDetailsUI = ({
 
   // Column definitions: name → grid track template fragment
   const GRID_COL_DEFS = {
-    name: "minmax(90px, 1.6fr)",
-    hit: "minmax(36px, 0.6fr)",
-    mhit: "minmax(36px, 0.6fr)",
-    mdmg: "minmax(36px, 0.7fr)",
-    crit: "minmax(36px, 0.6fr)",
-    parry: "minmax(36px, 0.6fr)",
-    perfect: "minmax(36px, 0.6fr)",
-    double: "minmax(36px, 0.6fr)",
-    back: "minmax(36px, 0.6fr)",
-    heal: "minmax(36px, 0.7fr)",
-    dmg: "minmax(100px, 2fr)",
+    name: "minmax(90px, 3fr)",
+    hit: "minmax(24px, 0.7fr)",
+    dmg: "minmax(30px, 0.9fr)",
+    dmgpct: "minmax(30px, 0.8fr)",
+    mhit: "minmax(30px, 0.8fr)",
+    mdmg: "minmax(30px, 0.9fr)",
+    crit: "minmax(24px, 0.7fr)",
+    parry: "minmax(30px, 0.8fr)",
+    perfect: "minmax(36px, 0.9fr)",
+    double: "minmax(34px, 0.9fr)",
+    back: "minmax(28px, 0.7fr)",
+    mindmg: "minmax(28px, 0.8fr)",
+    avgdmg: "minmax(28px, 0.8fr)",
+    maxdmg: "minmax(28px, 0.8fr)",
   };
-  const GRID_COL_ORDER = ["name", "hit", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "heal", "dmg"];
+  const GRID_COL_ORDER = ["name", "dmg", "dmgpct", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "hit", "mindmg", "avgdmg", "maxdmg"];
 
+  let lastMeasuredNameWidth = 0;
   const updateGridColumns = () => {
     if (!detailsPanel) return;
     const skillsContainer = detailsPanel.querySelector(".detailsSkills");
     if (!skillsContainer) return;
-    const cols = GRID_COL_ORDER
-      .filter((col) => !detailsPanel.classList.contains(`hide-col-${col}`))
-      .map((col) => GRID_COL_DEFS[col]);
-    skillsContainer.style.setProperty("--skill-grid-cols", cols.join(" "));
+    const visibleCols = GRID_COL_ORDER.filter((col) => !detailsPanel.classList.contains(`hide-col-${col}`));
+    if (lastMeasuredNameWidth > 0) {
+      const dataCols = visibleCols.filter((c) => c !== "name");
+      const template = `${lastMeasuredNameWidth}px ${dataCols.map((col) => GRID_COL_DEFS[col]).join(" ")}`;
+      skillsContainer.style.setProperty("--skill-grid-cols", template);
+    } else {
+      const cols = visibleCols.map((col) => GRID_COL_DEFS[col]);
+      skillsContainer.style.setProperty("--skill-grid-cols", cols.join(" "));
+    }
   };
 
 
@@ -635,6 +658,11 @@ const createDetailsUI = ({
         Number.isFinite(nextActorId) && Number.isFinite(skillActorId) && nextActorId === skillActorId
           ? nextActorId
           : null;
+      const existMinDmg = Number(existing.minDmg) || 0;
+      const skillMinDmg = Number(skill.minDmg) || 0;
+      const mergedMin = existMinDmg > 0 && skillMinDmg > 0
+        ? Math.min(existMinDmg, skillMinDmg)
+        : existMinDmg || skillMinDmg;
       groupedSkills.set(key, {
         ...existing,
         actorId: resolvedActorId,
@@ -649,6 +677,9 @@ const createDetailsUI = ({
         heal: (Number(existing.heal) || 0) + (Number(skill.heal) || 0),
         multiHitCount: (Number(existing.multiHitCount) || 0) + (Number(skill.multiHitCount) || 0),
         multiHitDamage: (Number(existing.multiHitDamage) || 0) + (Number(skill.multiHitDamage) || 0),
+        multiHitHits: (Number(existing.multiHitHits) || 0) + (Number(skill.multiHitHits) || 0),
+        minDmg: mergedMin,
+        maxDmg: Math.max((Number(existing.maxDmg) || 0), (Number(skill.maxDmg) || 0)),
       });
     });
     const sortedSkills = [...groupedSkills.values()].sort(compareSkillSort);
@@ -660,13 +691,28 @@ const createDetailsUI = ({
 
     ensureSkillSlots(topSkills.length);
 
+    // Measure longest skill name and set name column width
+    const iconSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--details-skill-icon-size") || "36", 10);
+    const iconMargin = 6;
+    const namePad = 4;
+    const measureCanvas = document.createElement("canvas").getContext("2d");
+    const fontSize = parseFloat(getComputedStyle(skillsListEl).fontSize) * 0.88;
+    measureCanvas.font = `700 ${fontSize}px ${getComputedStyle(skillsListEl).fontFamily}`;
+    let maxNameWidth = 0;
+    topSkills.forEach((skill) => {
+      const w = measureCanvas.measureText(skill?.name ?? "").width;
+      if (w > maxNameWidth) maxNameWidth = w;
+    });
+    lastMeasuredNameWidth = Math.ceil(iconSize + iconMargin + maxNameWidth + namePad);
+    updateGridColumns();
+
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
       const skill = topSkills[i];
 
       if (!skill) {
         view.rowEl.style.display = "none";
-        view.dmgFillEl.style.transform = "scaleX(0)";
+        view.rowFillEl.style.transform = "scaleX(0)";
         if (view.iconEl) view.iconEl.style.display = "none";
         continue;
       }
@@ -681,9 +727,12 @@ const createDetailsUI = ({
       const perfect = skill.perfect || 0;
       const double = skill.double || 0;
       const back = skill.back || 0;
-      const heal = skill.heal || 0;
-      const multiHitCount = skill.multiHitCount || 0;
+      const multiHitHits = skill.multiHitHits || 0;
       const multiHitDamage = skill.multiHitDamage || 0;
+      const rawMinDmg = Number(skill.minDmg) || 0;
+      const minDmg = rawMinDmg >= 2147483647 ? 0 : rawMinDmg;
+      const maxDmg = skill.maxDmg || 0;
+      const avgDmg = hits > 0 ? Math.round(damage / hits) : 0;
 
       const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
 
@@ -694,6 +743,7 @@ const createDetailsUI = ({
       const backRate = pct(back, hits);
       const perfectRate = pct(perfect, hits);
       const doubleRate = pct(double, hits);
+      const multiHitRate = pct(multiHitHits, hits);
 
       view.nameTextEl.textContent = skill.name ?? "";
       const resolvedJob = skill.job || getActorJob(skill.actorId);
@@ -702,18 +752,20 @@ const createDetailsUI = ({
       const skillColor = theostoneNameColor || (resolvedJob ? getJobColor(resolvedJob) : "");
       view.nameTextEl.style.color = skillColor || "";
       view.hitEl.textContent = `${hits}`;
+      view.dmgEl.textContent = `${formatDamageCompact(damage)}`;
+      view.dmgPctEl.textContent = `${damageRate.toFixed(1)}%`;
       view.critEl.textContent = `${critRate}%`;
-
       view.parryEl.textContent = `${parryRate}%`;
       view.backEl.textContent = `${backRate}%`;
       view.perfectEl.textContent = `${perfectRate}%`;
       view.doubleEl.textContent = `${doubleRate}%`;
-      view.healEl.textContent = `${formatCount(heal)}`;
-      view.multiHitEl.textContent = `${formatCount(multiHitCount)}`;
+      view.multiHitEl.textContent = `${multiHitRate}%`;
       view.multiHitDamageEl.textContent = `${formatDamageCompact(multiHitDamage)}`;
+      view.minDmgEl.textContent = `${formatDamageCompact(minDmg)}`;
+      view.avgDmgEl.textContent = `${formatDamageCompact(avgDmg)}`;
+      view.maxDmgEl.textContent = `${formatDamageCompact(maxDmg)}`;
 
-      view.dmgTextEl.textContent = `${formatDamageCompact(damage)} (${damageRate.toFixed(1)}%)`;
-      view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
+      view.rowFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
   };
 
@@ -1216,6 +1268,7 @@ const createDetailsUI = ({
     let totalDouble = 0;
     let totalMultiHitCount = 0;
     let totalMultiHitDamage = 0;
+    let totalMultiHitHits = 0;
     let totalHeal = 0;
 
     skills.forEach((skill) => {
@@ -1224,6 +1277,7 @@ const createDetailsUI = ({
       totalHeal += Number(skill?.heal) || 0;
       totalMultiHitCount += Number(skill?.multiHitCount) || 0;
       totalMultiHitDamage += Number(skill?.multiHitDamage) || 0;
+      totalMultiHitHits += Number(skill?.multiHitHits) || 0;
       if (!skill?.isDot) {
         totalTimes += Number(skill?.time) || 0;
         totalCrit += Number(skill?.crit) || 0;
@@ -1249,6 +1303,7 @@ const createDetailsUI = ({
       totalDoublePct: pct(totalDouble, totalTimes),
       multiHitCount: totalMultiHitCount,
       multiHitDamage: totalMultiHitDamage,
+      multiHitPct: pct(totalMultiHitHits, totalTimes),
       totalHeal,
       combatTime: formatBattleTime(battleTimeMs),
       battleTimeMs,
@@ -1487,7 +1542,7 @@ const createDetailsUI = ({
       for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
       for (let i = 0; i < skillSlots.length; i++) {
         skillSlots[i].rowEl.style.display = "none";
-        skillSlots[i].dmgFillEl.style.transform = "scaleX(0)";
+        skillSlots[i].rowFillEl.style.transform = "scaleX(0)";
       }
     }
 
@@ -1513,6 +1568,7 @@ const createDetailsUI = ({
     lastRow = null;
     lastDetails = null;
     activeCompactMode = false;
+    lastMeasuredNameWidth = 0;
     detailsPanel.style.removeProperty("width");
     for (let i = 0; i < statSlots.length; i++) {
       statSlots[i].statEl.style.display = "";

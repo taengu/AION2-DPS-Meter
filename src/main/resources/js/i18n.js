@@ -163,6 +163,12 @@ const createI18n = ({
       if (text) el.textContent = text;
     });
 
+    document.querySelectorAll("[data-i18n-tip]").forEach((el) => {
+      const key = el.dataset.i18nTip;
+      const text = t(key, el.getAttribute("data-tip") ?? "");
+      if (text) el.setAttribute("data-tip", text);
+    });
+
     document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
       const key = el.dataset.i18nPlaceholder;
       const text = t(key, el.getAttribute("placeholder") ?? "");

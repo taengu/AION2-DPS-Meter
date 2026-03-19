@@ -18,7 +18,7 @@ data class TargetInfo(
     fun processPdp(pdp: ParsedDamagePacket) {
         if (pdp.getId() <= lastProcessedId) return
 
-        damagedAmount += pdp.getDamage()
+        damagedAmount += pdp.getDamage() + pdp.getMultiHitDamage()
         val ts = pdp.getTimeStamp()
         if (ts < targetDamageStarted){
             targetDamageStarted = ts

@@ -1029,7 +1029,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: none;
   flex-direction: column;
   --details-font-size: var(--font);
-  --details-skill-icon-size: 36px;
+  --details-skill-icon-size: 24px;
   /* display: block; */
   /* left: calc(100% + 8px); */
   left: min(372px, calc(100vw - 292px));
@@ -1378,33 +1378,26 @@ body.mainPlayerDpsBold .meter .item .content .dps {
         align-items: center;
         padding: 2px 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        position: relative;
         &:last-child {
           border-bottom: none;
         }
 
-        .cell.dmg {
+        .rowFill {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: calc(var(--details-skill-icon-size, 24px) + 6px);
+          background: var(--row-fill);
+          opacity: 0.5;
+          border-radius: var(--rounded-xs);
+          transform-origin: left center;
+          pointer-events: none;
+        }
+        .cell {
           position: relative;
-          overflow: hidden;
-          height: 20px;
-
-          .dmgFill {
-            position: absolute;
-            inset: 0;
-            background: var(--dmg-fill-bg);
-            border-radius: var(--rounded-xs);
-            transform-origin: left center;
-          }
-          .dmgText {
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            display: flex;
-            justify-content: end;
-            align-items: center;
-            text-shadow: var(--text-shadow);
-            color: var(--dps-text);
-            font-weight: 400;
-          }
+          z-index: 1;
         }
       }
     }
@@ -2447,28 +2440,35 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   overflow-x: hidden;
   overflow-y: hidden;
   --skill-grid-cols:
-    minmax(90px, 1.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.7fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.6fr)
-    minmax(36px, 0.7fr)
-    minmax(100px, 2fr);
+    minmax(90px, 3fr)
+    minmax(30px, 0.9fr)
+    minmax(30px, 0.8fr)
+    minmax(30px, 0.8fr)
+    minmax(30px, 0.9fr)
+    minmax(24px, 0.7fr)
+    minmax(30px, 0.8fr)
+    minmax(36px, 0.9fr)
+    minmax(34px, 0.9fr)
+    minmax(28px, 0.7fr)
+    minmax(24px, 0.7fr)
+    minmax(28px, 0.8fr)
+    minmax(28px, 0.8fr)
+    minmax(28px, 0.8fr);
 }
 /* Column-hiding: when .detailsPanel has .hide-col-X, collapse that column to 0 */
 .detailsPanel.hide-col-hit  .detailsSkills .cell.hit,
 .detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
 .detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg,
+.detailsPanel.hide-col-dmg .detailsSkills .cell.dmg,
+.detailsPanel.hide-col-dmgpct .detailsSkills .cell.dmgpct,
 .detailsPanel.hide-col-crit .detailsSkills .cell.crit,
 .detailsPanel.hide-col-parry .detailsSkills .cell.parry,
 .detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
 .detailsPanel.hide-col-double .detailsSkills .cell.double,
 .detailsPanel.hide-col-back .detailsSkills .cell.back,
-.detailsPanel.hide-col-heal .detailsSkills .cell.heal {
+.detailsPanel.hide-col-mindmg .detailsSkills .cell.mindmg,
+.detailsPanel.hide-col-avgdmg .detailsSkills .cell.avgdmg,
+.detailsPanel.hide-col-maxdmg .detailsSkills .cell.maxdmg {
   display: none;
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-sort-key] {
@@ -2489,7 +2489,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell.name {
   font-weight: 700;
-  white-space: normal;
+  white-space: nowrap;
   align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
@@ -2498,8 +2498,8 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   color: var(--isUser-fill);
 }
 .detailsPanel .detailsSkills .cell.name .skillIcon {
-  width: var(--details-skill-icon-size, 36px);
-  height: var(--details-skill-icon-size, 36px);
+  width: var(--details-skill-icon-size, 24px);
+  height: var(--details-skill-icon-size, 24px);
   border-radius: 3px;
   margin-right: 6px;
   flex: 0 0 auto;
@@ -2515,19 +2515,23 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  white-space: nowrap;
   line-height: 1.2;
+  font-size: 0.88em;
+  padding-left: 3px;
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
   text-overflow: ellipsis;
 }
-.detailsPanel .detailsSkills .cell.dmg {
+.detailsPanel .detailsSkills .cell.dmg,
+.detailsPanel .detailsSkills .cell.dmgpct {
   justify-content: center;
+}
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmg,
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmgpct {
+  font-weight: 700;
 }
 .detailsPanel .detailsSkills .skillHeader {
   display: grid;
@@ -2544,6 +2548,30 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip] {
+  position: relative;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 14, 0.95);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 100;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip]:hover::after {
+  opacity: 1;
 }
 .detailsPanel .detailsSkills .skills {
   padding: 0 12px;
@@ -2627,32 +2655,26 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   align-items: center;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;
 }
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg {
-  position: relative;
-  overflow: hidden;
-  height: 20px;
-}
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgFill {
+.detailsPanel .detailsSkills .skills .skillRow .rowFill {
   position: absolute;
-  inset: 0;
-  background: var(--dmg-fill-bg);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--details-skill-icon-size, 24px) + 6px);
+  background: var(--row-fill);
+  opacity: 0.5;
   border-radius: var(--rounded-xs);
   transform-origin: left center;
+  pointer-events: none;
 }
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgText {
+.detailsPanel .detailsSkills .skills .skillRow .cell {
   position: relative;
   z-index: 1;
-  height: 100%;
-  display: flex;
-  justify-content: end;
-  align-items: center;
-  text-shadow: var(--text-shadow);
-  color: var(--dps-text);
-  font-weight: 700;
 }
 .detailsPanel .detailsSkills .detailsFootnote {
   font-size: 0.85em;

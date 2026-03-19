@@ -1195,6 +1195,7 @@ class DpsApp {
     let totalDouble = 0;
     let totalMultiHitCount = 0;
     let totalMultiHitDamage = 0;
+    let totalMultiHitHits = 0;
     let totalHeal = 0;
 
     const pushSkill = ({
@@ -1210,6 +1211,9 @@ class DpsApp {
       heal = 0,
       multiHitCount = 0,
       multiHitDamage = 0,
+      multiHitHits = 0,
+      minDmg = 0,
+      maxDmg = 0,
       countForTotals = true,
       job = "",
       actorId = null,
@@ -1234,6 +1238,7 @@ class DpsApp {
         totalDouble += Number(double) || 0;
         totalMultiHitCount += Number(multiHitCount) || 0;
         totalMultiHitDamage += Number(multiHitDamage) || 0;
+        totalMultiHitHits += Number(multiHitHits) || 0;
       }
       skills.push({
         code: String(codeKey),
@@ -1247,6 +1252,9 @@ class DpsApp {
         heal: Number(heal) || 0,
         multiHitCount: Number(multiHitCount) || 0,
         multiHitDamage: Number(multiHitDamage) || 0,
+        multiHitHits: Number(multiHitHits) || 0,
+        minDmg: Number(minDmg) || 0,
+        maxDmg: Number(maxDmg) || 0,
         dmg: dmgInt,
         job,
         actorId,
@@ -1285,6 +1293,9 @@ class DpsApp {
           heal: value.heal,
           multiHitCount: value.multiHitCount,
           multiHitDamage: value.multiHitDamage,
+          multiHitHits: value.multiHitHits,
+          minDmg: value.minDmg,
+          maxDmg: value.maxDmg,
           job: value.job ?? "",
           countForTotals: !isDot,
           actorId: Number.isFinite(actorId) ? actorId : null,
@@ -1432,6 +1443,7 @@ class DpsApp {
       totalHits: totalTimes,
       multiHitCount: totalMultiHitCount,
       multiHitDamage: totalMultiHitDamage,
+      multiHitPct: totalTimes > 0 ? Math.round((totalMultiHitHits / totalTimes) * 1000) / 10 : 0,
       totalHeal,
       combatTime,
       battleTimeMs: Number.isFinite(battleTimeMsRaw) ? battleTimeMsRaw : 0,
@@ -2240,7 +2252,7 @@ class DpsApp {
     }
     const applyDetailsColumnVisibility = () => {
       if (!this.detailsPanel) return;
-      const columns = ["hit", "crit", "parry", "perfect", "double", "back", "heal", "mhit", "mdmg"];
+      const columns = ["hit", "dmg", "dmgpct", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "mindmg", "avgdmg", "maxdmg"];
       columns.forEach((column) => {
         this.detailsPanel.classList.toggle(`hide-col-${column}`, hiddenColumns.has(column));
       });

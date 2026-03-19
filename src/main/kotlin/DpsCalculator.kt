@@ -296,7 +296,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val nicknameToCanonicalId = buildNicknameCanonicalMap(pdps, summonData, nicknameData)
 
         pdps.forEach { pdp ->
-            totalDamage += pdp.getDamage()
+            totalDamage += pdp.getDamage() + pdp.getMultiHitDamage()
 
             val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
             if (rawUid <= 0) return@forEach
@@ -399,7 +399,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             if (uid <= 0) return@forEach
             val nickname = resolveNickname(uid, nicknameData)
             val idDamage = nicknameDamage.getOrPut(nickname) { mutableMapOf() }
-            idDamage[uid] = (idDamage[uid] ?: 0) + pdp.getDamage()
+            idDamage[uid] = (idDamage[uid] ?: 0) + pdp.getDamage() + pdp.getMultiHitDamage()
         }
         val result = mutableMapOf<String, Int>()
         nicknameDamage.forEach { (nickname, idDamage) ->
@@ -454,7 +454,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 if (rawUid <= 0) return@forEach
                 val nickname = resolveNickname(rawUid, nicknameData)
                 val uid = nicknameToCanonicalId[nickname] ?: rawUid
-                val damage = pdp.getDamage()
+                val damage = pdp.getDamage() + pdp.getMultiHitDamage()
                 totalDamage += damage
                 actorDamage[uid] = (actorDamage[uid] ?: 0) + damage
 
@@ -536,7 +536,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
             if (rawUid <= 0) return@forEach
             val uid = nicknameToCanonicalId[resolveNickname(rawUid, nicknameData)] ?: rawUid
-            val damage = pdp.getDamage()
+            val damage = pdp.getDamage() + pdp.getMultiHitDamage()
             totalTargetDamage += damage
             if (expandedActorIds != null && !expandedActorIds.contains(rawUid)) {
                 return@forEach
@@ -579,6 +579,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     dmg = 0,
                     multiHitCount = 0,
                     multiHitDamage = 0,
+                    multiHitHits = 0,
+                    minDmg = Int.MAX_VALUE,
+                    maxDmg = 0,
                     crit = 0,
                     parry = 0,
                     back = 0,
@@ -599,7 +602,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 dmg = next.dmg + damage,
                 heal = next.heal + pdp.getHealAmount(),
                 multiHitCount = next.multiHitCount + pdp.getMultiHitCount(),
-                multiHitDamage = next.multiHitDamage + pdp.getMultiHitDamage()
+                multiHitDamage = next.multiHitDamage + pdp.getMultiHitDamage(),
+                multiHitHits = next.multiHitHits + if (pdp.getMultiHitCount() > 0) 1 else 0,
+                minDmg = minOf(next.minDmg, damage),
+                maxDmg = maxOf(next.maxDmg, damage)
             )
 
             if (!isDot) {
@@ -802,7 +808,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             for (pdp in pdps) {
                 val timestamp = pdp.getTimeStamp()
                 val targetId = pdp.getTargetId()
-                val damage = pdp.getDamage()
+                val damage = pdp.getDamage() + pdp.getMultiHitDamage()
                 if (targetId <= 0 || damage <= 0) continue
                 if (timestamp > mostRecentTime) {
                     mostRecentTime = timestamp
