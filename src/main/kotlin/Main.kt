@@ -47,6 +47,12 @@ class AionMeterApp : Application() {
         val dataStorage = DataStorage()
         val calculator = DpsCalculator(dataStorage)
         val capturer = PcapCapturer(config, channel)
+        CombatPortDetector.onDeviceLocked = { lockedDevice ->
+            capturer.stopOtherDevices(lockedDevice)
+        }
+        CombatPortDetector.onReset = {
+            capturer.restartStoppedDevices()
+        }
         val dispatcher = CaptureDispatcher(channel, dataStorage, isReplayMode)
         val uiReady = CompletableDeferred<Unit>()
         val markUiReady = {

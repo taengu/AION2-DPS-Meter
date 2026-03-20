@@ -84,6 +84,8 @@ class PcapCapturer(
     }
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
+    private val deviceLabels = ConcurrentHashMap<String, String>() // nif.name → description label
+    private val stoppedDeviceNames = ConcurrentHashMap.newKeySet<String>() // devices stopped by stopOtherDevices
     private val running = AtomicBoolean(false)
 
     private fun captureOnDevice(nif: PcapNetworkInterface) = thread(name = "pcap-${nif.name}") {
@@ -94,6 +96,7 @@ class PcapCapturer(
             if (!running.get()) return@thread
             val handle = openHandle(nif)
             activeHandles[nif.name] = handle
+            deviceLabels[nif.name] = deviceLabel
 
             val filter = "tcp"
             handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
@@ -248,17 +251,51 @@ class PcapCapturer(
             return
         }
 
-        // Always start physical adapters for ping measurement — ExitLag/VPN
-        // traffic flows on external NICs even when the game is locked to loopback.
+        // Start physical adapters as fallback only if we haven't locked
+        // onto a device yet — no point capturing on other adapters.
         thread(name = "pcap-fallback") {
             Thread.sleep(FALLBACK_DELAY_MS)
+            if (CombatPortDetector.currentPort() != null) {
+                logger.info("Skipping physical adapter startup — already locked onto {}", CombatPortDetector.currentDevice())
+                return@thread
+            }
             if (physicalDevices.isNotEmpty()) {
-                val reason = if (CombatPortDetector.currentPort() == null) {
-                    "fallback from virtual adapters"
-                } else {
-                    "external ping measurement"
-                }
-                startDevices(physicalDevices, reason)
+                startDevices(physicalDevices, "fallback from virtual adapters")
+            }
+        }
+    }
+
+    /**
+     * Stop capturing on all devices except the one matching [lockedDeviceLabel].
+     * Called once we lock onto a device so we're not wasting resources on other adapters.
+     */
+    fun stopOtherDevices(lockedDeviceLabel: String) {
+        for ((name, handle) in activeHandles) {
+            val label = deviceLabels[name] ?: name
+            if (label.equals(lockedDeviceLabel, ignoreCase = true)) continue
+            logger.info("Stopping capture on non-locked device: {} ({})", label, name)
+            try { handle.breakLoop() } catch (_: Exception) {}
+            try { handle.close() } catch (_: Exception) {}
+            activeHandles.remove(name)
+            stoppedDeviceNames.add(name)
+        }
+    }
+
+    /**
+     * Restart captures on devices that were previously stopped by [stopOtherDevices].
+     * Called when the detection lock is reset so all devices can be re-scanned.
+     */
+    fun restartStoppedDevices() {
+        if (!running.get()) return
+        val toRestart = stoppedDeviceNames.toList()
+        stoppedDeviceNames.clear()
+        if (toRestart.isEmpty()) return
+
+        val devices = getAllDevices()
+        for (nif in devices) {
+            if (nif.name in toRestart && !activeHandles.containsKey(nif.name)) {
+                logger.info("Restarting capture on device: {} (reset)", nif.description ?: nif.name)
+                captureOnDevice(nif)
             }
         }
     }

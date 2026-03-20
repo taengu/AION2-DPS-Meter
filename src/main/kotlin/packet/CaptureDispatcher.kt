@@ -43,14 +43,7 @@ class CaptureDispatcher(
                     continue
                 }
 
-                // Feed packets to PingTracker before device/port filtering —
-                // external proxy connections (e.g. ExitLag) use a different device
-                // and different ports than the locked loopback connection.
                 val currentLockedPort = CombatPortDetector.currentPort()
-                if (currentLockedPort != null) {
-                    PingTracker.onPacket(cap)
-                }
-
                 val lockedDevice = CombatPortDetector.currentDevice()
                 if (!isOfflineReplay && lockedDevice != null && !deviceMatches(lockedDevice, cap.deviceName)) {
                     continue
@@ -59,6 +52,12 @@ class CaptureDispatcher(
                 // 1. If we are securely locked to AION, completely ignore all other background ports
                 if (currentLockedPort != null && cap.srcPort != currentLockedPort && cap.dstPort != currentLockedPort) {
                     continue
+                }
+
+                // Feed packets to PingTracker after device/port filtering so we only
+                // measure ping on the same locked device and port as combat data.
+                if (currentLockedPort != null) {
+                    PingTracker.onPacket(cap)
                 }
 
                 // 2. Run all the filters FIRST before creating any memory-heavy assemblers!

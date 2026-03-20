@@ -283,7 +283,9 @@ class DpsApp {
 
     this.pingEl = document.querySelector(".pingDisplay");
     this.showPing = this.safeGetSetting(this.storageKeys.showPing) !== "false";
-    this._pingTimer = setInterval(() => this.updatePing(), 2000);
+    // Ping is pushed immediately from PingTracker via window._dpsApp.updatePing().
+    // A slow fallback poll handles edge cases (e.g. push not wired yet on startup).
+    this._pingTimer = setInterval(() => this.updatePing(), 30000);
 
     this.showTotalDps = this.safeGetSetting(this.storageKeys.showTotalDps) !== "false";
     this.meterTotalBar = document.querySelector(".meterTotalBar");

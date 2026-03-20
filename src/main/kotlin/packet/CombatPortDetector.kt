@@ -8,6 +8,8 @@ object CombatPortDetector {
     @Volatile private var lockedPort: Int? = null
     @Volatile private var lockedDevice: String? = null
     @Volatile private var lastParsedAtMs: Long = 0
+    @Volatile var onDeviceLocked: ((String) -> Unit)? = null
+    @Volatile var onReset: (() -> Unit)? = null
     private val candidates = LinkedHashMap<Int, String?>()
     private val deviceFlows = mutableMapOf<String, MutableSet<Pair<Int, Int>>>()
 
@@ -30,6 +32,7 @@ object CombatPortDetector {
             logger.info("🔥 Combat port locked: {}", port)
             candidates.clear()
             deviceFlows.clear()
+            lockedDevice?.let { device -> onDeviceLocked?.invoke(device) }
         }
     }
 
@@ -150,7 +153,8 @@ object CombatPortDetector {
 
     @Synchronized
     fun reset() {
-        if (lockedPort != null) {
+        val wasLocked = lockedPort != null
+        if (wasLocked) {
             logger.info("Combat port lock cleared")
         }
         lockedPort = null
@@ -159,5 +163,8 @@ object CombatPortDetector {
         candidates.clear()
         deviceFlows.clear()
         PingTracker.reset()
+        if (wasLocked) {
+            onReset?.invoke()
+        }
     }
 }
