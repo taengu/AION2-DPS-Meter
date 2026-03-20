@@ -102,6 +102,15 @@ class DataStorage {
             logger.debug("Summon registration blocked: {} is a known player, not registering as summon of {}", summon, summoner)
             return
         }
+        // Don't allow a summon or mob to be registered as an owner
+        if (summonStorage.containsKey(summoner)) {
+            logger.debug("Summon registration blocked: summoner {} is itself a summon, not registering {} as its summon", summoner, summon)
+            return
+        }
+        if (mobStorage.containsKey(summoner) && !summonStorage.containsKey(summoner)) {
+            logger.debug("Summon registration blocked: summoner {} is a known mob, not registering {} as its summon", summoner, summon)
+            return
+        }
         summonStorage[summon] = summoner
     }
 

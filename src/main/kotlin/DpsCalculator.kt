@@ -5,6 +5,7 @@ import com.tbread.entity.DetailsActorSummary
 import com.tbread.entity.DetailsContext
 import com.tbread.entity.DetailsTargetSummary
 import com.tbread.entity.DpsData
+import com.tbread.entity.FightRecord
 import com.tbread.entity.JobClass
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.PersonalData
@@ -13,7 +14,9 @@ import com.tbread.entity.SummonResolver
 import com.tbread.entity.TargetDetailsResponse
 import com.tbread.entity.TargetInfo
 import com.tbread.logging.UnifiedLogger
+import com.tbread.entity.PingPoint
 import com.tbread.packet.LocalPlayer
+import com.tbread.packet.PingTracker
 import com.tbread.packet.PropertyHandler
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
@@ -55,6 +58,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     )
 
     companion object {
+        val TRAIN_MOB_CODES: Set<Int> = setOf(
+            2300229, 2300919, 2310229, 2310919, 2320229, 2320919,
+            2400032, 2400392, 2500075, 2500076, 2701376
+        )
+
         val POSSIBLE_OFFSETS: IntArray =
             intArrayOf(
                 0, 10, 20, 30, 40, 50,
@@ -637,13 +645,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             val relativeTimestamps = timestamps.map { it - resolvedStartTime }.sorted()
             entry.copy(hitTimestamps = relativeTimestamps)
         }
+        val pingHistory = if (resolvedStartTime > 0L && battleTime > 0L) {
+            val endMs = resolvedStartTime + battleTime
+            PingTracker.getPingHistory(resolvedStartTime, endMs)
+                .map { (ts, pingMs) -> PingPoint(tsMs = ts - resolvedStartTime, pingMs = pingMs) }
+        } else emptyList()
         return TargetDetailsResponse(
             targetId = targetId,
             maxHp = mobHpData[targetId] ?: 0,
             totalTargetDamage = totalTargetDamage,
             battleTime = battleTime,
             startTime = resolvedStartTime,
-            skills = skillsWithTimestamps
+            skills = skillsWithTimestamps,
+            pingHistory = pingHistory
         )
     }
 
@@ -860,6 +874,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         return npcMap[mobCode]?.isBoss == true
     }
 
+    private fun isTrainTarget(targetId: Int): Boolean {
+        val mobCode = dataStorage.getMobData()[targetId] ?: return false
+        return mobCode in TRAIN_MOB_CODES
+    }
+
     private fun collectRecentPdp(targetIds: Set<Int>, windowMs: Long, pdpMap: Map<Int, List<ParsedDamagePacket>>): List<ParsedDamagePacket> {
         val cutoff = System.currentTimeMillis() - windowMs
         val combined = mutableListOf<ParsedDamagePacket>()
@@ -986,6 +1005,45 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             )
         }
         return null
+    }
+
+    fun snapshotBossFights(): List<FightRecord> {
+        val records = mutableListOf<FightRecord>()
+        val bossModeData = dataStorage.getBossModeDataSnapshot()
+        bossModeData.keys.forEach { targetId ->
+            val isBoss = isBossTarget(targetId)
+            val isTrain = isTrainTarget(targetId)
+            if (!isBoss && !isTrain) return@forEach
+            val targetDetails = getTargetDetails(targetId, null)
+            if (targetDetails.skills.isEmpty()) return@forEach
+            val bossName = resolveTargetName(targetId)
+            if (bossName.isBlank()) return@forEach
+            val localActorIds = resolveConfirmedLocalActorIds()
+            if (localActorIds != null && targetDetails.skills.none { it.actorId in localActorIds }) return@forEach
+            val context = getDetailsContext()
+            val actorIdsInFight = targetDetails.skills.map { it.actorId }.toSet()
+            val jobs = context.actors.filter { actor ->
+                actor.actorId in actorIdsInFight
+            }.mapNotNull { actor ->
+                actor.job.takeIf { it.isNotBlank() }
+            }
+            val id = "${targetDetails.startTime}_${targetId}"
+            records.add(
+                FightRecord(
+                    id = id,
+                    bossName = bossName,
+                    targetId = targetId,
+                    startTimeMs = targetDetails.startTime,
+                    durationMs = targetDetails.battleTime,
+                    totalDamage = targetDetails.totalTargetDamage,
+                    jobs = jobs,
+                    details = targetDetails,
+                    actors = context.actors,
+                    isTrain = isTrain,
+                )
+            )
+        }
+        return records
     }
 
     fun resetDataStorage() {

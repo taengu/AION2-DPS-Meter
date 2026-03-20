@@ -122,6 +122,7 @@ fun main(args: Array<String>) {
     // Load debug logging setting from properties before startup logging.
     UnifiedLogger.loadDebugFromSettings()
     com.tbread.logging.BossEncounterLogger.loadFromSettings()
+    com.tbread.logging.RawPacketLogger.loadFromSettings()
 
     // 1. Check Admin
     ensureAdminOnWindows()

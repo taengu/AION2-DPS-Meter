@@ -36,6 +36,8 @@ class CaptureDispatcher(
     suspend fun run() {
         for (cap in channel) {
             try {
+                com.tbread.logging.RawPacketLogger.onPacket(cap)
+
                 if (!ensureAionRunning()) {
                     logUnlockedPacketSkip(cap, "AION window not detected")
                     continue

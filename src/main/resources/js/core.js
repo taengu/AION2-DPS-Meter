@@ -36,9 +36,12 @@ class DpsApp {
       mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
       mainPlayerDpsBold: "dpsMeter.mainPlayerDpsBold",
       showPing: "dpsMeter.showPing",
+      showTotalDps: "dpsMeter.showTotalDps",
+      playerLimit: "dpsMeter.playerLimit",
       theme: "dpsMeter.theme",
       slimMode: "dpsMeter.slimMode",
       bossLogs: "dpsMeter.bossLogsEnabled",
+      saveRawPackets: "dpsMeter.saveRawPackets",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -183,6 +186,7 @@ class DpsApp {
   }
 
   start() {
+    window._dpsApp = this;
     this.elList = document.querySelector(".list");
     this.elBossName = document.querySelector(".bossName");
     this.elBossName.textContent = this.getDefaultTargetLabel();
@@ -210,6 +214,7 @@ class DpsApp {
       getMetric: (row) => this.getMetricForRow(row),
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
+      getPlayerLimit: () => this.playerLimit,
       onHoverUserRow: (row, event) => {
         if (this.shouldSuppressRowInteractions()) return;
         this.openHoverDetailsRow(row, event);
@@ -277,32 +282,32 @@ class DpsApp {
     this.updateConnectionStatusUi();
 
     this.pingEl = document.querySelector(".pingDisplay");
-    this.showPing = this.safeGetSetting(this.storageKeys.showPing) === "true";
+    this.showPing = this.safeGetSetting(this.storageKeys.showPing) !== "false";
     this._pingTimer = setInterval(() => this.updatePing(), 2000);
+
+    this.showTotalDps = this.safeGetSetting(this.storageKeys.showTotalDps) !== "false";
+    this.meterTotalBar = document.querySelector(".meterTotalBar");
+    this.meterTotalDpsEl = document.querySelector(".meterTotalDps");
+    this.meterTotalDmgEl = document.querySelector(".meterTotalDmg");
+    const savedLimit = parseInt(this.safeGetSetting(this.storageKeys.playerLimit), 10);
+    this.playerLimit = Number.isFinite(savedLimit) && savedLimit >= 1 ? savedLimit : 6;
 
     this.detailsPanel = document.querySelector(".detailsPanel");
     this.detailsClose = document.querySelector(".detailsClose");
-    this.detailsTitle = document.querySelector(".detailsTitle");
-    this.detailsNicknameBtn = document.querySelector(".detailsNicknameBtn");
-    this.detailsNicknameMenu = document.querySelector(".detailsNicknameMenu");
-    this.detailsTargetBtn = document.querySelector(".detailsTargetBtn");
-    this.detailsTargetMenu = document.querySelector(".detailsTargetMenu");
-    this.detailsSortButtons = document.querySelectorAll(".detailsSortBtn");
+    this.detailsBackBtn = document.querySelector(".detailsBackBtn");
+    this.detailsFightTitleEl = document.querySelector(".detailsFightTitle");
+    this.detailsPartyListEl = document.querySelector(".detailsPartyList");
     this.detailsScreenshotBtn = document.querySelector(".detailsScreenshotBtn");
     this.detailsScreenshotNote = document.querySelector(".detailsScreenshotNote");
-    this.detailsRefreshBtn = document.querySelector(".detailsRefreshBtn");
     this.detailsStatsEl = document.querySelector(".detailsStats");
     this.skillsListEl = document.querySelector(".skills");
 
     this.detailsUI = createDetailsUI({
       detailsPanel: this.detailsPanel,
       detailsClose: this.detailsClose,
-      detailsTitle: this.detailsTitle,
-      detailsNicknameBtn: this.detailsNicknameBtn,
-      detailsNicknameMenu: this.detailsNicknameMenu,
-      detailsTargetBtn: this.detailsTargetBtn,
-      detailsTargetMenu: this.detailsTargetMenu,
-      detailsSortButtons: this.detailsSortButtons,
+      detailsBackBtn: this.detailsBackBtn,
+      detailsFightTitleEl: this.detailsFightTitleEl,
+      detailsPartyListEl: this.detailsPartyListEl,
       detailsStatsEl: this.detailsStatsEl,
       skillsListEl: this.skillsListEl,
       dpsFormatter: this.dpsFormatter,
@@ -312,9 +317,7 @@ class DpsApp {
         const nextId = Number(rowId);
         this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
       },
-    });
-    this.detailsRefreshBtn?.addEventListener("click", () => {
-      this.detailsUI?.refresh?.();
+      onBack: () => { this.historyUI?.open?.(); },
     });
     if (this.detailsScreenshotBtn) {
       let screenshotNoteTimer = null;
@@ -410,6 +413,15 @@ class DpsApp {
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
+
+    this.historyUI = typeof createHistoryUI === "function"
+      ? createHistoryUI({
+          onOpenFight: (record) => {
+            this.historyUI?.close?.();
+            this.detailsUI?.openHistoryFight?.(record);
+          },
+        })
+      : null;
 
     this.startPolling();
     this.startWindowTitlePolling();
@@ -548,6 +560,7 @@ class DpsApp {
     this.setMeterHoverFreeze(false);
     this.detailsUI?.close?.({ keepPinned: false });
     this.meterUI?.onResetMeterUi?.();
+    if (this.meterTotalBar) this.meterTotalBar.style.display = "none";
 
     if (this.elBossName) {
       this.elBossName.textContent = this.getDefaultTargetLabel();
@@ -894,6 +907,7 @@ class DpsApp {
     }
     this.latestRowsById = new Map(rowsToRender.map((row) => [String(row.id), row]));
     this.hoverTooltipCacheByRowId.clear();
+    this.updateMeterTotalBar(rowsToRender);
     this.meterUI.updateFromRows(rowsToRender);
   }
 
@@ -1172,7 +1186,9 @@ class DpsApp {
     { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false, maxSkills = null } = {}
   ) {
     let raw = null;
-    if (targetId && window.dpsData?.getTargetDetails) {
+    if (window._historyDetailsOverride) {
+      raw = window._historyDetailsOverride;
+    } else if (targetId && window.dpsData?.getTargetDetails) {
       const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
       raw = await window.dpsData.getTargetDetails(targetId, payload);
     } else {
@@ -1453,6 +1469,7 @@ class DpsApp {
       showSkillIcons,
       perActorStats,
       showCombinedTotals: !attackerIds || attackerIds.length === 0,
+      pingHistory: Array.isArray(detailObj?.pingHistory) ? detailObj.pingHistory : [],
     };
   }
 
@@ -1502,6 +1519,28 @@ class DpsApp {
       this.captureMainMeterScreenshot();
     });
     this.logoBtn?.setAttribute("data-no-drag", "true");
+
+    // Click on boss name area → open Details for current mob (all players) or history
+    const bossNamesEl = document.querySelector(".bossNames");
+    if (bossNamesEl) {
+      bossNamesEl.addEventListener("click", () => {
+        if (this.isWindowDragging) return;
+        const targetId = this.lastTargetId;
+        if (targetId > 0) {
+          this.pinnedDetailsRowId = null;
+          this.detailsUI?.open?.(null, {
+            defaultTargetId: targetId,
+            defaultTargetAll: false,
+            pin: true,
+            force: true,
+          });
+        } else {
+          this.historyUI?.open?.();
+        }
+      });
+      bossNamesEl.setAttribute("data-no-drag", "true");
+      bossNamesEl.style.cursor = "pointer";
+    }
   }
 
   setupSettingsPanel() {
@@ -1522,6 +1561,7 @@ class DpsApp {
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.showPingCheckbox = document.querySelector(".showPingCheckbox");
+    this.saveRawPacketsCheckbox = document.querySelector(".saveRawPacketsCheckbox");
     this.pinMeToTopCheckbox = document.querySelector(".pinMeToTopCheckbox");
     this.slimModeCheckbox = document.querySelector(".slimModeCheckbox");
     this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
@@ -1677,6 +1717,25 @@ class DpsApp {
       this.showPingCheckbox.addEventListener("change", (event) => {
         this.showPing = !!event.target?.checked;
         this.safeSetSetting(this.storageKeys.showPing, String(this.showPing));
+      });
+    }
+    this.showTotalDpsCheckbox = document.querySelector(".showTotalDpsCheckbox");
+    if (this.showTotalDpsCheckbox) {
+      this.showTotalDpsCheckbox.checked = this.showTotalDps;
+      this.showTotalDpsCheckbox.addEventListener("change", (event) => {
+        this.showTotalDps = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.showTotalDps, String(this.showTotalDps));
+        this.renderCurrentRows();
+      });
+    }
+    this.initPlayerLimitDropdown();
+    if (this.saveRawPacketsCheckbox) {
+      const storedSaveRaw = this.safeGetSetting(this.storageKeys.saveRawPackets) === "true";
+      this.saveRawPacketsCheckbox.checked = storedSaveRaw;
+      this.saveRawPacketsCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.saveRawPackets, String(isChecked));
+        window.javaBridge?.setSaveRawPackets?.(isChecked);
       });
     }
     if (this.pinMeToTopCheckbox) {
@@ -2909,6 +2968,61 @@ class DpsApp {
     };
   }
 
+  updateMeterTotalBar(rows) {
+    if (!this.meterTotalBar) return;
+    if (!this.showTotalDps || !Array.isArray(rows) || rows.length <= 1) {
+      this.meterTotalBar.style.display = "none";
+      return;
+    }
+    const totalDmg = rows.reduce((sum, r) => sum + (Number(r?.totalDamage) || 0), 0);
+    const totalDps = rows.reduce((sum, r) => sum + (Number(r?.dps) || 0), 0);
+    this.meterTotalBar.style.display = "";
+    if (this.meterTotalDpsEl) {
+      this.meterTotalDpsEl.textContent = `${this.dpsFormatter.format(totalDps)}/s`;
+    }
+    if (this.meterTotalDmgEl) {
+      this.meterTotalDmgEl.textContent = this.formatAbbreviatedNumber(totalDmg);
+    }
+  }
+
+  initPlayerLimitDropdown() {
+    const wrapper = document.querySelector(".playerLimitDropdownWrapper");
+    if (!wrapper) return;
+    const btn = wrapper.querySelector(".playerLimitDropdownBtn");
+    const menu = wrapper.querySelector(".playerLimitDropdownMenu");
+    const textEl = btn?.querySelector(".settingsDropdownText");
+    if (!btn || !menu || !textEl) return;
+
+    const options = [4, 5, 6, 7, 8, 10, 12];
+    textEl.textContent = String(this.playerLimit);
+
+    for (const val of options) {
+      const item = document.createElement("div");
+      item.className = "settingsDropdownItem";
+      item.textContent = String(val);
+      item.dataset.value = String(val);
+      if (val === this.playerLimit) item.classList.add("isActive");
+      item.addEventListener("click", () => {
+        this.playerLimit = val;
+        this.safeSetSetting(this.storageKeys.playerLimit, String(val));
+        textEl.textContent = String(val);
+        menu.querySelectorAll(".settingsDropdownItem").forEach((el) =>
+          el.classList.toggle("isActive", el.dataset.value === String(val))
+        );
+        menu.style.display = "none";
+        this.renderCurrentRows();
+      });
+      menu.appendChild(item);
+    }
+
+    btn.addEventListener("click", () => {
+      menu.style.display = menu.style.display === "none" ? "flex" : "none";
+    });
+    document.addEventListener("click", (e) => {
+      if (!wrapper.contains(e.target)) menu.style.display = "none";
+    });
+  }
+
   renderCurrentRows() {
     if (this.isCollapse) return;
     let rowsToRender = Array.isArray(this.lastSnapshot) ? this.lastSnapshot : [];
@@ -2931,6 +3045,7 @@ class DpsApp {
       this._lastRenderedListSignature = rowsSummary.listSignature;
       this._lastRenderedRowsSummary = rowsSummary;
     }
+    this.updateMeterTotalBar(rowsToRender);
     this.meterUI?.updateFromRows?.(rowsToRender);
   }
 
@@ -3049,22 +3164,24 @@ class DpsApp {
     }
   }
 
-  updatePing() {
+  updatePing(pushedMs) {
     if (!this.pingEl) return;
     if (!this.showPing) {
       this.pingEl.classList.remove("isVisible");
       return;
     }
-    const ms = window.javaBridge?.getPingMs?.();
+    const ms = typeof pushedMs === "number" ? pushedMs : window.javaBridge?.getPingMs?.();
     if (typeof ms !== "number" || ms < 0) {
       this.pingEl.classList.remove("isVisible");
       return;
     }
-    this.pingEl.textContent = `${ms}ms`;
+    const textEl = this.pingEl.querySelector(".pingText");
+    if (textEl) textEl.textContent = `${ms}ms`;
+    else this.pingEl.textContent = `${ms}ms`;
     this.pingEl.classList.add("isVisible");
-    this.pingEl.classList.remove("ping-good", "ping-warn", "ping-bad");
+    this.pingEl.classList.remove("ping-good", "ping-warn", "ping-high", "ping-bad");
     this.pingEl.classList.add(
-      ms <= 80 ? "ping-good" : ms <= 200 ? "ping-warn" : "ping-bad"
+      ms < 100 ? "ping-good" : ms < 200 ? "ping-warn" : ms < 225 ? "ping-high" : "ping-bad"
     );
   }
 
@@ -3265,7 +3382,7 @@ class DpsApp {
       if (targetEl?.closest?.(".headerBtn, .footerBtn, .bossIcon")) {
         return;
       }
-      if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .list .item")) {
+      if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .historyPanel, .list .item")) {
         return;
       }
       if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {

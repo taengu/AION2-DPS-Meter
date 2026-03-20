@@ -69,37 +69,10 @@
           role="dialog"
           aria-modal="true">
           <div class="detailsHeader">
-            <div class="detailsTitle">
-              <span class="detailsTitleLabel" data-i18n="details.header">Details</span>
-              <span class="detailsTitleSeparator">for</span>
-              <div class="detailsDropdownWrapper detailsNicknameWrapper">
-                <button class="detailsDropdownBtn detailsNicknameBtn" type="button">
-                  <span class="detailsDropdownText">-</span>
-                  <span class="detailsDropdownCaret" aria-hidden="true">▾</span>
-                </button>
-                <div class="detailsDropdownMenu detailsNicknameMenu" role="menu"></div>
-              </div>
-              <span class="detailsTitleVs">vs</span>
-              <div class="detailsDropdownWrapper detailsTargetWrapper">
-                <button class="detailsDropdownBtn detailsTargetBtn" type="button">
-                  <span class="detailsDropdownText">-</span>
-                  <span class="detailsDropdownCaret" aria-hidden="true">▾</span>
-                </button>
-                <div class="detailsDropdownMenu detailsTargetMenu" role="menu"></div>
-              </div>
-              <span class="detailsTargetSuffix"></span>
-              <div class="detailsTargetSort">
-                <button class="detailsSortBtn" data-sort="recent" type="button" data-i18n="details.sort.recent">
-                  Recent
-                </button>
-                <button class="detailsSortBtn" data-sort="time" type="button" data-i18n="details.sort.time">
-                  Time
-                </button>
-                <button class="detailsSortBtn" data-sort="damage" type="button" data-i18n="details.sort.damage">
-                  Damage
-                </button>
-              </div>
-            </div>
+            <button class="detailsBackBtn" type="button" aria-label="Back to History">
+              <i data-lucide="circle-chevron-left"></i> <span data-i18n="details.historyBtn">History</span>
+            </button>
+            <div class="detailsFightTitle"></div>
             <div class="detailsHeaderControls">
               <div class="detailsScreenshotWrapper">
                 <button class="detailsScreenshotBtn" type="button" aria-label="Save screenshot to clipboard">
@@ -107,13 +80,6 @@
                 </button>
                 <span class="detailsScreenshotNote" aria-live="polite"></span>
               </div>
-              <button
-                class="detailsRefreshBtn"
-                type="button"
-                aria-label="Refresh details"
-                data-i18n-aria-label="details.refresh.ariaLabel">
-                <i data-lucide="rotate-ccw"></i>
-              </button>
               <div class="detailsSettingsMenuWrapper">
                 <button
                   class="detailsSettingsBtn"
@@ -302,7 +268,24 @@
           </div>
 
           <div class="detailsBody">
-            <div class="detailsStats"></div>
+            <div class="detailsStatsRow">
+              <div class="detailsPartyList"></div>
+              <div class="detailsStats"></div>
+            </div>
+
+            <div class="detailsSection dpsChartSection">
+              <div class="detailsSectionHeader" data-section="dpsChart">
+                <span class="detailsSectionArrow"></span>
+                <span class="detailsSectionTitle" data-i18n="details.dpsChart">DPS Chart</span>
+              </div>
+              <div class="detailsSectionContent">
+                <div class="dpsChartWrap">
+                  <div class="dpsChartLegend"></div>
+                  <canvas class="dpsChartCanvas"></canvas>
+                  <div class="dpsChartXAxis"></div>
+                </div>
+              </div>
+            </div>
 
             <div class="detailsSection skillsSection isExpanded">
               <div class="detailsSectionHeader" data-section="skills">
@@ -312,20 +295,20 @@
               <div class="detailsSectionContent">
                 <div class="detailsSkills">
                   <div class="skillHeader">
-                    <div class="cell name" data-sort-key="name" data-i18n="details.skills.skill">Skill</div>
-                    <div class="cell center dmg" data-sort-key="dmg" data-i18n="details.skills.dmg">Dmg</div>
+                    <div class="cell name" data-sort-key="name" data-i18n="details.skills.skill" data-tip="Skill Name" data-i18n-tip="details.skills.skillTooltip">Skill</div>
+                    <div class="cell center dmg" data-sort-key="dmg" data-i18n="details.skills.dmg" data-tip="Damage" data-i18n-tip="details.skills.dmgTooltip">Dmg</div>
                     <div class="cell center dmgpct" data-sort-key="dmgpct" data-i18n="details.skills.dmgPct" data-tip="Damage %" data-i18n-tip="details.skills.dmgPctTooltip">D%</div>
                     <div class="cell center mhit" data-sort-key="mhit" data-i18n="details.skills.multiHit" data-tip="Multi-hit %" data-i18n-tip="details.skills.multiHitTooltip">MH%</div>
                     <div class="cell center mdmg" data-sort-key="mdmg" data-i18n="details.skills.multiHitDamage" data-tip="Multi-hit Damage" data-i18n-tip="details.skills.multiHitDamageTooltip">MHD</div>
-                    <div class="cell center crit" data-sort-key="crit" data-i18n="details.skills.crit">Crit</div>
+                    <div class="cell center crit" data-sort-key="crit" data-i18n="details.skills.crit" data-tip="Crit %" data-i18n-tip="details.skills.critTooltip">Crit</div>
                     <div class="cell center parry" data-sort-key="parry" data-i18n="details.skills.parry" data-tip="Parry %" data-i18n-tip="details.skills.parryTooltip">Par</div>
                     <div class="cell center perfect" data-sort-key="perfect" data-i18n="details.skills.perfect" data-tip="Perfect %" data-i18n-tip="details.skills.perfectTooltip">Per</div>
                     <div class="cell center double" data-sort-key="double" data-i18n="details.skills.double" data-tip="Double %" data-i18n-tip="details.skills.doubleTooltip">Dbl</div>
-                    <div class="cell center back" data-sort-key="back" data-i18n="details.skills.back">Back</div>
-                    <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits">Casts</div>
-                    <div class="cell center mindmg" data-sort-key="mindmg" data-i18n="details.skills.minDmg">Min</div>
-                    <div class="cell center avgdmg" data-sort-key="avgdmg" data-i18n="details.skills.avgDmg">Avg</div>
-                    <div class="cell center maxdmg" data-sort-key="maxdmg" data-i18n="details.skills.maxDmg">Max</div>
+                    <div class="cell center back" data-sort-key="back" data-i18n="details.skills.back" data-tip="Back Attack %" data-i18n-tip="details.skills.backTooltip">Back</div>
+                    <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits" data-tip="Casts" data-i18n-tip="details.skills.hitsTooltip">Casts</div>
+                    <div class="cell center mindmg" data-sort-key="mindmg" data-i18n="details.skills.minDmg" data-tip="Min Damage" data-i18n-tip="details.skills.minDmgTooltip">Min</div>
+                    <div class="cell center avgdmg" data-sort-key="avgdmg" data-i18n="details.skills.avgDmg" data-tip="Avg Damage" data-i18n-tip="details.skills.avgDmgTooltip">Avg</div>
+                    <div class="cell center maxdmg" data-sort-key="maxdmg" data-i18n="details.skills.maxDmg" data-tip="Max Damage" data-i18n-tip="details.skills.maxDmgTooltip">Max</div>
                   </div>
 
                   <div class="skills"></div>
@@ -340,7 +323,7 @@
             <div class="detailsSection timelineSection">
               <div class="detailsSectionHeader" data-section="timeline">
                 <span class="detailsSectionArrow"></span>
-                <span class="detailsSectionTitle">Timeline</span>
+                <span class="detailsSectionTitle" data-i18n="details.timeline">Timeline</span>
               </div>
               <div class="detailsSectionContent">
                 <div class="timelineChart">
@@ -471,6 +454,20 @@
                     <span class="settingsToggleTrack" aria-hidden="true"></span>
                   </span>
                 </label>
+                <label class="settingsToggle">
+                  <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showPing">Show ping</span>
+                  <span class="settingsToggleControl">
+                    <input type="checkbox" class="showPingCheckbox" />
+                    <span class="settingsToggleTrack" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="settingsToggle">
+                  <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showTotalDps">Show total DPS/DMG</span>
+                  <span class="settingsToggleControl">
+                    <input type="checkbox" class="showTotalDpsCheckbox" />
+                    <span class="settingsToggleTrack" aria-hidden="true"></span>
+                  </span>
+                </label>
               </div>
               <div class="settingsColumn">
                 <div class="settingsMiniTitle" data-i18n="settings.meterSettings">Meter Settings</div>
@@ -519,10 +516,22 @@
                   </button>
                 </div>
                 <div class="settingsAdvancedBody" style="display: none;">
+                  <div class="settingsRow settingsRowSelect">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.playerLimit.label">Max players shown</div>
+                    </div>
+                    <div class="settingsDropdownWrapper playerLimitDropdownWrapper">
+                      <button class="settingsDropdownBtn playerLimitDropdownBtn" type="button">
+                        <span class="settingsDropdownText">6</span>
+                        <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="settingsDropdownMenu playerLimitDropdownMenu" role="menu"></div>
+                    </div>
+                  </div>
                   <label class="settingsToggle">
-                    <span class="settingsToggleLabel" data-i18n="settings.showPing">Show ping</span>
+                    <span class="settingsToggleLabel" data-i18n="settings.saveRawPackets">Save raw data packets</span>
                     <span class="settingsToggleControl">
-                      <input type="checkbox" class="showPingCheckbox" />
+                      <input type="checkbox" class="saveRawPacketsCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
@@ -600,7 +609,39 @@
             </div>
           </div>
         </div>
+        <div class="historyPanel" role="dialog" aria-modal="true">
+          <div class="historyHeader">
+            <div class="historyTitle" data-i18n="history.title">Battle History</div>
+            <button class="historyTrainToggle" type="button" title="Show Training Battles">
+              <i data-lucide="test-tube-diagonal"></i>
+            </button>
+            <button class="historyDeleteToggle" type="button" title="Toggle delete mode">
+              <i data-lucide="trash-2"></i>
+            </button>
+            <div class="closeX historyClose">×</div>
+          </div>
+          <div class="historyFilters">
+            <select class="historyFilterBoss historyFilterSelect"></select>
+            <div class="historyFilterPlayer historyClassDropdown">
+              <div class="historyClassDropdownTrigger historyFilterSelect">
+                <span class="historyClassDropdownLabel"></span>
+                <svg class="historyClassDropdownChevron" width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0l5 6 5-6z" fill="rgba(255,255,255,0.45)"/></svg>
+              </div>
+              <div class="historyClassDropdownMenu"></div>
+            </div>
+            <select class="historyFilterDate historyFilterSelect"></select>
+          </div>
+          <div class="historyBody">
+            <div class="historyEmpty" data-i18n="history.empty" style="display:none">No boss fights recorded yet.</div>
+            <div class="historyList"></div>
+          </div>
+        </div>
         <div class="list"></div>
+        <div class="meterTotalBar" style="display:none">
+          <span class="meterTotalDps"></span>
+          <span class="meterTotalSep">|</span>
+          <span class="meterTotalDmg"></span>
+        </div>
         <div class="battleTime">
           <div class="status"></div>
           <div class="tick"></div>
@@ -610,7 +651,10 @@
         </div>
         <div class="resizeHandle" aria-hidden="true"></div>
       </div>
-      <div class="pingDisplay"></div>
+      <div class="pingDisplay">
+        <i data-lucide="wifi" class="pingIcon"></i>
+        <span class="pingText"></span>
+      </div>
       <div
         class="console"
         style="
@@ -733,6 +777,7 @@
     <script src="./js/meter.js"></script>
     <script src="./js/skillIcons.js"></script>
     <script src="./js/details.js"></script>
+    <script src="./js/history.js"></script>
 
     <!-- 추가 -->
     <script src="./js/checkRelease.js"></script>

@@ -8,6 +8,7 @@ const createMeterUI = ({
   getMetric,
   getSortDirection,
   getPinUserToTop,
+  getPlayerLimit,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -136,18 +137,18 @@ const createMeterUI = ({
     return view;
   };
 
-  // 상위 6개 + 유저(유저가 top6 밖이면 7개)
   const getDisplayRows = (sortedAll) => {
-    const top6 = sortedAll.slice(0, 6);
+    const limit = (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6;
+    const topN = sortedAll.slice(0, limit);
     const user = sortedAll.find((x) => x.isUser);
 
-    if (!user) return top6;
+    if (!user) return topN;
     const pinUser = typeof getPinUserToTop === "function" && getPinUserToTop();
     if (pinUser) {
-      return [user, ...top6.filter((row) => !row.isUser)];
+      return [user, ...topN.filter((row) => !row.isUser)];
     }
-    if (top6.some((x) => x.isUser)) return top6;
-    return [...top6, user];
+    if (topN.some((x) => x.isUser)) return topN;
+    return [...topN, user];
   };
 
   const pruneCache = (keepIds) => {

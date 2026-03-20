@@ -42,25 +42,33 @@
     },
     "skills": {
       "skill": "技能",
+      "skillTooltip": "技能名稱",
       "hits": "施放",
+      "hitsTooltip": "施放次數",
       "dmg": "傷害",
-      "dmgPct": "D%",
+      "dmgTooltip": "傷害量",
+      "dmgPct": "傷%",
       "dmgPctTooltip": "傷害 %",
       "crit": "暴擊",
-      "parry": "Par",
+      "critTooltip": "暴擊 %",
+      "parry": "格擋",
       "parryTooltip": "格擋 %",
-      "perfect": "Per",
+      "perfect": "完美",
       "perfectTooltip": "完美 %",
-      "double": "Dbl",
+      "double": "雙重",
       "doubleTooltip": "雙重 %",
       "back": "背擊",
+      "backTooltip": "背擊 %",
       "multiHit": "MH%",
       "multiHitTooltip": "多段打擊 %",
       "multiHitDamage": "MHD",
       "multiHitDamageTooltip": "額外傷害",
       "minDmg": "最小",
+      "minDmgTooltip": "最小傷害",
       "avgDmg": "平均",
-      "maxDmg": "最大"
+      "avgDmgTooltip": "平均傷害",
+      "maxDmg": "最大",
+      "maxDmgTooltip": "最大傷害"
     },
     "stats": {
       "totalDamage": "總傷害",
@@ -72,11 +80,33 @@
       "parryRate": "格擋率",
       "combatTime": "戰鬥時間",
       "multiHitDamage": "額外傷害",
-      "multiHitHits": "多段打擊"
+      "multiHitHits": "多段打擊",
+      "maxHp": "最大HP"
     },
     "titleFor": "針對",
     "titleVs": "vs",
-    "all": "全部"
+    "fightVs": "戰鬥 vs",
+    "all": "全部",
+    "history": {
+      "allPlayers": "全體玩家"
+    },
+    "dpsChart": "DPS 圖表",
+    "historyBtn": "歷史",
+    "timeline": "時間軸"
+  },
+  "history": {
+    "title": "戰鬥歷史",
+    "empty": "尚無BOSS戰鬥記錄。",
+    "delete": "刪除",
+    "showTraining": "顯示訓練",
+    "hideTraining": "隱藏訓練",
+    "showTrainingBattles": "顯示訓練戰鬥",
+    "hideTrainingBattles": "隱藏訓練戰鬥",
+    "trainBadge": "訓練",
+    "liveBadge": "進行中",
+    "filterBoss": "Boss名稱...",
+    "filterPlayer": "玩家職業...",
+    "filterDate": "日期 (YYYY-MM-DD)..."
   },
   "settings": {
     "title": "設定",
@@ -90,10 +120,16 @@
     "connection": "連線",
     "advanced": "進階",
     "bossLogs": "啟用每場Boss記錄",
+    "saveRawPackets": "儲存原始數據封包",
     "bold": {
       "label": "加粗",
       "names": "名稱",
       "dps": "DPS"
+    },
+    "showPing": "顯示延遲",
+    "showTotalDps": "顯示總DPS/DMG",
+    "playerLimit": {
+      "label": "最大顯示人數"
     },
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
@@ -216,5 +252,15 @@
     "identifying": "正在識別你...",
     "train": "訓練用稻草人",
     "boss": "首領目標"
+  },
+  "classes": {
+    "GLADIATOR": "劍聖",
+    "TEMPLAR": "守護聖",
+    "RANGER": "弓聖",
+    "ASSASSIN": "殺聖",
+    "SORCERER": "魔道聖",
+    "CLERIC": "治癒聖",
+    "ELEMENTALIST": "精靈聖",
+    "CHANTER": "護法聖"
   }
 }

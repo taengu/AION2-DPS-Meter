@@ -42,25 +42,33 @@
     },
     "skills": {
       "skill": "스킬",
+      "skillTooltip": "스킬 이름",
       "hits": "시전",
+      "hitsTooltip": "시전 횟수",
       "dmg": "피해",
-      "dmgPct": "D%",
+      "dmgTooltip": "피해량",
+      "dmgPct": "피%",
       "dmgPctTooltip": "피해 %",
       "crit": "치명",
-      "parry": "Par",
+      "critTooltip": "치명타 %",
+      "parry": "패리",
       "parryTooltip": "패리 %",
-      "perfect": "Per",
+      "perfect": "퍼펙",
       "perfectTooltip": "퍼펙트 %",
-      "double": "Dbl",
+      "double": "더블",
       "doubleTooltip": "더블 %",
       "back": "백",
+      "backTooltip": "백어택 %",
       "multiHit": "MH%",
       "multiHitTooltip": "다중타 %",
       "multiHitDamage": "MHD",
       "multiHitDamageTooltip": "다중타 피해",
       "minDmg": "최소",
+      "minDmgTooltip": "최소 피해",
       "avgDmg": "평균",
-      "maxDmg": "최대"
+      "avgDmgTooltip": "평균 피해",
+      "maxDmg": "최대",
+      "maxDmgTooltip": "최대 피해"
     },
     "stats": {
       "totalDamage": "총 피해",
@@ -72,11 +80,33 @@
       "parryRate": "패리율",
       "combatTime": "전투 시간",
       "multiHitDamage": "다중타 피해",
-      "multiHitHits": "다중타"
+      "multiHitHits": "다중타",
+      "maxHp": "최대 HP"
     },
     "titleFor": "대상",
     "titleVs": "vs",
-    "all": "전체"
+    "fightVs": "전투 vs",
+    "all": "전체",
+    "history": {
+      "allPlayers": "전체 플레이어"
+    },
+    "dpsChart": "DPS 차트",
+    "historyBtn": "기록",
+    "timeline": "타임라인"
+  },
+  "history": {
+    "title": "전투 기록",
+    "empty": "아직 기록된 보스 전투가 없습니다.",
+    "delete": "삭제",
+    "showTraining": "훈련 표시",
+    "hideTraining": "훈련 숨기기",
+    "showTrainingBattles": "훈련 전투 표시",
+    "hideTrainingBattles": "훈련 전투 숨기기",
+    "trainBadge": "훈련",
+    "liveBadge": "진행 중",
+    "filterBoss": "보스 이름...",
+    "filterPlayer": "플레이어 클래스...",
+    "filterDate": "날짜 (YYYY-MM-DD)..."
   },
   "settings": {
     "title": "설정",
@@ -90,10 +120,16 @@
     "connection": "연결",
     "advanced": "고급",
     "bossLogs": "보스별 로그 활성화",
+    "saveRawPackets": "원시 데이터 패킷 저장",
     "bold": {
       "label": "굵게",
       "names": "이름",
       "dps": "DPS"
+    },
+    "showPing": "핑 표시",
+    "showTotalDps": "총 DPS/DMG 표시",
+    "playerLimit": {
+      "label": "최대 표시 인원"
     },
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
@@ -216,5 +252,15 @@
     "identifying": "사용자를 식별하는 중...",
     "train": "훈련용 허수아비",
     "boss": "보스 대상"
+  },
+  "classes": {
+    "GLADIATOR": "검성",
+    "TEMPLAR": "수호성",
+    "RANGER": "궁성",
+    "ASSASSIN": "살성",
+    "SORCERER": "마도성",
+    "CLERIC": "치유성",
+    "ELEMENTALIST": "정령성",
+    "CHANTER": "호법성"
   }
 }

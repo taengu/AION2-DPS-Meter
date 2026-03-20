@@ -140,7 +140,131 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
         }
 
+        // Full-buffer fallback: scan the entire raw buffer for summon ownership data
+        // and nicknames that the varint framing may have split across boundaries.
+        scanBufferForSummonData(buffer)
+
         return offset
+    }
+
+    /**
+     * Scan a raw buffer for summon-related data that the varint framing may have missed.
+     * This catches:
+     * - Embedded 04 8D summon ownership sub-packets
+     * - 40 36 spawn opcodes with target IDs + owner markers
+     * - E0/E2 07 anchored nicknames
+     */
+    private fun scanBufferForSummonData(buffer: ByteArray) {
+        if (buffer.size < 4) return
+
+        // A: Embedded 04 8D scan
+        scanForEmbedded048D(buffer)
+
+        // B: Collect summon IDs from all 40 36 spawn opcodes
+        val potentialSummonIds = mutableSetOf<Int>()
+        var spawnSearch = 0
+        while (spawnSearch + 1 < buffer.size) {
+            val spawnIdx = findArrayIndexFromOffset(buffer, spawnSearch, byteArrayOf(0x40, 0x36))
+            if (spawnIdx == -1) break
+            val targetOffset = spawnIdx + 2
+            if (targetOffset < buffer.size) {
+                val targetInfo = readVarInt(buffer, targetOffset)
+                if (targetInfo.length > 0 && targetInfo.value in 100..9_999_999) {
+                    var realId = targetInfo.value
+                    if (realId > 1_000_000) {
+                        realId = (realId and 0x3FFF) or 0x4000
+                    }
+                    // Only collect if not already registered as a summon
+                    if (!dataStorage.getSummonData().containsKey(realId)) {
+                        // Skip entities with boss-like HP
+                        val hp = dataStorage.getMobHpData()[realId]
+                        if (hp == null || hp <= 500_000) {
+                            potentialSummonIds.add(realId)
+                        }
+                    }
+                }
+            }
+            spawnSearch = spawnIdx + 2
+        }
+
+        // C: Extract owner IDs from owner markers
+        val ownerMarker = byteArrayOf(
+            0x80.toByte(), 0x75, 0xD5.toByte(), 0x2A, 0xBB.toByte(), 0x03, 0x00, 0x00
+        )
+        val potentialOwnerIds = mutableSetOf<Int>()
+        var markerSearch = 0
+        while (markerSearch + ownerMarker.size < buffer.size) {
+            val markerIdx = findArrayIndexFromOffset(buffer, markerSearch, ownerMarker)
+            if (markerIdx == -1) break
+            val ownerOffset = markerIdx + ownerMarker.size
+            if (ownerOffset < buffer.size) {
+                val ownerInfo = readVarInt(buffer, ownerOffset)
+                if (ownerInfo.length > 0 && ownerInfo.value in 100..99_999 &&
+                    !dataStorage.getSummonData().containsKey(ownerInfo.value) &&
+                    !dataStorage.getMobData().containsKey(ownerInfo.value)
+                ) {
+                    potentialOwnerIds.add(ownerInfo.value)
+                }
+            }
+            markerSearch = markerIdx + ownerMarker.size
+        }
+
+        // D: Scan for E0/E2 07 anchored nicknames (Pattern A logic on full buffer)
+        var anchorSearch = 0
+        while (anchorSearch + 2 < buffer.size) {
+            if ((buffer[anchorSearch] == 0xE2.toByte() || buffer[anchorSearch] == 0xE0.toByte()) &&
+                buffer[anchorSearch + 1] == 0x07.toByte()
+            ) {
+                val nameLenIdx = anchorSearch + 2
+                if (nameLenIdx < buffer.size) {
+                    val nameLen = buffer[nameLenIdx].toInt() and 0xFF
+                    if (nameLen in 2..32 && nameLenIdx + 1 + nameLen <= buffer.size) {
+                        val nameBytes = buffer.copyOfRange(nameLenIdx + 1, nameLenIdx + 1 + nameLen)
+                        val possibleName = decodeUtf8Strict(nameBytes)
+                        if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
+                            val sanitizedName = sanitizeNickname(possibleName)
+                            if (sanitizedName != null && sanitizedName.length >= 2) {
+                                // Look backward for actor ID varint
+                                for (vLen in 1..3) {
+                                    val vStart = anchorSearch - vLen
+                                    if (vStart < 0) continue
+                                    if (!canReadVarInt(buffer, vStart)) continue
+                                    val v = readVarInt(buffer, vStart)
+                                    if (v.length == vLen && v.value in 100..99_999) {
+                                        dataStorage.appendNickname(v.value, sanitizedName)
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        // Skip past name + guild to avoid re-scanning
+                        anchorSearch = skipGuildName(buffer, nameLenIdx + 1 + nameLen)
+                        continue
+                    }
+                }
+            }
+            anchorSearch++
+        }
+
+        // E: Link unregistered summon IDs to found owners
+        if (potentialSummonIds.isNotEmpty() && potentialOwnerIds.isNotEmpty()) {
+            // If exactly one owner, link all summons to it
+            // If multiple owners, only link if one has a nickname (more likely a real player)
+            val ownerId = if (potentialOwnerIds.size == 1) {
+                potentialOwnerIds.first()
+            } else {
+                potentialOwnerIds.firstOrNull { dataStorage.getNickname().containsKey(it) }
+            }
+            if (ownerId != null) {
+                for (summonId in potentialSummonIds) {
+                    if (!dataStorage.getSummonData().containsKey(summonId) && ownerId != summonId) {
+                        logger.debug("Buffer fallback summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        UnifiedLogger.debugForActor(logger, ownerId, "Buffer fallback summon linking: Owner {} -> Summon {}", ownerId, summonId)
+                        dataStorage.appendSummon(ownerId, summonId)
+                    }
+                }
+            }
+        }
     }
 
     private fun unwrapBundle(payload: ByteArray) {
@@ -214,6 +338,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             offset += innerTotalBytes
         }
+
+        // Scan the full decompressed buffer for embedded 04 8D sequences that may not
+        // have been properly framed as individual inner packets.
+        scanForEmbedded048D(decompressed)
 
         // Resolve any summon spawns that couldn't find their owner in the same inner packet
         if (pendingSummonLinks.isNotEmpty()) {
@@ -566,12 +694,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
         val parsedDamage = parsingDamage(packet)
+        // Parse summon ownership (04 8D) BEFORE nicknames so that appendSummon registers the
+        // summon link before parsingNickname patterns could accidentally call appendNickname on
+        // a summon ID (which would remove the link and block re-registration).
+        val parsedOwnership = parseSummonOwnershipPacket(packet)
+        val parsedSummon = parseSummonPacket(packet)
         val parsedName = parseActorNameBindingRules(packet) ||
                 parseLootAttributionActorName(packet) ||
                 parsingNickname(packet)
-        val parsedSummon = parseSummonPacket(packet)
-        val parsedOwnership = parseSummonOwnershipPacket(packet)
-        if (!parsedDamage && !parsedName && !parsedSummon && !parsedOwnership) {
+        val parsedHpUpdate = parseHpMpUpdatePacket(packet)
+        if (!parsedDamage && !parsedName && !parsedSummon && !parsedOwnership && !parsedHpUpdate) {
             parseDoTPacket(packet)
         }
         return parsedDamage || parsedName
@@ -643,6 +775,45 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
     }
 
+    /**
+     * Parse CmdHpMpUpdate_NT packets (opcode 1B 92).
+     * Sent by the server every few seconds for every nearby entity with current resource values.
+     * Format after opcode: actor_id (varint), hp (varint), hp_max (varint), ...
+     * The hp_max value is the EFFECTIVE max HP including all active buffs.
+     */
+    private fun parseHpMpUpdatePacket(packet: ByteArray): Boolean {
+        val packetLengthInfo = readVarInt(packet)
+        if (packetLengthInfo.length < 0) return false
+        val offset = packetLengthInfo.length
+        if (offset + 1 >= packet.size) return false
+        if (packet[offset] != 0x1B.toByte() || packet[offset + 1] != 0x92.toByte()) return false
+
+        var pos = offset + 2
+        val actorInfo = readVarInt(packet, pos)
+        if (actorInfo.length <= 0 || actorInfo.value < 100 || actorInfo.value > 9_999_999) return false
+        val actorId = actorInfo.value
+        pos += actorInfo.length
+
+        val hpInfo = readVarInt(packet, pos)
+        if (hpInfo.length <= 0) return false
+        pos += hpInfo.length
+
+        val hpMaxInfo = readVarInt(packet, pos)
+        if (hpMaxInfo.length <= 0 || hpMaxInfo.value <= 0) return false
+
+        val hpMax = hpMaxInfo.value
+        if (hpMax > 50_000_000) return false  // sanity cap
+
+        // Only store HP for entities that are damage targets or known mobs (not players)
+        if (dataStorage.getMobData().containsKey(actorId) ||
+            dataStorage.getBossModeDataSnapshot().containsKey(actorId)
+        ) {
+            dataStorage.appendMobHp(actorId, hpMax)
+        }
+
+        return true
+    }
+
     private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
         if (pattern.isEmpty()) return 0
         val p = ByteArray(pattern.size) { pattern[it].toByte() }
@@ -707,19 +878,96 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         UnifiedLogger.debugForActor(logger, ownerId, "Summon ownership packet (04 8D): Owner {} -> Summon {}, hex={}", ownerId, summonId, toHex(packet))
         dataStorage.appendSummon(ownerId, summonId)
 
-        // Try to extract the summon's name
+        // The name field after the owner ID is the OWNER's nickname (_parent_desc._nickname),
+        // NOT the summon's name. Register it for the owner to help identify them early.
+        // NEVER register nicknames on summon IDs — appendNickname removes summons from
+        // summonStorage, breaking the link entirely.
         val metaInfo = readVarInt(packet, pos)
         if (metaInfo.length > 0) {
             pos += metaInfo.length
             if (pos < packet.size) {
                 val nameLen = packet[pos].toInt() and 0xFF
                 if (nameLen in 1..16 && pos + 1 + nameLen <= packet.size) {
-                    registerUtf8Nickname(packet, summonId, pos + 1, nameLen)
+                    registerUtf8Nickname(packet, ownerId, pos + 1, nameLen)
                 }
             }
         }
 
         return true
+    }
+
+    /**
+     * Scan a byte buffer for ALL embedded 04 8D summon ownership sub-packets.
+     * Unlike parseSummonOwnershipPacket (which only checks the opcode at the packet start),
+     * this scans the full buffer — catching 04 8D sequences buried inside replication batches.
+     *
+     * For each hit, the owner ID is reliably located via the E0/E2 07 anchor that always
+     * follows the owner varint. The guild name after the player name is explicitly skipped.
+     */
+    private fun scanForEmbedded048D(data: ByteArray): Boolean {
+        var foundAny = false
+        var searchOffset = 0
+
+        while (searchOffset + 1 < data.size) {
+            val idx = findArrayIndexFromOffset(data, searchOffset, byteArrayOf(0x04, 0x8D.toByte()))
+            if (idx == -1) break
+
+            searchOffset = idx + 2
+            if (searchOffset >= data.size) break
+
+            // Read summonId varint immediately after 04 8D
+            val summonInfo = readVarInt(data, searchOffset)
+            if (summonInfo.length <= 0 || summonInfo.value !in 100..9_999_999) continue
+            val summonId = summonInfo.value
+
+            // Scan forward (up to 128 bytes) for E0/E2 07 anchor to find owner
+            val scanEnd = minOf(data.size - 1, searchOffset + summonInfo.length + 128)
+            var anchorIdx = -1
+            for (i in (searchOffset + summonInfo.length) until scanEnd) {
+                if ((data[i] == 0xE0.toByte() || data[i] == 0xE2.toByte()) && data[i + 1] == 0x07.toByte()) {
+                    anchorIdx = i
+                    break
+                }
+            }
+            if (anchorIdx == -1) continue
+
+            // Read owner ID backward from anchor (1-3 byte varint, same as Pattern A)
+            var ownerId = -1
+            for (vLen in 1..3) {
+                val vStart = anchorIdx - vLen
+                if (vStart < searchOffset + summonInfo.length && vStart >= 0) continue
+                if (vStart < 0) continue
+                if (!canReadVarInt(data, vStart)) continue
+                val v = readVarInt(data, vStart)
+                if (v.length == vLen && v.value in 100..99_999) {
+                    ownerId = v.value
+                    break
+                }
+            }
+            if (ownerId == -1 || ownerId == summonId) continue
+
+            // Read owner name after E0/E2 07 anchor
+            val nameLenIdx = anchorIdx + 2
+            if (nameLenIdx >= data.size) continue
+            val nameLen = data[nameLenIdx].toInt() and 0xFF
+            if (nameLen !in 2..32 || nameLenIdx + 1 + nameLen > data.size) continue
+            val nameBytes = data.copyOfRange(nameLenIdx + 1, nameLenIdx + 1 + nameLen)
+            val possibleName = decodeUtf8Strict(nameBytes) ?: continue
+            if (!Character.isLetterOrDigit(possibleName[0])) continue
+            val sanitizedName = sanitizeNickname(possibleName) ?: continue
+            if (sanitizedName.length < 2) continue
+
+            logger.debug("Embedded 04 8D: Owner {} ({}) -> Summon {}", ownerId, sanitizedName, summonId)
+            UnifiedLogger.debugForActor(logger, ownerId, "Embedded 04 8D: Owner {} ({}) -> Summon {}", ownerId, sanitizedName, summonId)
+            dataStorage.appendSummon(ownerId, summonId)
+            dataStorage.appendNickname(ownerId, sanitizedName)
+            foundAny = true
+
+            // Skip past player name + guild name to avoid re-scanning
+            searchOffset = skipGuildName(data, nameLenIdx + 1 + nameLen)
+        }
+
+        return foundAny
     }
 
     private fun parseSummonPacket(packet: ByteArray): Boolean {
@@ -821,6 +1069,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return foundSomething
         }
 
+        // Skip summon linking for entities with boss-like HP (> 500k).
+        // Real summons have low HP; bosses/monsters should never be linked as summons.
+        val entityHp = dataStorage.getMobHpData()[realActorId]
+        if (entityHp != null && entityHp > 500_000) {
+            return foundSomething
+        }
+
         // Strategy 1: LE uint32 scan near the owner marker (reliable for static summons).
         // The owner marker 80 75 D5 2A BB 03 00 00 is followed by the summon's own varint,
         // then position data, then the actual owner encoded as a LE uint32 ~20-30 bytes later.
@@ -865,7 +1120,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (ownerOffset >= packet.size) return -1
         val ownerInfo = readVarInt(packet, ownerOffset)
         if (ownerInfo.length <= 0 || ownerInfo.value !in 100..999999) return -1
-        return ownerInfo.value
+        val ownerId = ownerInfo.value
+        // Don't return actors that are themselves summons or known mobs
+        if (dataStorage.getSummonData().containsKey(ownerId)) return -1
+        if (dataStorage.getMobData().containsKey(ownerId)) return -1
+        return ownerId
     }
 
     /**
@@ -888,7 +1147,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     ((packet[i + 1].toInt() and 0xFF) shl 8) or
                     ((packet[i + 2].toInt() and 0xFF) shl 16) or
                     ((packet[i + 3].toInt() and 0xFF) shl 24)
-            if (le32 != excludeActorId && le32 in 100..999999 && actorExists(le32)) {
+            if (le32 != excludeActorId && le32 in 100..999999 &&
+                !dataStorage.getSummonData().containsKey(le32) &&
+                !dataStorage.getMobData().containsKey(le32) &&
+                actorExists(le32)
+            ) {
                 return le32
             }
         }
@@ -936,9 +1199,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         while (searchOffset < packet.size - 2) {
 
-            // PATTERN A: The "E2 07" Anchor (Perfectly catches 黑雪姬 -> 1181)
-            // Aion strictly places E2 07 between the VarInt ID and the name length.
-            if (packet[searchOffset] == 0xE2.toByte() && packet[searchOffset + 1] == 0x07.toByte()) {
+            // PATTERN A: The "E2 07" / "E0 07" Anchor (Perfectly catches 黑雪姬 -> 1181, Langler -> 4851)
+            // Aion strictly places E2/E0 07 between the VarInt ID and the name length.
+            if ((packet[searchOffset] == 0xE2.toByte() || packet[searchOffset] == 0xE0.toByte()) && packet[searchOffset + 1] == 0x07.toByte()) {
                 val lenIdx = searchOffset + 2
                 if (lenIdx < packet.size) {
                     val nameLen = packet[lenIdx].toInt() and 0xFF
@@ -1022,7 +1285,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             // Catches names immediately following standard 04 8D spawn opcodes if E2 07 is missing
             val b0 = packet[searchOffset].toInt() and 0xFF
             val b1 = packet[searchOffset + 1].toInt() and 0xFF
-            if ((b0 == 0x04 && (b1 == 0x8D || b1 == 0x4C)) || (b0 == 0xF2 && b1 == 0x04)) {
+            // NOTE: 0x8D deliberately excluded — 04 8D packets are handled by parseSummonOwnershipPacket.
+            // Pattern C was incorrectly assigning the owner's name/guild to the summon_id (first varint
+            // after 04 8D), then appendNickname would remove the summon link entirely.
+            if ((b0 == 0x04 && b1 == 0x4C) || (b0 == 0xF2 && b1 == 0x04)) {
                 var idx = searchOffset + 2
                 val stopScanningAt = minOf(packet.size, idx + 64)
 
@@ -1060,7 +1326,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             // PATTERN D: The Terminator Anchor
             // Safely catches names attached to the very end of large property blocks (e.g., Naicha)
-            if ((b0 == 0x04 || b0 == 0x00) && (b1 == 0x8D || b1 == 0x4C)) {
+            // NOTE: 0x8D deliberately excluded — same reason as Pattern C above.
+            if ((b0 == 0x04 || b0 == 0x00) && b1 == 0x4C) {
                 val idIdx = searchOffset + 2
                 if (canReadVarInt(packet, idIdx)) {
                     val playerInfo = readVarInt(packet, idIdx)
@@ -1277,9 +1544,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val preHitOffset = reader.offset
 
             if (reader.remainingBytes() > 0) {
+                // Trailing marker: [N] 00 where N is a small property index (1..7).
                 val isMarkerNext = reader.remainingBytes() >= 2 &&
                         packet[reader.offset + 1] == 0x00.toByte() &&
-                        packet[reader.offset] in 1..3
+                        packet[reader.offset] in 1..7
 
                 if (!isMarkerNext) {
                     val peekVal = reader.tryReadVarInt()
@@ -1290,7 +1558,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                             // Secondary stat like Target HP detected. Grab the real hit count.
                             val isMarkerAfterHP = reader.remainingBytes() >= 2 &&
                                     packet[reader.offset + 1] == 0x00.toByte() &&
-                                    packet[reader.offset] in 1..3
+                                    packet[reader.offset] in 1..7
 
                             if (!isMarkerAfterHP) {
                                 val actualHitCount = reader.tryReadVarInt()
@@ -1310,6 +1578,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (finalDamage < 0 || finalDamage > 99_999_999) { reader.offset = checkpoint; break }
 
             // 4. Extract Multi-Hits
+            // Real multi-hits in Aion 2 have these structural properties:
+            //   - hitCount >= 2 (a single "multi-hit" is not a multi-hit)
+            //   - Each hit value is a real damage number (>= 50)
+            //   - All hit values are typically identical (e.g. Heart Gore 4×2873)
+            // Trailing metadata (property markers, actor IDs) after the damage varint
+            // can produce false positives: small bytes like 01 01, 04 00, or large varints
+            // like 8D F0 B6 06 (=13M) that are not multi-hit data at all.
             var multiHitCount = 0
             var multiHitDamage = 0
             var firstMultiHitValue: Int? = null
@@ -1319,11 +1594,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 var hitSum = 0
                 var hitsRead = 0
                 val safeMaxHits = minOf(hitCount, 25)
+                // Multi-hit values should never exceed the main hit damage.
+                // Anything larger is trailing metadata being misread (e.g. actor IDs,
+                // property markers like "8D F0 B6 06" decoded as a 13M varint).
+                val multiHitCap = maxOf(finalDamage, 500_000)
 
                 while (hitsRead < safeMaxHits && reader.remainingBytes() > 0) {
                     val isMarkerNext = reader.remainingBytes() >= 2 &&
                             packet[reader.offset + 1] == 0x00.toByte() &&
-                            packet[reader.offset] in 1..3
+                            packet[reader.offset] in 1..7
 
                     val isNextPacket = reader.remainingBytes() >= 2 &&
                             packet[reader.offset] == 0x04.toByte() &&
@@ -1332,6 +1611,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     if (isMarkerNext || isNextPacket) break
 
                     val hitValue = reader.tryReadVarInt() ?: break
+                    // If a single multi-hit value exceeds the cap or is below the
+                    // minimum real damage threshold, we've hit trailing metadata —
+                    // discard all multi-hit data.
+                    if (hitValue > multiHitCap || hitValue < 50) {
+                        hitSum = 0
+                        hitsRead = 0
+                        firstMultiHitValue = null
+                        allMultiHitsMatch = true
+                        break
+                    }
                     if (firstMultiHitValue == null) {
                         firstMultiHitValue = hitValue
                     } else if (firstMultiHitValue != hitValue) {
@@ -1424,8 +1713,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 UnifiedLogger.debugForActors(
                     logger,
                     pdp.getActorId(), pdp.getTargetId(),
-                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}, hex={}",
-                    pdp.getTargetId(), pdp.getActorId(), pdp.getSkillCode1(), pdp.getType(), pdp.getDamage(), pdp.getMultiHitCount(), toHex(packet)
+                    "Target: {}, attacker: {}, skill: {}, type: {}, damage: {}, hits: {}, multiHitDmg: {}, hex={}",
+                    pdp.getTargetId(), pdp.getActorId(), pdp.getSkillCode1(), pdp.getType(), pdp.getDamage(), pdp.getMultiHitCount(), pdp.getMultiHitDamage(), toHex(packet)
                 )
             }
 
@@ -1550,6 +1839,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     ): Boolean {
         if (firstValue !in 1_000..99_999_999) return false
         if (secondValue !in 0..25) return false
+
+        // Cap at 5M — attack speed varints can be in the millions and must not be treated
+        // as damage.  Real single-hit damage in Aion 2 never approaches this threshold.
+        // Without this guard, a Water Bomb crit with a small real damage value and a huge
+        // attack speed can register as 13+ million damage.
+        if (firstValue > 5_000_000) return false
 
         // Known Shadowstrike-style crit packets (e.g. BACK/DOUBLE special hits) encode the
         // real damage first, followed by a tiny counter/flag value instead of attack speed.

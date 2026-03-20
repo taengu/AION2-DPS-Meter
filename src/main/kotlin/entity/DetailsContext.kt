@@ -51,11 +51,15 @@ data class DetailSkillEntry(
 )
 
 @Serializable
+data class PingPoint(val tsMs: Long, val pingMs: Int)
+
+@Serializable
 data class TargetDetailsResponse(
     val targetId: Int,
     val maxHp: Int = 0,
     val totalTargetDamage: Int,
     val battleTime: Long,
     val startTime: Long = 0L,
-    val skills: List<DetailSkillEntry>
+    val skills: List<DetailSkillEntry>,
+    val pingHistory: List<PingPoint> = emptyList()
 )

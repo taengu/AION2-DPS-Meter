@@ -794,12 +794,36 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     width: 100%;
   }
 }
+.meterTotalBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+.meter.slim .meterTotalBar {
+  font-size: 11px;
+  padding: 0 20px 0 12px;
+}
+.meterTotalBar .meterTotalDps,
+.meterTotalBar .meterTotalDmg {
+  color: rgba(255, 255, 255, 0.55);
+}
+.meterTotalBar .meterTotalSep {
+  opacity: 0.3;
+}
 .list {
   display: grid;
   gap: 4px;
   padding: 0 12px;
   &:has(.item:not([style*="display: none"])) {
     padding: 4px 12px 16px;
+  }
+  &:has(.item:not([style*="display: none"])) + .meterTotalBar {
+    margin-top: -13px;
   }
   .item {
     position: relative;
@@ -998,26 +1022,441 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-bottom: 2px solid rgba(255, 255, 255, 0.7);
 }
 
+/* Shared close button — used in settingsPanel, detailsPanel, and historyPanel */
+.closeX {
+  cursor: pointer;
+  user-select: none;
+  font-size: 22px;
+  padding: 2px 8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* History panel */
+.historyPanel {
+  position: absolute;
+  color: var(--text-color);
+  display: none;
+  left: min(372px, calc(100vw - 292px));
+  right: 12px;
+  top: 0;
+  width: max-content;
+  min-width: 280px;
+  max-width: min(760px, calc(100vw - 304px));
+  max-height: calc(100vh - 24px);
+  border: 1px solid var(--panel-border);
+  background: rgba(12, 22, 40, 0.95);
+  border-radius: var(--rounded-lg);
+  overflow: hidden;
+  flex-direction: column;
+
+  &.open {
+    display: flex;
+  }
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 6px;
+}
+
+.historyTitle {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--title);
+}
+
+.historyBody {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+
+.historyEmpty {
+  padding: 20px 16px;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  font-size: 13px;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.12s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.historyRowIcons {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.historyIconWrap {
+  position: relative;
+  display: inline-flex;
+}
+.historyIconWrap[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 14, 0.95);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 200;
+}
+.historyIconWrap[data-tip]:hover::after {
+  opacity: 1;
+}
+.historyRowClassIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+.historyRowInfo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.historyRowName {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyRowMeta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 2px;
+}
+
+.historyRowActions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.historyClassDropdown {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.historyClassDropdown .historyClassDropdownTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+}
+.historyClassDropdownLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.historyClassDropdownChevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.historyClassDropdown.open .historyClassDropdownChevron {
+  transform: rotate(180deg);
+}
+.historyClassDropdownMenu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1a1c22;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 300;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.historyClassDropdown.open .historyClassDropdownMenu {
+  display: block;
+}
+.historyClassOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.historyClassOption:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.historyClassOption.selected {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.historyClassDropdownIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.historyFilters {
+  display: flex;
+  gap: 6px;
+  padding: 6px 14px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.historyFilterSelect {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.45)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 12px;
+  padding: 6px 26px 6px 10px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+.historyFilterSelect option {
+  background: #1e2028;
+  color: #fff;
+}
+.historyList {
+  max-height: 540px;
+  overflow-y: auto;
+}
+.historyList::-webkit-scrollbar {
+  width: 10px;
+}
+.historyList::-webkit-scrollbar-track {
+  background: rgb(30, 30, 30);
+  border-radius: 999px;
+}
+.historyList::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.historyList::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.historyDeleteBtn {
+  background: none;
+  border: none;
+  color: #e06b6b;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #ff8080;
+    background: rgba(224, 107, 107, 0.12);
+  }
+}
+
+.historyPanel.deleteMode .historyDeleteBtn {
+  display: inline-flex;
+}
+
+.historyTrainToggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.4;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  &.active {
+    color: var(--accent, #7ecfff);
+    background: rgba(126, 207, 255, 0.1);
+  }
+}
+
+.historyDeleteToggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover {
+    color: #e06b6b;
+    background: rgba(224, 107, 107, 0.1);
+  }
+
+  &.active {
+    color: #e06b6b;
+    background: rgba(224, 107, 107, 0.12);
+  }
+}
+
+.historyTrainBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dps-text);
+  background: var(--row-fill);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.historyLiveBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #e05050;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Details back button */
+.detailsBackBtn {
+  background: rgba(255, 255, 255, 0.13);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  & svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
 /* Ping display — sits below the meter, outside the meter viewport */
 .pingDisplay {
   display: none;
   margin-top: 2px;
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   pointer-events: none;
   white-space: nowrap;
   width: fit-content;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  align-items: center;
+  gap: 5px;
 }
 .pingDisplay.isVisible {
-  display: block;
+  display: flex;
+}
+.pingDisplay .pingIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 .pingDisplay.ping-good {
   color: #5fcaff;
 }
 .pingDisplay.ping-warn {
   color: #f2b94f;
+}
+.pingDisplay.ping-high {
+  color: #f27a3a;
 }
 .pingDisplay.ping-bad {
   color: #e06b6b;
@@ -1037,7 +1476,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(1030px, max(280px, calc(100vw - 304px)));
+  width: min(1130px, max(280px, calc(100vw - 304px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
@@ -2081,17 +2520,17 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   padding: 8px 12px;
   gap: 12px;
 }
-.detailsPanel .detailsHeader .detailsTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 20px;
+.detailsPanel .detailsHeader .detailsFightTitle {
+  flex: 1;
+  font-size: 19px;
   font-weight: 700;
-  flex-wrap: wrap;
+  color: var(--title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.detailsPanel .detailsHeader .detailsTitleSeparator,
-.detailsPanel .detailsHeader .detailsTitleVs {
-  opacity: 0.6;
+.detailsPanel .detailsHeader .detailsFightTitle .fightTitleBossName {
+  color: #ff55cc;
 }
 .detailsPanel .detailsHeader .detailsDropdownWrapper {
   position: relative;
@@ -2397,11 +2836,26 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   min-width: 44px;
   text-align: right;
 }
+.detailsPanel .detailsStatsRow {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.detailsPanel .detailsPartyList {
+  flex: 0 0 33.33%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
 .detailsPanel .detailsStats {
+  flex: 1;
   display: grid;
-  gap: 6px 12px;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 6px 12px;
+  gap: 4px 10px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 6px 10px;
+  align-content: start;
 }
 .detailsPanel .detailsStats .stat {
   display: flex;
@@ -2416,12 +2870,71 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   color: var(--isUser-fill);
 }
 .detailsPanel .detailsStats .stat .value {
-  font-weight: 400;
+  font-weight: 700;
 }
 .detailsPanel .detailsStats .stat .label,
 .detailsPanel .detailsStats .stat .value {
   margin: 0;
 }
+/* Party bars in details left column */
+.detailsPanel .detailsPartyBar {
+  position: relative;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  cursor: pointer;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+.detailsPanel .detailsPartyBar:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.detailsPanel .detailsPartyBar.isSelected {
+  background: rgba(255, 255, 255, 0.08);
+}
+.detailsPanel .detailsPartyBarFill {
+  position: absolute;
+  inset: 0;
+  background: var(--row-fill);
+  opacity: 0.45;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.detailsPanel .detailsPartyBarContent {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.detailsPanel .detailsPartyBarIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.detailsPanel .detailsPartyBarName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.detailsPanel .detailsPartyBarName.isCjk {
+  font-family: var(--cjk-font-stack);
+  letter-spacing: 0;
+}
+.detailsPanel .detailsPartyBarDmg {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .detailsPanel .detailsBody {
   font-weight: 400;
   display: flex;
@@ -2441,19 +2954,19 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   overflow-y: hidden;
   --skill-grid-cols:
     minmax(90px, 3fr)
-    minmax(30px, 0.9fr)
+    minmax(54px, 0.9fr)  /* dmg */
     minmax(30px, 0.8fr)
     minmax(30px, 0.8fr)
-    minmax(30px, 0.9fr)
+    minmax(54px, 0.9fr)  /* mdmg */
     minmax(24px, 0.7fr)
     minmax(30px, 0.8fr)
     minmax(36px, 0.9fr)
     minmax(34px, 0.9fr)
     minmax(28px, 0.7fr)
     minmax(24px, 0.7fr)
-    minmax(28px, 0.8fr)
-    minmax(28px, 0.8fr)
-    minmax(28px, 0.8fr);
+    minmax(50px, 0.8fr)  /* mindmg */
+    minmax(50px, 0.8fr)  /* avgdmg */
+    minmax(50px, 0.8fr); /* maxdmg */
 }
 /* Column-hiding: when .detailsPanel has .hide-col-X, collapse that column to 0 */
 .detailsPanel.hide-col-hit  .detailsSkills .cell.hit,
@@ -2538,7 +3051,8 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   grid-template-columns: var(--skill-grid-cols);
   gap: 8px;
   align-items: center;
-  padding: 6px 12px;
+  /* Right padding = 12px content + measured scrollbar width (set by JS as --scrollbar-w) */
+  padding: 6px calc(12px + var(--scrollbar-w, 10px)) 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
   width: 100%;
@@ -2572,6 +3086,10 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-tip]:hover::after {
   opacity: 1;
+}
+.detailsPanel .detailsSkills .skillHeader .cell.name[data-tip]::after {
+  left: 0;
+  transform: none;
 }
 .detailsPanel .detailsSkills .skills {
   padding: 0 12px;
@@ -2729,6 +3247,49 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 .detailsPanel .detailsSection.isExpanded > .detailsSectionContent {
   display: flex;
+}
+
+/* ── DPS Chart ── */
+.detailsPanel .dpsChartSection .detailsSectionContent {
+  padding: 0;
+}
+.detailsPanel .dpsChartWrap {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 0;
+}
+.detailsPanel .dpsChartLegend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 0 4px;
+  flex-wrap: wrap;
+}
+.detailsPanel .dpsChartLegend .legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82em;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+.detailsPanel .dpsChartLegend .legendItem svg {
+  flex-shrink: 0;
+}
+.detailsPanel .dpsChartCanvas {
+  display: block;
+  width: 100%;
+}
+.detailsPanel .dpsChartXAxis {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0 4px;
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.5);
+}
+.detailsPanel .dpsChartXAxis span {
+  flex-shrink: 0;
 }
 
 /* ── Timeline chart ── */
@@ -3123,6 +3684,9 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .meter.slim .footerBtns .metricToggleBtn,
 .meter.slim .footerBtns .targetModeBtn {
   font-size: 13px;
+}
+.meter.slim .list:has(.item:not([style*="display: none"])) + .meterTotalBar {
+  margin-top: 0;
 }
 .meter.slim .list {
   gap: 2px;

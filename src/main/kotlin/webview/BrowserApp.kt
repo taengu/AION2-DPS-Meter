@@ -1,7 +1,9 @@
 package com.tbread.webview
 
 import com.tbread.DpsCalculator
+import com.tbread.FightHistoryManager
 import com.tbread.entity.DpsData
+import com.tbread.entity.FightSummary
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
@@ -53,6 +55,7 @@ class BrowserApp(
     private var jsBridge: JSBridge? = null
     override fun stop() {
         jsBridge?.dispose()
+        historyAutoSaveScheduler.shutdown()
         super.stop()
     }
 
@@ -111,8 +114,54 @@ class BrowserApp(
         }
 
         @Suppress("unused")
-        fun resetDps(){
+        fun resetDps() {
+            try {
+                val records = dpsCalculator.snapshotBossFights()
+                records.forEach { FightHistoryManager.save(it) }
+            } catch (e: Exception) {
+                logger.warn("Failed to snapshot boss fights before reset", e)
+            }
             dpsCalculator.resetDataStorage()
+        }
+
+        @Suppress("unused")
+        fun getFightHistory(): String {
+            val liveRecords = try { dpsCalculator.snapshotBossFights() } catch (e: Exception) { emptyList() }
+            val liveSummaries = liveRecords
+                .sortedByDescending { it.startTimeMs }
+                .map { record ->
+                    FightSummary(
+                        id = "live_${record.targetId}",
+                        bossName = record.bossName,
+                        targetId = record.targetId,
+                        startTimeMs = record.startTimeMs,
+                        durationMs = record.durationMs,
+                        totalDamage = record.totalDamage,
+                        jobs = record.jobs,
+                        isTrain = record.isTrain,
+                        isLive = true,
+                    )
+                }
+            val savedSummaries = FightHistoryManager.list()
+            return Json.encodeToString(liveSummaries + savedSummaries)
+        }
+
+        @Suppress("unused")
+        fun getFightDetails(id: String): String? {
+            if (id.startsWith("live_")) {
+                val targetId = id.removePrefix("live_").toIntOrNull() ?: return null
+                val records = try { dpsCalculator.snapshotBossFights() } catch (e: Exception) { emptyList() }
+                val record = records.find { it.targetId == targetId } ?: return null
+                return Json.encodeToString(record.copy(id = id))
+            }
+            val record = FightHistoryManager.load(id) ?: return null
+            return Json.encodeToString(record)
+        }
+
+        @Suppress("unused")
+        fun deleteFight(id: String): Boolean {
+            if (id.startsWith("live_")) return false
+            return FightHistoryManager.delete(id)
         }
 
         @Suppress("unused")
@@ -244,6 +293,12 @@ class BrowserApp(
         fun setBossLogsEnabled(enabled: Boolean) {
             com.tbread.logging.BossEncounterLogger.enabled = enabled
             PropertyHandler.setProperty(com.tbread.logging.BossEncounterLogger.SETTING_KEY, enabled.toString())
+        }
+
+        @Suppress("unused")
+        fun setSaveRawPackets(enabled: Boolean) {
+            com.tbread.logging.RawPacketLogger.enabled = enabled
+            PropertyHandler.setProperty(com.tbread.logging.RawPacketLogger.SETTING_KEY, enabled.toString())
         }
 
         @Suppress("unused")
@@ -449,6 +504,21 @@ class BrowserApp(
         Thread(r, "window-title-poller").apply { isDaemon = true }
     }
 
+    private val historyAutoSaveScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "history-autosave").apply { isDaemon = true }
+    }
+
+    private fun startHistoryAutoSave() {
+        historyAutoSaveScheduler.scheduleAtFixedRate({
+            try {
+                val records = dpsCalculator.snapshotBossFights()
+                records.forEach { FightHistoryManager.save(it) }
+            } catch (e: Exception) {
+                logger.warn("History auto-save failed", e)
+            }
+        }, 10L, 10L, TimeUnit.SECONDS)
+    }
+
     private fun startWindowTitlePolling() {
         // Run off the JavaFX Application Thread — EnumWindows + OpenProcess per window
         // can take 50–200ms, which would block rendering and JS execution if on the JAT.
@@ -476,6 +546,7 @@ class BrowserApp(
     override fun start(stage: Stage) {
         UnifiedLogger.loadDebugFromSettings()
         startWindowTitlePolling()
+        startHistoryAutoSave()
         stage.setOnCloseRequest {
             exitProcess(0)
         }
@@ -488,6 +559,15 @@ class BrowserApp(
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier, engine)
         jsBridge = bridge
+
+        // Push ping updates to the webview immediately when parsed
+        PingTracker.onPingUpdate = { pingMs ->
+            Platform.runLater {
+                runCatching {
+                    engine.executeScript("window._dpsApp?.updatePing?.($pingMs)")
+                }
+            }
+        }
 
         val injectBridge = {
             runCatching {
