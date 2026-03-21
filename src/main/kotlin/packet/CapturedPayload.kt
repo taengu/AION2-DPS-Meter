@@ -6,6 +6,7 @@ data class CapturedPayload(
     val data: ByteArray,
     val deviceName: String?,
     val timestampNanos: Long = System.nanoTime(),
+    val capturedAtMs: Long = System.currentTimeMillis(),
     val srcIp: String? = null,
     val dstIp: String? = null,
     val tcpSeq: Long = 0,

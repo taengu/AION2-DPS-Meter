@@ -117,7 +117,11 @@ class PcapCapturer(
                 val seq = tcp.header.sequenceNumberAsLong
                 val ack = tcp.header.acknowledgmentNumberAsLong
 
+                // Use the pcap hardware timestamp rather than System.currentTimeMillis()
+                val pcapTs = try { handle.getTimestamp().time } catch (_: Exception) { System.currentTimeMillis() }
+
                 channel.trySend(CapturedPayload(src, dst, data, deviceLabel,
+                    capturedAtMs = pcapTs,
                     srcIp = srcIp, dstIp = dstIp, tcpSeq = seq, tcpAck = ack))
             }
 

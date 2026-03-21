@@ -3384,7 +3384,7 @@ class DpsApp {
       if (targetEl?.closest?.(".headerBtn, .footerBtn, .bossIcon")) {
         return;
       }
-      if (targetEl?.closest?.(".settingsPanel, .detailsPanel, .historyPanel, .list .item")) {
+      if (targetEl?.closest?.(".settingsPanel, .historyPanel, .detailsBody, .detailsSettingsMenu")) {
         return;
       }
       if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
@@ -3394,11 +3394,8 @@ class DpsApp {
       hasDragMoved = false;
       this.isWindowDragging = true;
       this.deferFetchUntilDragEnd = true;
-      this.setWindowDragFreeze(true);
-      if (this.pinnedDetailsRowId === null) {
-        this.hoveredDetailsRowId = null;
-        this.detailsUI?.close?.({ keepPinned: false });
-      }
+      // Don't freeze pointer events yet — defer until the 3px drag threshold
+      // is crossed so that simple clicks on meter bars still fire normally.
       startX = e.screenX;
       startY = e.screenY;
       initialStageX = window.screenX;
@@ -3416,6 +3413,11 @@ class DpsApp {
       const deltaY = e.screenY - startY;
       if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDragMoved = true;
+        this.setWindowDragFreeze(true);
+        if (this.pinnedDetailsRowId === null) {
+          this.hoveredDetailsRowId = null;
+          this.detailsUI?.close?.({ keepPinned: false });
+        }
         this.elList?.classList?.add?.("dragInteracting");
       }
       pendingStageX = initialStageX + deltaX;

@@ -36,8 +36,6 @@ class CaptureDispatcher(
     suspend fun run() {
         for (cap in channel) {
             try {
-                com.tbread.logging.RawPacketLogger.onPacket(cap)
-
                 if (!ensureAionRunning()) {
                     logUnlockedPacketSkip(cap, "AION window not detected")
                     continue
@@ -109,6 +107,7 @@ class CaptureDispatcher(
                     )
                 }
 
+                com.tbread.logging.RawPacketLogger.onPacket(cap)
                 val parsed = assembler.processChunk(cap.data)
                 if (parsed && CombatPortDetector.currentPort() == null) {
                     CombatPortDetector.confirmCandidate(cap.srcPort, cap.dstPort, cap.deviceName)
