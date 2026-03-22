@@ -120,7 +120,8 @@
     "connection": "连接",
     "advanced": "高级",
     "bossLogs": "启用每场Boss日志",
-    "saveRawPackets": "保存原始数据包",
+    "saveRawPackets": "启用数据包日志",
+    "resetAllSettings": "重置所有设置",
     "bold": {
       "label": "加粗",
       "names": "名称",
@@ -133,7 +134,7 @@
     },
     "debugLogging": "启用调试日志",
     "quit": "退出",
-    "discord": "在 Discord 找到我们",
+    "discord": "Discord",
     "version": "版本",
     "theme": {
       "label": "主题",
@@ -153,8 +154,11 @@
     "language": {
       "label": "语言"
     },
+    "windowOpacity": {
+      "label": "主窗口不透明度"
+    },
     "meterOpacity": {
-      "label": "水表不透明度"
+      "label": "计量条不透明度"
     },
     "targetWindow": {
       "label": "目标时间范围",
@@ -202,7 +206,7 @@
     }
   },
   "support": {
-    "button": "支持我一下 ☕",
+    "button": "支持我一下",
     "title": "在爱发电支持作者",
     "titleWechat": "在微信支持作者",
     "label": {

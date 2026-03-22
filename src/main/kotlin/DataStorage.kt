@@ -49,7 +49,12 @@ class DataStorage {
             !summonStorage.containsKey(pdp.getActorId()) &&
             usesLikelyNpcSkill
         ) {
-            return // Safely drop likely-NPC packets to save memory
+            if (UnifiedLogger.isDebugEnabled()) {
+                UnifiedLogger.debug(logger,
+                    "Skipped damage (NPC actor): actor={}, target={}, skill={}, damage={}",
+                    pdp.getActorId(), pdp.getTargetId(), skillCode, pdp.getDamage())
+            }
+            return
         }
 
         // Track actors using player-class skills as known players
@@ -62,6 +67,11 @@ class DataStorage {
 
         // Skip friendly actions (heals/buffs between known players or their summons)
         if (isFriendlyAction(pdp.getActorId(), pdp.getTargetId())) {
+            if (UnifiedLogger.isDebugEnabled()) {
+                UnifiedLogger.debug(logger,
+                    "Skipped damage (friendly action): actor={}, target={}, skill={}, damage={}",
+                    pdp.getActorId(), pdp.getTargetId(), skillCode, pdp.getDamage())
+            }
             return
         }
 
@@ -102,12 +112,6 @@ class DataStorage {
         }
     }
 
-    /**
-     * Remove stored packets where the newly-identified player [uid] was involved
-     * in a friendly action (both actor and target are known players).
-     * Called when a player is first identified (by nickname or player-class skill),
-     * so heals that arrived before we knew both sides were players get retroactively cleaned out.
-     */
     /**
      * Check if an action between actor and target is friendly (both sides resolve
      * to known players through summon ownership chains).

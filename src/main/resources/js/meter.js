@@ -14,45 +14,6 @@ const createMeterUI = ({
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
   const classIconSrcByJob = new Map();
 
-  // Batch CJK font loading: collect elements waiting for fonts, load once, apply atomically
-  let cjkFontQueue = [];   // [{nameEl, text}]
-  let cjkFontRafId = 0;
-  const CJK_FONT_SPEC = '500 19px "Noto Sans SC", "Noto Sans TC"';
-
-  const flushCjkFontQueue = () => {
-    cjkFontRafId = 0;
-    const batch = cjkFontQueue;
-    cjkFontQueue = [];
-    if (!batch.length) return;
-
-    // Combine all CJK text into one string for a single font load call
-    const combinedText = batch.map((b) => b.text).join("");
-    document.fonts.load(CJK_FONT_SPEC, combinedText).then(() => {
-      for (const { nameEl } of batch) {
-        nameEl.classList.add("isCjk");
-      }
-    }).catch(() => {
-      // Font load failed (offline?) — apply class anyway so system fallbacks kick in
-      for (const { nameEl } of batch) {
-        nameEl.classList.add("isCjk");
-      }
-    });
-  };
-
-  const queueCjkFont = (nameEl, text) => {
-    // If fonts are already loaded for this text, apply immediately
-    try {
-      if (document.fonts.check(CJK_FONT_SPEC, text)) {
-        nameEl.classList.add("isCjk");
-        return;
-      }
-    } catch (_) {}
-    cjkFontQueue.push({ nameEl, text });
-    if (!cjkFontRafId) {
-      cjkFontRafId = requestAnimationFrame(flushCjkFontQueue);
-    }
-  };
-
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
   let pendingRenderRows = null;
@@ -289,11 +250,7 @@ const createMeterUI = ({
 
       const isCjk = cjkRegex.test(nameText);
       if (view.lastIsCjk !== isCjk) {
-        if (isCjk) {
-          queueCjkFont(view.nameEl, nameText);
-        } else {
-          view.nameEl.classList.remove("isCjk");
-        }
+        view.nameEl.classList.toggle("isCjk", isCjk);
         view.lastIsCjk = isCjk;
       }
 
@@ -406,11 +363,6 @@ const createMeterUI = ({
     }
     pendingRenderRows = null;
     lastOrderKey = "";
-    if (cjkFontRafId) {
-      cancelAnimationFrame(cjkFontRafId);
-      cjkFontRafId = 0;
-    }
-    cjkFontQueue = [];
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 

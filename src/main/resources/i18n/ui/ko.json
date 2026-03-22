@@ -120,7 +120,8 @@
     "connection": "연결",
     "advanced": "고급",
     "bossLogs": "보스별 로그 활성화",
-    "saveRawPackets": "원시 데이터 패킷 저장",
+    "saveRawPackets": "패킷 로깅 활성화",
+    "resetAllSettings": "모든 설정 초기화",
     "bold": {
       "label": "굵게",
       "names": "이름",
@@ -133,7 +134,7 @@
     },
     "debugLogging": "디버그 로그 활성화",
     "quit": "종료",
-    "discord": "디스코드에서 만나요",
+    "discord": "Discord",
     "version": "버전",
     "theme": {
       "label": "테마",
@@ -153,8 +154,11 @@
     "language": {
       "label": "언어"
     },
+    "windowOpacity": {
+      "label": "메인 창 불투명도"
+    },
     "meterOpacity": {
-      "label": "미터 불투명도"
+      "label": "미터 바 불투명도"
     },
     "targetWindow": {
       "label": "대상 시간 범위",
@@ -202,7 +206,7 @@
     }
   },
   "support": {
-    "button": "지원하기 ☕",
+    "button": "지원하기",
     "title": "Support the author on Ko-fi",
     "titleWechat": "Support the author on WeChat",
     "label": {

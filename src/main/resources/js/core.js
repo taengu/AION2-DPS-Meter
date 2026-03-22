@@ -42,6 +42,7 @@ class DpsApp {
       slimMode: "dpsMeter.slimMode",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
+      windowOpacity: "dpsMeter.windowOpacity",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -1062,6 +1063,24 @@ class DpsApp {
     }
   }
 
+  applyWindowOpacity(percent, { persist } = {}) {
+    const normalized = Math.max(0, Math.min(100, Math.round(Number(percent))));
+    document.documentElement.style.setProperty("--window-opacity", String(normalized / 100));
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.windowOpacity, String(normalized));
+    }
+  }
+
+  resetAllSettings() {
+    for (const key of Object.values(this.storageKeys)) {
+      try {
+        localStorage.removeItem(key);
+        window.javaBridge?.setSetting?.(key, null);
+      } catch (_) {}
+    }
+    window.location.reload();
+  }
+
   triggerDetailsFlash() {
     if (!this.detailsPanel) return;
     this.detailsPanel.classList.remove("flash");
@@ -1583,6 +1602,8 @@ class DpsApp {
     this.playerDpsBoldCheckbox = document.querySelector(".playerDpsBoldCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
+    this.windowOpacityInput = document.querySelector(".windowOpacityInput");
+    this.windowOpacityValue = document.querySelector(".windowOpacityValue");
     this.discordButton = document.querySelector(".discordButton");
     this.supportWidget = document.querySelector(".supportWidget");
     this.supportButton = document.querySelector(".supportButton");
@@ -1804,6 +1825,26 @@ class DpsApp {
       });
     }
 
+    // Window opacity
+    if (this.windowOpacityInput && this.windowOpacityValue) {
+      const storedWindowOpacity = this.safeGetStorage(this.storageKeys.windowOpacity);
+      const resolvedWindowOpacity = storedWindowOpacity !== null && String(storedWindowOpacity).trim() !== ""
+        ? Math.max(0, Math.min(100, Math.round(Number(storedWindowOpacity))))
+        : 40;
+      this.applyWindowOpacity(resolvedWindowOpacity, { persist: false });
+      this.windowOpacityInput.value = String(resolvedWindowOpacity);
+      this.windowOpacityValue.textContent = `${resolvedWindowOpacity}%`;
+      const stopDrag = (event) => event.stopPropagation();
+      this.windowOpacityInput.addEventListener("mousedown", stopDrag);
+      this.windowOpacityInput.addEventListener("touchstart", stopDrag, { passive: true });
+      this.windowOpacityInput.addEventListener("input", (event) => {
+        const value = Number(event.target?.value);
+        const next = Math.max(0, Math.min(100, Math.round(value)));
+        this.windowOpacityValue.textContent = `${next}%`;
+        this.applyWindowOpacity(next, { persist: true });
+      });
+    }
+
     this.setupKeybindButtons();
 
     const currentLanguage = this.i18n?.getLanguage?.() || storedLanguage || "en";
@@ -1828,6 +1869,10 @@ class DpsApp {
     this.resetDetectBtn?.addEventListener("click", () => {
       window.javaBridge?.resetAutoDetection?.();
       this.refreshConnectionInfo();
+    });
+
+    document.querySelector(".resetAllSettingsBtn")?.addEventListener("click", () => {
+      this.resetAllSettings();
     });
 
     this.discordButton?.addEventListener("click", () => {

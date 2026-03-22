@@ -122,7 +122,8 @@
     "connection": "Connection",
     "advanced": "Advanced",
     "bossLogs": "Enable per-boss logs",
-    "saveRawPackets": "Save raw data packets",
+    "saveRawPackets": "Enable packet logging",
+    "resetAllSettings": "Reset all settings",
     "bold": {
       "label": "Bold",
       "names": "Names",
@@ -135,7 +136,7 @@
     },
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
-    "discord": "Find us on Discord",
+    "discord": "Discord",
     "version": "Version",
     "theme": {
       "label": "Theme",
@@ -155,8 +156,11 @@
     "language": {
       "label": "Language"
     },
+    "windowOpacity": {
+      "label": "Main window opacity"
+    },
     "meterOpacity": {
-      "label": "Meter opacity"
+      "label": "Meter bar opacity"
     },
     "targetWindow": {
       "label": "Target time range",
@@ -204,7 +208,7 @@
     }
   },
   "support": {
-    "button": "Support me ☕",
+    "button": "Support Me",
     "title": "Support the author on Ko-fi",
     "titleWechat": "Support the author on WeChat",
     "label": {

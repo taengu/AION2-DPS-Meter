@@ -120,7 +120,8 @@
     "connection": "連線",
     "advanced": "進階",
     "bossLogs": "啟用每場Boss記錄",
-    "saveRawPackets": "儲存原始數據封包",
+    "saveRawPackets": "啟用封包日誌",
+    "resetAllSettings": "重置所有設定",
     "bold": {
       "label": "加粗",
       "names": "名稱",
@@ -133,7 +134,7 @@
     },
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
-    "discord": "在 Discord 找到我們",
+    "discord": "Discord",
     "version": "版本",
     "theme": {
       "label": "主題",
@@ -153,8 +154,11 @@
     "language": {
       "label": "語言"
     },
+    "windowOpacity": {
+      "label": "主視窗不透明度"
+    },
     "meterOpacity": {
-      "label": "水錶不透明度"
+      "label": "計量條不透明度"
     },
     "targetWindow": {
       "label": "目標時間範圍",
@@ -202,7 +206,7 @@
     }
   },
   "support": {
-    "button": "支持我一下 ☕",
+    "button": "支持我一下",
     "title": "在愛發電支持作者",
     "titleWechat": "在微信支持作者",
     "label": {

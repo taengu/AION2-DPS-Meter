@@ -406,13 +406,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 continue
             }
             if (existingNickname != null && !canUpdateExisting) continue
-            logger.info(
+            logger.debug(
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
                 candidate.name,
                 toHex(candidate.nameBytes)
             )
-            UnifiedLogger.info(
+            UnifiedLogger.debug(
                 logger,
                 "Loot attribution actor name found {} -> {} (hex={})",
                 candidate.actorId,
@@ -1648,6 +1648,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     skillCode = resolvedSkillCode
                 )
             ) {
+                if (UnifiedLogger.isDebugEnabled()) {
+                    UnifiedLogger.debug(logger,
+                        "Skipped damage (untrusted shape): actor={}, target={}, skill={}, type={}, damage={}",
+                        actorInfo.value, targetInfo.value, resolvedSkillCode, dummyType, finalDamage)
+                }
                 reader.offset = checkpoint
                 break
             }
@@ -1676,6 +1681,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             if (isAllowed && appendedToMeter) {
                 dataStorage.appendDamage(pdp)
+            } else if (UnifiedLogger.isDebugEnabled()) {
+                val reason = if (!isAllowed) "actor filtered" else "self-damage"
+                UnifiedLogger.debug(logger,
+                    "Skipped damage ({}): actor={}, target={}, skill={}, damage={}",
+                    reason, pdp.getActorId(), pdp.getTargetId(), pdp.getSkillCode1(), pdp.getDamage())
             }
 
             parsedAny = true
