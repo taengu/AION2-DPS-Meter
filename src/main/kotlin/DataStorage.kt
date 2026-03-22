@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.entity.ParsedDamagePacket
+import com.tbread.entity.SummonResolver
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.LocalPlayer
 import org.slf4j.LoggerFactory
@@ -17,6 +18,7 @@ class DataStorage {
     private val summonStorage = ConcurrentHashMap<Int, Int>()
     private val mobCodeData = ConcurrentHashMap<Int, String>()
     private val mobStorage = ConcurrentHashMap<Int, Int>()
+    private val knownPlayerIds = ConcurrentHashMap.newKeySet<Int>()
     private val currentTarget = AtomicInteger(0)
     private val packetOrder = ArrayDeque<ParsedDamagePacket>()
     private val mobHpData = ConcurrentHashMap<Int, Int>()
@@ -48,6 +50,19 @@ class DataStorage {
             usesLikelyNpcSkill
         ) {
             return // Safely drop likely-NPC packets to save memory
+        }
+
+        // Track actors using player-class skills as known players
+        if (isPlayerSkill(skillCode)) {
+            val isNew = knownPlayerIds.add(pdp.getActorId())
+            if (isNew) {
+                purgeFriendlyPackets(pdp.getActorId())
+            }
+        }
+
+        // Skip friendly actions (heals/buffs between known players or their summons)
+        if (isFriendlyAction(pdp.getActorId(), pdp.getTargetId())) {
+            return
         }
 
         byActorStorage.getOrPut(pdp.getActorId()) { ArrayList() }.add(pdp)
@@ -85,6 +100,53 @@ class DataStorage {
                 byTargetStorage.remove(pdp.getTargetId())
             }
         }
+    }
+
+    /**
+     * Remove stored packets where the newly-identified player [uid] was involved
+     * in a friendly action (both actor and target are known players).
+     * Called when a player is first identified (by nickname or player-class skill),
+     * so heals that arrived before we knew both sides were players get retroactively cleaned out.
+     */
+    /**
+     * Check if an action between actor and target is friendly (both sides resolve
+     * to known players through summon ownership chains).
+     */
+    private fun isFriendlyAction(actorId: Int, targetId: Int): Boolean {
+        val resolvedActor = SummonResolver.resolve(actorId, summonStorage)
+        val resolvedTarget = SummonResolver.resolve(targetId, summonStorage)
+        return knownPlayerIds.contains(resolvedActor) && knownPlayerIds.contains(resolvedTarget)
+    }
+
+    private fun purgeFriendlyPackets(uid: Int) {
+        val toRemove = mutableListOf<ParsedDamagePacket>()
+
+        // Check packets where this uid was the actor — is the target also a known player (or their summon)?
+        byActorStorage[uid]?.forEach { pdp ->
+            if (isFriendlyAction(pdp.getActorId(), pdp.getTargetId())) {
+                toRemove.add(pdp)
+            }
+        }
+        // Check packets where this uid was the target — is the actor also a known player (or their summon)?
+        byTargetStorage[uid]?.forEach { pdp ->
+            if (isFriendlyAction(pdp.getActorId(), pdp.getTargetId())) {
+                toRemove.add(pdp)
+            }
+        }
+
+        if (toRemove.isEmpty()) return
+
+        logger.debug("Purging {} friendly-action packets for newly identified player {}", toRemove.size, uid)
+        val removeIds = toRemove.mapTo(HashSet()) { it.getId() }
+        packetOrder.removeAll { it.getId() in removeIds }
+        for (pdp in toRemove) {
+            byActorStorage[pdp.getActorId()]?.removeAll { it.getId() in removeIds }
+            byTargetStorage[pdp.getTargetId()]?.removeAll { it.getId() in removeIds }
+        }
+        // Clean up empty lists
+        byActorStorage.entries.removeIf { it.value.isEmpty() }
+        byTargetStorage.entries.removeIf { it.value.isEmpty() }
+        snapshotDirty = true
     }
 
     fun setCurrentTarget(targetId: Int){
@@ -145,6 +207,12 @@ class DataStorage {
             logger.debug("Removed false summon mapping for player {} (nickname: {})", uid, nickname)
         }
 
+        // Register as known player and retroactively purge friendly-action packets
+        val isNew = knownPlayerIds.add(uid)
+        if (isNew) {
+            purgeFriendlyPackets(uid)
+        }
+
         val localName = LocalPlayer.characterName?.trim().orEmpty()
         if (localName.isNotBlank() && nickname.trim() == localName) {
             LocalPlayer.playerId = uid.toLong()
@@ -183,12 +251,19 @@ class DataStorage {
         byTargetStorage.clear()
         packetOrder.clear()
         summonStorage.clear()
+        knownPlayerIds.clear()
         mobHpData.clear()
         currentTarget.set(0)
         snapshotDirty = true
         cachedByTargetSnapshot = emptyMap()
         cachedByActorSnapshot = emptyMap()
         logger.info("Damage packets reset")
+    }
+
+    companion object {
+        /** Player-class skills: 10M-29M (class abilities) and 30M (theostones) */
+        fun isPlayerSkill(skillCode: Int): Boolean =
+            skillCode in 10_000_000..29_999_999 || skillCode in 30_000_000..30_999_999
     }
 
     @Synchronized

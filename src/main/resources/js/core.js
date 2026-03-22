@@ -631,8 +631,10 @@ class DpsApp {
     const skills = Array.isArray(details?.skills) ? details.skills.slice(0, 5) : [];
     let top = 0;
     let left = 372;
-    const dpsText = this.getMetricForRow(row).text;
-    const totalDamageText = this.dpsFormatter.format(Number(row?.totalDamage) || 0);
+    const dps = Number(row?.dps) || 0;
+    const dpsText = `${this.dpsFormatter.format(dps)}/s`;
+    const totalDamage = Number(row?.totalDamage) || 0;
+    const totalDamageText = this.dpsFormatter.format(totalDamage);
 
     const skillsHtml = skills
       .map((skill, index) => {
@@ -641,11 +643,7 @@ class DpsApp {
         const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
         const skillColor = theostoneNameColor || this.getJobColor(skill?.job || row?.job);
         const skillStyle = skillColor ? ` style="color:${skillColor}"` : "";
-        const iconCandidates = window.skillIcons?.getIconCandidates?.(skill) || [];
-        const encodedCandidates = encodeURIComponent(JSON.stringify(iconCandidates));
-        const iconSrc = iconCandidates[0] || "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-        const iconPlaceholderClass = iconCandidates.length ? "" : " isPlaceholder";
-        const iconHtml = `<img class="skillIcon${iconPlaceholderClass}" alt="" src="${iconSrc}" data-icon-candidates="${encodedCandidates}" data-icon-index="0" onerror="window.skillIcons&&window.skillIcons.handleImgError&&window.skillIcons.handleImgError(this)">`;
+        const iconHtml = `<img class="skillIcon isPlaceholder" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" onerror="window.skillIcons&&window.skillIcons.handleImgError&&window.skillIcons.handleImgError(this)">`;
         return `<div class="hoverDetailsTooltipSkill"><span class="idx">${index + 1}.</span><span class="name">${iconHtml}<span class="skillName"${skillStyle}>${name}</span></span><span class="dmg">${dmg}</span></div>`;
       })
       .join("");
@@ -660,6 +658,13 @@ class DpsApp {
       </div>
       <div class="hoverDetailsTooltipSkills">${skillsHtml || `<div class="hoverDetailsTooltipSkill muted">${this.i18n?.t("details.refresh.loading", "Loading...") ?? "Loading..."}</div>`}</div>
     `;
+    // Apply cached skill icons to tooltip img elements
+    if (window.skillIcons?.applyIconToImage && skills.length) {
+      const iconEls = this.hoverTooltipEl.querySelectorAll(".hoverDetailsTooltipSkill .skillIcon");
+      iconEls.forEach((img, i) => {
+        if (skills[i]) window.skillIcons.applyIconToImage(img, skills[i]);
+      });
+    }
     const maxLeft = Math.max(372, (this.elList?.clientWidth || 0) - (this.hoverTooltipEl.offsetWidth || 0) - 8);
     const maxTop = Math.max(8, (this.elList?.clientHeight || 0) - (this.hoverTooltipEl.offsetHeight || 0) - 8);
     left = Math.max(372, Math.min(maxLeft, left));
@@ -1282,9 +1287,17 @@ class DpsApp {
     };
 
     const detailSkills = Array.isArray(detailObj?.skills) ? detailObj.skills : null;
+    const attackerIdSet = Array.isArray(attackerIds) && attackerIds.length > 0
+      ? new Set(attackerIds.map(Number))
+      : null;
     if (detailSkills) {
       for (const value of detailSkills) {
         if (!value || typeof value !== "object") continue;
+        // Filter by selected player when viewing history
+        if (attackerIdSet) {
+          const skillActorId = Number(value.actorId);
+          if (!Number.isFinite(skillActorId) || !attackerIdSet.has(skillActorId)) continue;
+        }
         const code = String(value.code ?? "");
         const nameRaw = typeof value.name === "string" ? value.name.trim() : "";
         const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;

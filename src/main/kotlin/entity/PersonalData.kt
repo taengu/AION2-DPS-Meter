@@ -17,6 +17,27 @@ data class PersonalData(
         amount += damage
     }
 
+    fun mergeFrom(other: PersonalData) {
+        amount += other.amount
+        for ((skillCode, otherSkill) in other.analyzedData) {
+            val existing = analyzedData[skillCode]
+            if (existing == null) {
+                analyzedData[skillCode] = otherSkill
+            } else {
+                existing.times += otherSkill.times
+                existing.damageAmount += otherSkill.damageAmount
+                existing.critTimes += otherSkill.critTimes
+                existing.backTimes += otherSkill.backTimes
+                existing.parryTimes += otherSkill.parryTimes
+                existing.doubleTimes += otherSkill.doubleTimes
+                existing.perfectTimes += otherSkill.perfectTimes
+                existing.dotTimes += otherSkill.dotTimes
+                existing.dotDamageAmount += otherSkill.dotDamageAmount
+                existing.healAmount += otherSkill.healAmount
+            }
+        }
+    }
+
     fun processPdp(pdp: ParsedDamagePacket) {
         addDamage((pdp.getDamage() + pdp.getMultiHitDamage()).toDouble())
         if (!analyzedData.containsKey(pdp.getSkillCode1())) {

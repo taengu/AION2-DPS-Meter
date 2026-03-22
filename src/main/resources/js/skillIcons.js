@@ -2,27 +2,32 @@
   const BASE_URL = "https://assets.playnccdn.com/static-aion2-gamedata/resources";
   const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
-  // Crossed swords SVG for basic attacks and fallback
-  const CROSSED_SWORDS_ICON = "data:image/svg+xml," + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#c0c8d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">` +
-    // left blade
-    `<path d="M14 6l20 20" stroke-width="3"/>` +
-    `<path d="M10 4l6 0 22 22-3 3-22-22z" fill="#c0c8d8" stroke="#8890a4"/>` +
-    // right blade
-    `<path d="M50 6L30 26" stroke-width="3"/>` +
-    `<path d="M54 4l-6 0-22 22 3 3 22-22z" fill="#c0c8d8" stroke="#8890a4"/>` +
-    // left guard
-    `<path d="M27 31l-8 2 2-8" fill="none" stroke="#a0a8b8" stroke-width="2.5"/>` +
-    // right guard
-    `<path d="M37 31l8 2-2-8" fill="none" stroke="#a0a8b8" stroke-width="2.5"/>` +
-    // left handle
-    `<path d="M21 35l-8 8" stroke="#a0a8b8" stroke-width="3"/>` +
-    `<path d="M11 45l-1-3 3 1" stroke="#a0a8b8" stroke-width="2"/>` +
-    `<path d="M9 47l-1-2 2 1" stroke="#a0a8b8" stroke-width="2"/>` +
-    // right handle
-    `<path d="M43 35l8 8" stroke="#a0a8b8" stroke-width="3"/>` +
-    `<path d="M53 45l1-3-3 1" stroke="#a0a8b8" stroke-width="2"/>` +
-    `<path d="M55 47l1-2-2 1" stroke="#a0a8b8" stroke-width="2"/>` +
+  // Lucide "swords" icon for basic attacks
+  const SWORDS_ICON = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+    `<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>` +
+    `<line x1="13" x2="19" y1="19" y2="13"/>` +
+    `<line x1="16" x2="20" y1="16" y2="20"/>` +
+    `<line x1="19" x2="21" y1="21" y2="19"/>` +
+    `<polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/>` +
+    `<line x1="5" x2="9" y1="14" y2="18"/>` +
+    `<line x1="7" x2="4" y1="17" y2="20"/>` +
+    `<line x1="3" x2="5" y1="19" y2="21"/>` +
+    `</svg>`
+  );
+
+  // Lucide "wand" icon for missing/unknown skills
+  const WAND_ICON = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8890a4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+    `<path d="M15 4V2"/>` +
+    `<path d="M15 16v-2"/>` +
+    `<path d="M8 9h2"/>` +
+    `<path d="M20 9h2"/>` +
+    `<path d="M17.8 11.8 19 13"/>` +
+    `<path d="M15 9h.01"/>` +
+    `<path d="M17.8 6.2 19 5"/>` +
+    `<path d="m3 21 9-9"/>` +
+    `<path d="M12.2 6.2 11 5"/>` +
     `</svg>`
   );
 
@@ -137,48 +142,90 @@
     }
 
     const code = normalizeCode(skill.code);
-    if (!code) return [CROSSED_SWORDS_ICON];
+    if (!code) return [SWORDS_ICON];
 
     // Basic attacks: xx0000xx class autos (not xx000000), 10000xxx elementalist autos, 1699xxxx spirit autos
     const prefix2 = code.slice(0, 2);
     const mid4 = code.slice(2, 6);
     if (prefix2 >= "11" && prefix2 <= "18" && mid4 === "0000" && code.slice(6) !== "00") {
-      return [CROSSED_SWORDS_ICON];
+      return [SWORDS_ICON];
     }
     if (code.startsWith("1000") || code.startsWith("1699")) {
-      return [CROSSED_SWORDS_ICON];
+      return [SWORDS_ICON];
     }
 
     // Use lookup table from game data (keyed by first 4 digits of skill code)
     const base4 = code.slice(0, 4);
     const iconName = getSkillIconMap()[base4];
     if (iconName) {
-      return [`${BASE_URL}/${iconName}.png`, CROSSED_SWORDS_ICON];
+      return [`${BASE_URL}/${iconName}.png`, WAND_ICON];
     }
 
     // Fallback: algorithmic approach for skills not in the table
     const classCode = resolveClassCode(skill);
-    if (!classCode) return [CROSSED_SWORDS_ICON];
+    if (!classCode) return [WAND_ICON];
 
     const sub = Number(code.slice(2, 4));
-    if (!Number.isFinite(sub)) return [CROSSED_SWORDS_ICON];
+    if (!Number.isFinite(sub)) return [WAND_ICON];
 
-    return [buildIconUrl(classCode, sub, false), CROSSED_SWORDS_ICON];
+    return [buildIconUrl(classCode, sub, false), WAND_ICON];
   };
 
   // In-memory blob URL cache: CDN url → blob URL (instant, no decode cost)
   const blobCache = new Map();    // url → blobUrl
   const blobPending = new Map();  // url → Promise<blobUrl|null>
 
+  // Derive a safe filename from a CDN URL for disk caching
+  const urlToCacheKey = (url) => {
+    const match = url.match(/\/([^/]+\.png)$/i);
+    return match ? match[1] : null;
+  };
+
   const fetchAsBlob = (url) => {
     if (blobCache.has(url)) return Promise.resolve(blobCache.get(url));
     if (blobPending.has(url)) return blobPending.get(url);
     // Only cache CDN URLs (not data: URIs)
     if (!url.startsWith("http")) return Promise.resolve(null);
-    const p = fetch(url, { mode: "cors", credentials: "omit" })
-      .then((r) => {
-        if (!r.ok) throw new Error(r.status);
-        return r.blob();
+
+    const cacheKey = urlToCacheKey(url);
+    const bridge = window.javaBridge;
+
+    const p = Promise.resolve()
+      .then(() => {
+        // Try disk cache first
+        if (cacheKey && bridge?.readCachedIcon) {
+          const b64 = bridge.readCachedIcon(cacheKey);
+          if (b64) {
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return new Blob([bytes], { type: "image/png" });
+          }
+        }
+        return null;
+      })
+      .then((diskBlob) => {
+        if (diskBlob) return diskBlob;
+        // Fetch from CDN and persist to disk cache
+        return fetch(url, { mode: "cors", credentials: "omit" })
+          .then((r) => {
+            if (!r.ok) throw new Error(r.status);
+            return r.blob();
+          })
+          .then((blob) => {
+            // Write to disk cache in background
+            if (cacheKey && bridge?.writeCachedIcon) {
+              blob.arrayBuffer().then((buf) => {
+                const bytes = new Uint8Array(buf);
+                let b64 = "";
+                for (let i = 0; i < bytes.length; i += 8192) {
+                  b64 += String.fromCharCode(...bytes.subarray(i, i + 8192));
+                }
+                bridge.writeCachedIcon(cacheKey, btoa(b64));
+              }).catch(() => {});
+            }
+            return blob;
+          });
       })
       .then((blob) => {
         const blobUrl = URL.createObjectURL(blob);
@@ -197,8 +244,9 @@
     if (!candidates.length) {
       imgEl.dataset.iconCandidates = "[]";
       imgEl.dataset.iconIndex = "0";
-      imgEl.classList.add("isPlaceholder");
-      imgEl.src = TRANSPARENT_PIXEL;
+      imgEl.dataset.iconUrl = WAND_ICON;
+      imgEl.classList.remove("isPlaceholder");
+      imgEl.src = WAND_ICON;
       imgEl.style.display = "";
       return;
     }
@@ -231,14 +279,13 @@
       return;
     }
 
-    // Show placeholder while fetching, then swap in blob
-    imgEl.classList.add("isPlaceholder");
-    imgEl.src = TRANSPARENT_PIXEL;
+    // Show wand placeholder while fetching, then swap in blob
+    imgEl.classList.remove("isPlaceholder");
+    imgEl.src = WAND_ICON;
     fetchAsBlob(primaryUrl).then((blobUrl) => {
       // Only apply if this element still wants this icon
       if (imgEl.dataset.iconUrl !== primaryUrl) return;
       if (blobUrl) {
-        imgEl.classList.remove("isPlaceholder");
         imgEl.src = blobUrl;
       } else {
         // CDN fetch failed — fall through to next candidate
@@ -259,8 +306,8 @@
     }
     const idx = Number(imgEl.dataset.iconIndex || 0) + 1;
     if (!Array.isArray(candidates) || idx >= candidates.length) {
-      imgEl.classList.add("isPlaceholder");
-      imgEl.src = TRANSPARENT_PIXEL;
+      imgEl.classList.remove("isPlaceholder");
+      imgEl.src = WAND_ICON;
       imgEl.style.display = "";
       return;
     }
@@ -284,5 +331,6 @@
     getTheostoneNameColor,
     applyIconToImage,
     handleImgError,
+    _fetchAsBlob: fetchAsBlob,
   };
 })(window);

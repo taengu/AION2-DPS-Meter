@@ -261,6 +261,31 @@ class BrowserApp(
             }
         }
 
+        // ── Skill icon disk cache ──
+        private val iconCacheDir: File by lazy {
+            val appdata = System.getenv("APPDATA") ?: System.getProperty("user.home")
+            File(appdata, "AionDPS/icon_cache").also { it.mkdirs() }
+        }
+
+        @Suppress("unused")
+        fun readCachedIcon(filename: String): String? {
+            val safe = filename.replace(Regex("[^a-zA-Z0-9._-]"), "")
+            val file = File(iconCacheDir, safe)
+            if (!file.exists()) return null
+            return try {
+                java.util.Base64.getEncoder().encodeToString(file.readBytes())
+            } catch (_: Exception) { null }
+        }
+
+        @Suppress("unused")
+        fun writeCachedIcon(filename: String, base64Data: String) {
+            val safe = filename.replace(Regex("[^a-zA-Z0-9._-]"), "")
+            try {
+                val bytes = java.util.Base64.getDecoder().decode(base64Data)
+                File(iconCacheDir, safe).writeBytes(bytes)
+            } catch (_: Exception) {}
+        }
+
         @Suppress("unused")
         fun readResource(path: String): String? {
             val normalized = if (path.startsWith("/")) path else "/$path"

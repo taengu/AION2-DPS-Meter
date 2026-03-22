@@ -877,9 +877,13 @@ const createDetailsUI = ({
       const section = header.closest(".detailsSection");
       if (section) {
         section.classList.toggle("isExpanded");
-        // Re-render chart when DPS chart section is expanded (canvas needs non-zero size)
-        if (section.classList.contains("dpsChartSection") && section.classList.contains("isExpanded") && lastDetails) {
-          requestAnimationFrame(() => renderDpsChart(lastDetails));
+        // Re-render charts when sections are expanded (canvas needs non-zero size)
+        if (section.classList.contains("isExpanded") && lastDetails) {
+          if (section.classList.contains("dpsChartSection")) {
+            requestAnimationFrame(() => renderDpsChart(lastDetails));
+          } else if (section.classList.contains("timelineSection")) {
+            requestAnimationFrame(() => renderTimeline(lastDetails));
+          }
         }
       }
     });
@@ -905,6 +909,16 @@ const createDetailsUI = ({
   ];
 
   const timelineIconCache = new Map(); // skill key → { img, ready }
+  let timelineRedrawScheduled = false;
+
+  const scheduleTimelineRedraw = () => {
+    if (timelineRedrawScheduled) return;
+    timelineRedrawScheduled = true;
+    requestAnimationFrame(() => {
+      timelineRedrawScheduled = false;
+      if (lastDetails) renderTimeline(lastDetails);
+    });
+  };
 
   const loadTimelineIcon = (skill) => {
     const key = `${skill.code}::${skill.isDot ? "dot" : "hit"}`;
@@ -925,15 +939,20 @@ const createDetailsUI = ({
       // For data: URIs, load directly
       if (!url.startsWith("http")) {
         entry.img.src = url;
-        entry.img.onload = () => { entry.ready = true; };
+        entry.img.onload = () => { entry.ready = true; scheduleTimelineRedraw(); };
         return;
       }
-      // For CDN URLs, fetch as blob to avoid CORS/canvas tainting
-      fetch(url, { mode: "cors", credentials: "omit" })
-        .then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-        .then((blob) => {
-          entry.img.src = URL.createObjectURL(blob);
-          entry.img.onload = () => { entry.ready = true; };
+      // Use skillIcons blob cache (fetchAsBlob) if available, else fetch directly
+      const fetchPromise = window.skillIcons?._fetchAsBlob
+        ? window.skillIcons._fetchAsBlob(url)
+        : fetch(url, { mode: "cors", credentials: "omit" })
+            .then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+            .then((blob) => URL.createObjectURL(blob));
+      fetchPromise
+        .then((blobUrl) => {
+          if (!blobUrl) throw new Error("no blob");
+          entry.img.src = blobUrl;
+          entry.img.onload = () => { entry.ready = true; scheduleTimelineRedraw(); };
         })
         .catch(() => tryLoad(idx + 1));
     };
@@ -1318,18 +1337,7 @@ const createDetailsUI = ({
       });
     });
 
-    // Redraw pending icons once loaded
-    if (pendingDraws.length > 0) {
-      const redraw = () => {
-        pendingDraws.forEach(({ entry, iconX, iconY }) => {
-          if (entry.ready && entry.img.complete && entry.img.naturalWidth > 0) {
-            ctx.drawImage(entry.img, iconX, iconY, ICON_SIZE, ICON_SIZE);
-          }
-        });
-      };
-      setTimeout(redraw, 500);
-      setTimeout(redraw, 1500);
-    }
+    // Icons that weren't ready will trigger scheduleTimelineRedraw via onload
 
     // Render legend
     timelineLegend.innerHTML = "";
@@ -1860,6 +1868,7 @@ const createDetailsUI = ({
     }
     lastRow = null;
     lastDetails = null;
+    lastUnfilteredDetails = null;
     activeCompactMode = false;
     lastMeasuredNameWidth = 0;
     detailsPanel.style.removeProperty("width");

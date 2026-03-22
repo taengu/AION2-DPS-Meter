@@ -154,7 +154,7 @@ private fun configureJavaFxPipeline() {
     val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
     if (!isWindows || !isNativeImage) return
     if (!System.getProperty("prism.order").isNullOrBlank()) return
-    System.setProperty("prism.order", "sw")
+    System.setProperty("prism.order", "d3d")
 
 }
 

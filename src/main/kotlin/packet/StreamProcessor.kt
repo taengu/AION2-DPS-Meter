@@ -27,7 +27,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private val mask = 0x0f
     private val actorIdFilterKey = "dpsMeter.actorIdFilter"
     private var pendingCompactSkillContext: PendingCompactSkillContext? = null
-    private val pendingSummonLinks = mutableSetOf<Int>()
 
 
     /**
@@ -136,137 +135,18 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 offset += bundleSize
             } else {
                 val fullPacket = buffer.copyOfRange(offset, offset + totalPacketBytes)
-                pendingSummonLinks.clear()
                 parsePerfectPacket(fullPacket)
                 offset += totalPacketBytes
             }
         }
 
-        // Full-buffer fallback: scan the entire raw buffer for summon ownership data
-        // and nicknames that the varint framing may have split across boundaries.
-        scanBufferForSummonData(buffer)
+        // Scan the raw buffer for embedded 04 8D ownership sub-packets that may be
+        // buried inside replication batches and missed by varint framing.
+        if (buffer.size >= 4) {
+            scanForEmbedded048D(buffer)
+        }
 
         return offset
-    }
-
-    /**
-     * Scan a raw buffer for summon-related data that the varint framing may have missed.
-     * This catches:
-     * - Embedded 04 8D summon ownership sub-packets
-     * - 40 36 spawn opcodes with target IDs + owner markers
-     * - E0/E2 07 anchored nicknames
-     */
-    private fun scanBufferForSummonData(buffer: ByteArray) {
-        if (buffer.size < 4) return
-
-        // A: Embedded 04 8D scan
-        scanForEmbedded048D(buffer)
-
-        // B: Collect summon IDs from all 40 36 spawn opcodes
-        val potentialSummonIds = mutableSetOf<Int>()
-        var spawnSearch = 0
-        while (spawnSearch + 1 < buffer.size) {
-            val spawnIdx = findArrayIndexFromOffset(buffer, spawnSearch, byteArrayOf(0x40, 0x36))
-            if (spawnIdx == -1) break
-            val targetOffset = spawnIdx + 2
-            if (targetOffset < buffer.size) {
-                val targetInfo = readVarInt(buffer, targetOffset)
-                if (targetInfo.length > 0 && targetInfo.value in 100..9_999_999) {
-                    var realId = targetInfo.value
-                    if (realId > 1_000_000) {
-                        realId = (realId and 0x3FFF) or 0x4000
-                    }
-                    // Only collect if not already registered as a summon
-                    if (!dataStorage.getSummonData().containsKey(realId)) {
-                        // Skip entities with boss-like HP
-                        val hp = dataStorage.getMobHpData()[realId]
-                        if (hp == null || hp <= 500_000) {
-                            potentialSummonIds.add(realId)
-                        }
-                    }
-                }
-            }
-            spawnSearch = spawnIdx + 2
-        }
-
-        // C: Extract owner IDs from owner markers
-        val ownerMarker = byteArrayOf(
-            0x80.toByte(), 0x75, 0xD5.toByte(), 0x2A, 0xBB.toByte(), 0x03, 0x00, 0x00
-        )
-        val potentialOwnerIds = mutableSetOf<Int>()
-        var markerSearch = 0
-        while (markerSearch + ownerMarker.size < buffer.size) {
-            val markerIdx = findArrayIndexFromOffset(buffer, markerSearch, ownerMarker)
-            if (markerIdx == -1) break
-            val ownerOffset = markerIdx + ownerMarker.size
-            if (ownerOffset < buffer.size) {
-                val ownerInfo = readVarInt(buffer, ownerOffset)
-                if (ownerInfo.length > 0 && ownerInfo.value in 100..99_999 &&
-                    !dataStorage.getSummonData().containsKey(ownerInfo.value) &&
-                    !dataStorage.getMobData().containsKey(ownerInfo.value)
-                ) {
-                    potentialOwnerIds.add(ownerInfo.value)
-                }
-            }
-            markerSearch = markerIdx + ownerMarker.size
-        }
-
-        // D: Scan for E0/E2 07 anchored nicknames (Pattern A logic on full buffer)
-        var anchorSearch = 0
-        while (anchorSearch + 2 < buffer.size) {
-            if ((buffer[anchorSearch] == 0xE2.toByte() || buffer[anchorSearch] == 0xE0.toByte()) &&
-                buffer[anchorSearch + 1] == 0x07.toByte()
-            ) {
-                val nameLenIdx = anchorSearch + 2
-                if (nameLenIdx < buffer.size) {
-                    val nameLen = buffer[nameLenIdx].toInt() and 0xFF
-                    if (nameLen in 2..32 && nameLenIdx + 1 + nameLen <= buffer.size) {
-                        val nameBytes = buffer.copyOfRange(nameLenIdx + 1, nameLenIdx + 1 + nameLen)
-                        val possibleName = decodeUtf8Strict(nameBytes)
-                        if (possibleName != null && possibleName.isNotEmpty() && Character.isLetterOrDigit(possibleName[0])) {
-                            val sanitizedName = sanitizeNickname(possibleName)
-                            if (sanitizedName != null && sanitizedName.length >= 2) {
-                                // Look backward for actor ID varint
-                                for (vLen in 1..3) {
-                                    val vStart = anchorSearch - vLen
-                                    if (vStart < 0) continue
-                                    if (!canReadVarInt(buffer, vStart)) continue
-                                    val v = readVarInt(buffer, vStart)
-                                    if (v.length == vLen && v.value in 100..99_999) {
-                                        dataStorage.appendNickname(v.value, sanitizedName)
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                        // Skip past name + guild to avoid re-scanning
-                        anchorSearch = skipGuildName(buffer, nameLenIdx + 1 + nameLen)
-                        continue
-                    }
-                }
-            }
-            anchorSearch++
-        }
-
-        // E: Link unregistered summon IDs to found owners
-        if (potentialSummonIds.isNotEmpty() && potentialOwnerIds.isNotEmpty()) {
-            // If exactly one owner, link all summons to it
-            // If multiple owners, only link if one has a nickname (more likely a real player)
-            val ownerId = if (potentialOwnerIds.size == 1) {
-                potentialOwnerIds.first()
-            } else {
-                potentialOwnerIds.firstOrNull { dataStorage.getNickname().containsKey(it) }
-            }
-            if (ownerId != null) {
-                for (summonId in potentialSummonIds) {
-                    if (!dataStorage.getSummonData().containsKey(summonId) && ownerId != summonId) {
-                        logger.debug("Buffer fallback summon linking: Owner {} -> Summon {}", ownerId, summonId)
-                        UnifiedLogger.debugForActor(logger, ownerId, "Buffer fallback summon linking: Owner {} -> Summon {}", ownerId, summonId)
-                        dataStorage.appendSummon(ownerId, summonId)
-                    }
-                }
-            }
-        }
     }
 
     private fun unwrapBundle(payload: ByteArray) {
@@ -297,8 +177,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         // Walk the decompressed data as varint-framed inner packets (same as consumeStream)
         pendingCompactSkillContext = null
-        pendingSummonLinks.clear()
-
         var offset = 0
 
         while (offset < decompressed.size) {
@@ -345,21 +223,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // Scan the full decompressed buffer for embedded 04 8D sequences that may not
         // have been properly framed as individual inner packets.
         scanForEmbedded048D(decompressed)
-
-        // Resolve any summon spawns that couldn't find their owner in the same inner packet
-        if (pendingSummonLinks.isNotEmpty()) {
-            val ownerId = extractOwnerFromPacket(decompressed)
-            if (ownerId != -1) {
-                for (summonId in pendingSummonLinks) {
-                    if (ownerId != summonId) {
-                        logger.debug("Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
-                        UnifiedLogger.debugForActor(logger, ownerId, "Bundle summon linking: Owner {} -> Summon {}", ownerId, summonId)
-                        dataStorage.appendSummon(ownerId, summonId)
-                    }
-                }
-            }
-            pendingSummonLinks.clear()
-        }
 
         pendingCompactSkillContext = null
     }
@@ -708,9 +571,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet.size < 3) return false
 
         // Try to extract summon link from 05 38 buff/heal packets BEFORE other parsers.
-        // Pattern: 05 38 <target_varint> <effect_type> <actor_varint>
-        // When effect_type != 0x02 (non-damage), actor is buffing/healing target → summon link.
         tryExtractBuffSummonLink(packet)
+        // Try to extract summon link from 2A 38 replication packets.
+        // The owner is the first varint, the summon is at fixed offset 27 + actor_varint_length.
+        tryExtractReplicationSummonLink(packet)
 
         val parsedDamage = parsingDamage(packet)
         // Parse summon ownership (04 8D) BEFORE nicknames so that appendSummon registers the
@@ -882,8 +746,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val summonId = summonInfo.value
         pos += summonInfo.length
 
-        // Skip 4 zero bytes
+        // Validate 4 zero bytes — real 04 8D packets always have 00 00 00 00 here.
+        // Non-zero bytes indicate a false match (random data containing 04 8D).
         if (pos + 4 > packet.size) return false
+        if (packet[pos] != 0x00.toByte() || packet[pos + 1] != 0x00.toByte() ||
+            packet[pos + 2] != 0x00.toByte() || packet[pos + 3] != 0x00.toByte()) return false
         pos += 4
 
         val ownerInfo = readVarInt(packet, pos)
@@ -938,6 +805,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val summonInfo = readVarInt(data, searchOffset)
             if (summonInfo.length <= 0 || summonInfo.value !in 100..9_999_999) continue
             val summonId = summonInfo.value
+
+            // Validate 4 zero bytes after summon varint (same as parseSummonOwnershipPacket)
+            val zeroStart = searchOffset + summonInfo.length
+            if (zeroStart + 4 > data.size) continue
+            if (data[zeroStart] != 0x00.toByte() || data[zeroStart + 1] != 0x00.toByte() ||
+                data[zeroStart + 2] != 0x00.toByte() || data[zeroStart + 3] != 0x00.toByte()) continue
 
             // Scan forward (up to 128 bytes) for E0/E2 07 anchor to find owner
             val scanEnd = minOf(data.size - 1, searchOffset + summonInfo.length + 128)
@@ -1034,38 +907,54 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         dataStorage.appendSummon(actorId, targetId)
     }
 
+    /**
+     * Extract summon ownership from 2A 38 replication update packets.
+     * Format: length(varint) 2A 38 actor(varint) 24_bytes_fixed_data summon(varint) ...
+     * The actor is the owner, the summon is at fixed offset 27 + actor_varint_length.
+     * Only links if the referenced entity is in mobData (registered NPC) and not a boss.
+     */
+    private fun tryExtractReplicationSummonLink(packet: ByteArray) {
+        val packetLengthInfo = readVarInt(packet)
+        if (packetLengthInfo.length < 0) return
+        var offset = packetLengthInfo.length
+
+        if (offset + 1 >= packet.size) return
+        if (packet[offset] != 0x2A.toByte() || packet[offset + 1] != 0x38.toByte()) return
+        offset += 2
+
+        val actorInfo = readVarInt(packet, offset)
+        if (actorInfo.length <= 0 || actorInfo.value < 100) return
+
+        val summonOffset = 27 + actorInfo.length
+        if (summonOffset + 3 > packet.size) return
+
+        val summonInfo = readVarInt(packet, summonOffset)
+        if (summonInfo.length <= 0 || summonInfo.value < 100) return
+        if (summonInfo.value == actorInfo.value) return  // Self-reference
+
+        val actorId = actorInfo.value
+        val summonId = summonInfo.value
+
+        // Only link entities registered as NPCs (via 40 36 spawn)
+        if (!dataStorage.getMobData().containsKey(summonId)) return
+        if (dataStorage.getSummonData().containsKey(summonId)) return
+        val hp = dataStorage.getMobHpData()[summonId]
+        if (hp != null && hp > 500_000) return
+
+        logger.debug("Replication summon (2A 38): Owner {} -> Summon {}", actorId, summonId)
+        UnifiedLogger.debugForActor(logger, actorId, "Replication summon (2A 38): Owner {} -> Summon {}", actorId, summonId)
+        dataStorage.appendSummon(actorId, summonId)
+    }
+
     private fun parseSummonPacket(packet: ByteArray): Boolean {
-        var offset = 0
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
-        offset += packetLengthInfo.length
+        val offset = packetLengthInfo.length
 
-        var foundSummon = false
+        if (offset + 1 >= packet.size) return false
+        if (packet[offset] != 0x40.toByte() || packet[offset + 1] != 0x36.toByte()) return false
 
-        // 1. Standard 40 36 Spawn Opcode
-        if (offset + 1 < packet.size && packet[offset] == 0x40.toByte() && packet[offset + 1] == 0x36.toByte()) {
-            if (parseSummonSpawnAt(packet, offset + 2)) {
-                foundSummon = true
-            }
-        }
-
-        // 2. Check for embedded spawn opcodes
-        var searchOffset = 0
-        while (searchOffset + 1 < packet.size) {
-            val opcodeOffset = findArrayIndexFromOffset(packet, searchOffset, byteArrayOf(0x40, 0x36))
-            if (opcodeOffset == -1) break
-            if (parseSummonSpawnAt(packet, opcodeOffset + 2)) {
-                foundSummon = true
-            }
-            searchOffset = opcodeOffset + 2
-        }
-
-        // NOTE: The "Exact Property Match" (0E 06 38 / 0F 06 38) has been deliberately REMOVED.
-        // Unreal Engine property replication indices are relative to the Actor's class.
-        // For a Boss, properties 0E and 0F usually represent CurrentTarget and LastAttacker.
-        // Blindly mapping them globally causes bosses to be registered as player summons.
-
-        return foundSummon
+        return parseSummonSpawnAt(packet, offset + 2)
     }
 
     private fun parseSummonSpawnAt(packet: ByteArray, offsetAfterOpcode: Int): Boolean {
@@ -1158,9 +1047,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 UnifiedLogger.debugForActor(logger, ownerId, "Summon owner linking (marker): Owner {} -> Summon {}, hex={}", ownerId, realActorId, toHex(packet))
                 dataStorage.appendSummon(ownerId, realActorId)
                 foundSomething = true
-            } else {
-                // Owner not in this packet — queue for bundle-level resolution
-                pendingSummonLinks.add(realActorId)
             }
         }
 
@@ -1604,6 +1490,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             // 3. Multi-Hit Count & Target HP Safeguard
+            // When both bit4 (0x10) and bit5 (0x20) are set in switchValue (sv=52,54),
+            // there is an extra varint (always 1) before the hit count that must be skipped.
+            if ((switchValue and 0x30) == 0x30 && reader.remainingBytes() > 0) {
+                reader.tryReadVarInt()  // skip extra field present when bit4+bit5 are set
+            }
+
             var hitCount = 0
             val preHitOffset = reader.offset
 

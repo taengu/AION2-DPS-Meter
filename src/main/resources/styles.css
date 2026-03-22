@@ -913,9 +913,17 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     }
     .name.isCjk {
       font-family: var(--cjk-font-stack);
-      font-size: 19px;
+      font-size: 21px;
+      line-height: 1;
       font-weight: 500;
       letter-spacing: 0;
+      paint-order: stroke fill;
+      -webkit-text-stroke: 0.5px rgba(0,0,0,0.95);
+      text-shadow:
+              0 0 2px rgba(0,0,0,0.95),
+              0 1px 3px rgba(0,0,0,0.90),
+              0 3px 6px rgba(0,0,0,0.70);
+      -webkit-font-smoothing: auto;
     }
     .dps {
       color: var(--dps-text);
@@ -2166,6 +2174,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: var(--row-fill);
   opacity: var(--meter-fill-opacity, 0.8);
   font-weight: 500;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 18px;
+  box-sizing: border-box;
 }
 .settingsPanel .themeDropdownBtn .settingsDropdownText {
   color: var(--text-color);
@@ -2173,6 +2185,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .settingsPanel .themeDropdownMenu .settingsDropdownItem {
   text-shadow: var(--player-name-shadow, var(--text-shadow));
+  font-size: 18px;
 }
 .settingsPanel .themeDropdownMenu {
   background: rgba(12, 22, 40, 1);
@@ -2459,6 +2472,13 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   font-family: var(--cjk-font-stack);
   font-weight: 500;
   letter-spacing: 0;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.5px rgba(0,0,0,0.95);
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
+  -webkit-font-smoothing: auto;
 }
 .list .item .dps {
   color: var(--dps-text);
@@ -2879,7 +2899,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 /* Party bars in details left column */
 .detailsPanel .detailsPartyBar {
   position: relative;
-  height: 30px;
+  height: 32px;
   padding: 0 6px 0 12px;
   cursor: pointer;
   overflow: hidden;
@@ -2909,14 +2929,14 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   min-width: 0;
 }
 .detailsPanel .detailsPartyBarIcon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   object-fit: contain;
 }
 .detailsPanel .detailsPartyBarName {
   flex: 1;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -2928,7 +2948,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   letter-spacing: 0;
 }
 .detailsPanel .detailsPartyBarDmg {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   opacity: 0.85;
   white-space: nowrap;
@@ -3019,8 +3039,8 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   object-fit: cover;
 }
 .detailsPanel .detailsSkills .cell.name .skillIcon.isPlaceholder {
-  background: rgba(16, 18, 22, 0.88);
-  border:     1px solid rgba(22, 24, 28, 0.88);
+  background: transparent;
+  border:     1px solid transparent;
 }
 .detailsPanel .detailsSkills .cell.name .skillNameText {
   flex: 1 1 auto;
@@ -3219,7 +3239,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   user-select: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
-  font-size: 0.9em;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.75);
   transition: color 0.15s;
 }
@@ -3629,8 +3649,8 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   object-fit: cover;
 }
 .hoverDetailsTooltipSkill .name .skillIcon.isPlaceholder {
-  background: rgba(180, 186, 198, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  border: 1px solid transparent;
 }
 
 .hoverDetailsTooltipSkill .name .skillName {
@@ -3708,7 +3728,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   font-size: 14px;
 }
 .meter.slim .list .item .name.isCjk {
-  font-size: 15px;
+  font-size: 16px;
 }
 .meter.slim .list .item .dps {
   font-size: 13px;
