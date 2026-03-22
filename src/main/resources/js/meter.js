@@ -8,6 +8,7 @@ const createMeterUI = ({
   getMetric,
   getSortDirection,
   getPinUserToTop,
+  getPlayerLimit,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -15,6 +16,8 @@ const createMeterUI = ({
 
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
+  let pendingRenderRows = null;
+  let renderRowsRafId = 0;
 
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
@@ -85,7 +88,7 @@ const createMeterUI = ({
       hoverRippleTimer: null,
     };
 
-    rowEl.addEventListener("mouseenter", () => {
+    rowEl.addEventListener("mouseenter", (event) => {
       if (!view.hoverRipplePlayed) {
         view.rowEl.classList.add("hoverRippleOnce");
         view.hoverRipplePlayed = true;
@@ -97,9 +100,15 @@ const createMeterUI = ({
           view.hoverRippleTimer = null;
         }, 950);
       }
-      onHoverUserRow?.(view.currentRow);
+      onHoverUserRow?.(view.currentRow, event);
     });
 
+
+    rowEl.addEventListener("mousemove", (event) => {
+      if (view._lastMoveMs && nowMs() - view._lastMoveMs < 100) return;
+      view._lastMoveMs = nowMs();
+      onHoverUserRow?.(view.currentRow, event);
+    });
     rowEl.addEventListener("mouseleave", () => {
       view.hoverRipplePlayed = false;
       if (view.hoverRippleTimer) {
@@ -128,18 +137,18 @@ const createMeterUI = ({
     return view;
   };
 
-  // 상위 6개 + 유저(유저가 top6 밖이면 7개)
   const getDisplayRows = (sortedAll) => {
-    const top6 = sortedAll.slice(0, 6);
+    const limit = (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6;
+    const topN = sortedAll.slice(0, limit);
     const user = sortedAll.find((x) => x.isUser);
 
-    if (!user) return top6;
+    if (!user) return topN;
     const pinUser = typeof getPinUserToTop === "function" && getPinUserToTop();
     if (pinUser) {
-      return [user, ...top6.filter((row) => !row.isUser)];
+      return [user, ...topN.filter((row) => !row.isUser)];
     }
-    if (top6.some((x) => x.isUser)) return top6;
-    return [...top6, user];
+    if (topN.some((x) => x.isUser)) return topN;
+    return [...topN, user];
   };
 
   const pruneCache = (keepIds) => {
@@ -172,29 +181,40 @@ const createMeterUI = ({
     return { value: dps, text: `${dpsFormatter.format(dps)}/s` };
   };
 
+  let lastOrderKey = "";
+
   const renderRows = (rows) => {
     const now = nowMs();
     const nextVisibleIds = new Set();
 
-    elList.classList.toggle("hasRows", rows.length > 0);
+    const hadRows = elList.classList.contains("hasRows");
+    const hasRows = rows.length > 0;
+    if (hadRows !== hasRows) {
+      elList.classList.toggle("hasRows", hasRows);
+    }
 
     let topMetric = 1;
     for (const row of rows) {
       const metricValue = Number(resolveMetric(row)?.value) || 0;
-      topMetric = Math.max(topMetric, metricValue);
+      if (metricValue > topMetric) topMetric = metricValue;
     }
     const visibleTotalDamage = rows.reduce((sum, row) => sum + (Number(row?.totalDamage) || 0), 0);
 
+    // Build order key to detect if DOM reordering is needed
+    let orderKey = "";
+    const validRows = [];
     for (const row of rows) {
-      if (!row) {
-        continue;
-      }
-
+      if (!row) continue;
       const id = row.id ?? row.name;
-      if (!id) {
-        continue;
-      }
+      if (!id) continue;
+      validRows.push({ row, id });
+      orderKey += id + ",";
+    }
 
+    const needsReorder = orderKey !== lastOrderKey;
+    lastOrderKey = orderKey;
+
+    for (const { row, id } of validRows) {
       nextVisibleIds.add(id);
 
       const view = getRowView(id);
@@ -256,8 +276,6 @@ const createMeterUI = ({
         }
       }
 
-      // view.classIconEl.style.display = "";
-
       const metric = resolveMetric(row) || { value: 0, text: "-" };
       const metricValue = Number(metric.value) || 0;
       const damageContribution =
@@ -297,7 +315,10 @@ const createMeterUI = ({
         view.lastFillRatio = ratio;
       }
 
-      elList.appendChild(view.rowEl);
+      // Only touch DOM order when the sorted list actually changed
+      if (needsReorder) {
+        elList.appendChild(view.rowEl);
+      }
     }
 
     for (const id of lastVisibleIds) {
@@ -314,7 +335,12 @@ const createMeterUI = ({
     pruneCache(nextVisibleIds);
   };
 
-  const updateFromRows = (rows) => {
+  const flushPendingRows = () => {
+    renderRowsRafId = 0;
+    const rows = pendingRenderRows;
+    pendingRenderRows = null;
+    if (!rows) return;
+
     const arr = Array.isArray(rows) ? rows.slice() : [];
     const sortDirection = typeof getSortDirection === "function" ? getSortDirection() : "desc";
     arr.sort((a, b) => {
@@ -324,7 +350,19 @@ const createMeterUI = ({
     });
     renderRows(getDisplayRows(arr));
   };
+
+  const updateFromRows = (rows) => {
+    pendingRenderRows = rows;
+    if (renderRowsRafId) return;
+    renderRowsRafId = requestAnimationFrame(flushPendingRows);
+  };
   const onResetMeterUi = () => {
+    if (renderRowsRafId) {
+      cancelAnimationFrame(renderRowsRafId);
+      renderRowsRafId = 0;
+    }
+    pendingRenderRows = null;
+    lastOrderKey = "";
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 

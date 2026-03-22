@@ -13,7 +13,6 @@ import com.sun.jna.platform.win32.WinNT
 import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
 import javafx.application.Application
-import javafx.application.Platform
 import javafx.stage.Stage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
@@ -37,12 +36,24 @@ class AionMeterApp : Application() {
 
     override fun start(primaryStage: Stage) {
         // We initialize the logic inside start() to ensure the toolkit is ready
+        val replayLogFile = PropertyHandler.getProperty("capture.replayFilePath")?.trim().orEmpty()
+        val replayAccelerate = PropertyHandler.getProperty("capture.replayAccelerate")
+            ?.trim()
+            ?.equals("true", ignoreCase = true) == true
+        val isReplayMode = replayLogFile.isNotBlank()
+
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
         val config = PcapCapturerConfig.loadFromProperties()
         val dataStorage = DataStorage()
         val calculator = DpsCalculator(dataStorage)
         val capturer = PcapCapturer(config, channel)
-        val dispatcher = CaptureDispatcher(channel, dataStorage)
+        CombatPortDetector.onDeviceLocked = { lockedDevice ->
+            capturer.stopOtherDevices(lockedDevice)
+        }
+        CombatPortDetector.onReset = {
+            capturer.restartStoppedDevices()
+        }
+        val dispatcher = CaptureDispatcher(channel, dataStorage, isReplayMode)
         val uiReady = CompletableDeferred<Unit>()
         val markUiReady = {
             if (!uiReady.isCompleted) {
@@ -75,21 +86,31 @@ class AionMeterApp : Application() {
             }
         }
 
-        appScope.launch(Dispatchers.IO) {
-            uiReady.await()
-            var running = false
-            while (true) {
-                val detected = WindowTitleDetector.findAion2WindowTitle() != null
-                if (detected != running) {
-                    running = detected
-                    if (running) {
-                        capturer.start()
-                    } else {
-                        capturer.stop()
+        if (isReplayMode) {
+            // Offline Replay Mode
+            appScope.launch(Dispatchers.IO) {
+                uiReady.await()
+                val fileCapturer = FilePacketCapturer(replayLogFile, channel, playbackSpeed = 1.0, replayAccelerate = replayAccelerate)
+                fileCapturer.start()
+            }
+        } else {
+            // Standard Live PCAP Mode
+            appScope.launch(Dispatchers.IO) {
+                uiReady.await()
+                var running = false
+                while (true) {
+                    val detected = WindowTitleDetector.findAion2WindowTitle() != null
+                    if (detected != running) {
+                        running = detected
+                        if (running) {
+                            capturer.start()
+                        } else {
+                            capturer.stop()
+                        }
                     }
+                    val delayMs = if (running) 60_000L else 10_000L
+                    delay(delayMs)
                 }
-                val delayMs = if (running) 60_000L else 10_000L
-                delay(delayMs)
             }
         }
     }
@@ -103,6 +124,11 @@ class AionMeterApp : Application() {
 fun main(args: Array<String>) {
     AionMeterApp.memoryProfilerConfig = MemoryProfiler.fromArgs(args)
     configureJavaFxPipeline()
+
+    // Load debug logging setting from properties before startup logging.
+    UnifiedLogger.loadDebugFromSettings()
+    com.tbread.logging.BossEncounterLogger.loadFromSettings()
+    com.tbread.logging.RawPacketLogger.loadFromSettings()
 
     // 1. Check Admin
     ensureAdminOnWindows()
@@ -128,8 +154,8 @@ private fun configureJavaFxPipeline() {
     val isNativeImage = System.getProperty("org.graalvm.nativeimage.imagecode") != null
     if (!isWindows || !isNativeImage) return
     if (!System.getProperty("prism.order").isNullOrBlank()) return
+    System.setProperty("prism.order", "d3d")
 
-    System.setProperty("prism.order", "sw")
 }
 
 private fun ensureAdminOnWindows() {

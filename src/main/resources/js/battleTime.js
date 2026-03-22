@@ -35,9 +35,11 @@ const createBattleTimeUI = ({
   };
 
   const setState = (state) => {
+    const next = state || "";
+    if (currentState === next) return;
     rootEl.classList.remove("state-fighting", "state-grace", "state-ended", "state-idle");
     if (state) rootEl.classList.add(state);
-    currentState = state || "";
+    currentState = next;
 
     if (statusEl) statusEl.dataset.state = state || "";
     if (analysisEl) {
@@ -73,7 +75,8 @@ const createBattleTimeUI = ({
     const bt = Number(battleTimeMs);
     if (!Number.isFinite(bt)) return;
 
-    if (tickEl) tickEl.textContent = formatMMSS(bt);
+    const formatted = formatMMSS(bt);
+    if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
 
     if (lastBattleTimeMs === null) {
       lastBattleTimeMs = bt;

@@ -4,13 +4,14 @@ import com.tbread.config.PcapCapturerConfig
 import com.tbread.logging.UnifiedLogger
 import kotlinx.coroutines.channels.Channel
 import org.pcap4j.core.*
+import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.Packet
 import org.pcap4j.packet.TcpPacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
+
 
 class PcapCapturer(
     private val config: PcapCapturerConfig,
@@ -21,12 +22,18 @@ class PcapCapturer(
         private const val FALLBACK_DELAY_MS = 1500L
         private const val DEVICE_STATUS_INTERVAL_MS = 10_000L
 
+        /** Non-null when Npcap/WinPcap failed to load (e.g. not installed). */
+        @Volatile
+        var pcapError: String? = null
+            private set
+
         private fun getAllDevices(): List<PcapNetworkInterface> =
             try { Pcaps.findAllDevs() ?: emptyList() }
             catch (e: PcapNativeException) {
                 logger.error("Failed to initialize pcap", e)
                 UnifiedLogger.crash("Failed to initialize pcap", e)
-                exitProcess(2)
+                pcapError = "Npcap is not installed. Download it from https://npcap.com"
+                emptyList()
             }
     }
 
@@ -77,6 +84,8 @@ class PcapCapturer(
     }
 
     private val activeHandles = ConcurrentHashMap<String, PcapHandle>()
+    private val deviceLabels = ConcurrentHashMap<String, String>() // nif.name → description label
+    private val stoppedDeviceNames = ConcurrentHashMap.newKeySet<String>() // devices stopped by stopOtherDevices
     private val running = AtomicBoolean(false)
 
     private fun captureOnDevice(nif: PcapNetworkInterface) = thread(name = "pcap-${nif.name}") {
@@ -87,6 +96,7 @@ class PcapCapturer(
             if (!running.get()) return@thread
             val handle = openHandle(nif)
             activeHandles[nif.name] = handle
+            deviceLabels[nif.name] = deviceLabel
 
             val filter = "tcp"
             handle.setFilter(filter, BpfProgram.BpfCompileMode.OPTIMIZE)
@@ -101,7 +111,18 @@ class PcapCapturer(
                 val src = tcp.header.srcPort.valueAsInt()
                 val dst = tcp.header.dstPort.valueAsInt()
 
-                channel.trySend(CapturedPayload(src, dst, data, deviceLabel))
+                val ipv4 = packet.get(IpV4Packet::class.java)
+                val srcIp = ipv4?.header?.srcAddr?.hostAddress
+                val dstIp = ipv4?.header?.dstAddr?.hostAddress
+                val seq = tcp.header.sequenceNumberAsLong
+                val ack = tcp.header.acknowledgmentNumberAsLong
+
+                // Use the pcap hardware timestamp rather than System.currentTimeMillis()
+                val pcapTs = try { handle.getTimestamp().time } catch (_: Exception) { System.currentTimeMillis() }
+
+                channel.trySend(CapturedPayload(src, dst, data, deviceLabel,
+                    capturedAtMs = pcapTs,
+                    srcIp = srcIp, dstIp = dstIp, tcpSeq = seq, tcpAck = ack))
             }
 
             handle.use { h -> h.loop(-1, listener) }
@@ -134,7 +155,8 @@ class PcapCapturer(
                     device.addresses.isEmpty() -> "not capturing: no interface addresses"
                     else -> "not capturing: handle inactive (not started yet, failed, or waiting)"
                 }
-                logger.debug(
+                UnifiedLogger.debug(
+                    logger,
                     "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
                     index,
                     device.name,
@@ -146,21 +168,6 @@ class PcapCapturer(
                     addresses,
                     reason
                 )
-                if (UnifiedLogger.isDebugEnabled()) {
-                    UnifiedLogger.debug(
-                        logger,
-                        "[unlock-status] device[{}]: name={}, label={}, loopback={}, up={}, running={}, hasHandle={}, addresses=[{}], reason={}",
-                        index,
-                        device.name,
-                        label,
-                        device.isLoopBack,
-                        device.isUp,
-                        device.isRunning,
-                        hasHandle,
-                        addresses,
-                        reason
-                    )
-                }
             }
         }
     }
@@ -169,37 +176,29 @@ class PcapCapturer(
         if (!running.compareAndSet(false, true)) return
         val devices = getAllDevices()
         if (devices.isEmpty()) {
-            logger.error("No capture devices found")
-            UnifiedLogger.crash("No capture devices found")
-            exitProcess(1)
+            if (pcapError == null) {
+                logger.error("No capture devices found")
+                UnifiedLogger.crash("No capture devices found")
+                pcapError = "No capture devices found"
+            }
+            running.set(false)
+            return
         }
 
-        if (UnifiedLogger.isDebugEnabled()) {
-            devices.forEachIndexed { index, device ->
-                val label = device.description ?: device.name
-                val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
-                logger.debug(
-                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
-                    index,
-                    device.name,
-                    label,
-                    device.isLoopBack,
-                    device.isUp,
-                    device.isRunning,
-                    addresses
-                )
-                UnifiedLogger.debug(
-                    logger,
-                    "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
-                    index,
-                    device.name,
-                    label,
-                    device.isLoopBack,
-                    device.isUp,
-                    device.isRunning,
-                    addresses
-                )
-            }
+        devices.forEachIndexed { index, device ->
+            val label = device.description ?: device.name
+            val addresses = device.addresses.joinToString { it.address?.hostAddress ?: "n/a" }
+            UnifiedLogger.debug(
+                logger,
+                "PCAP device[{}]: name={}, label={}, loopback={}, up={}, running={}, addresses=[{}]",
+                index,
+                device.name,
+                label,
+                device.isLoopBack,
+                device.isUp,
+                device.isRunning,
+                addresses
+            )
         }
 
         logDeviceStatusesWhileUnlocked()
@@ -223,21 +222,13 @@ class PcapCapturer(
                 }
 
                 if (reasonDetail != null) {
-                    if (UnifiedLogger.isDebugEnabled()) {
-                        logger.debug(
-                            "PCAP device not started: {} ({}) reason={}",
-                            target.description ?: target.name,
-                            reason,
-                            reasonDetail
-                        )
-                        UnifiedLogger.debug(
-                            logger,
-                            "PCAP device not started: {} ({}) reason={}",
-                            target.description ?: target.name,
-                            reason,
-                            reasonDetail
-                        )
-                    }
+                    UnifiedLogger.debug(
+                        logger,
+                        "PCAP device not started: {} ({}) reason={}",
+                        target.description ?: target.name,
+                        reason,
+                        reasonDetail
+                    )
                     return@forEach
                 }
 
@@ -264,11 +255,51 @@ class PcapCapturer(
             return
         }
 
+        // Start physical adapters as fallback only if we haven't locked
+        // onto a device yet — no point capturing on other adapters.
         thread(name = "pcap-fallback") {
             Thread.sleep(FALLBACK_DELAY_MS)
-            if (CombatPortDetector.currentPort() == null) {
-                logger.warn("No combat port lock detected on virtual adapters; checking physical adapters")
+            if (CombatPortDetector.currentPort() != null) {
+                logger.info("Skipping physical adapter startup — already locked onto {}", CombatPortDetector.currentDevice())
+                return@thread
+            }
+            if (physicalDevices.isNotEmpty()) {
                 startDevices(physicalDevices, "fallback from virtual adapters")
+            }
+        }
+    }
+
+    /**
+     * Stop capturing on all devices except the one matching [lockedDeviceLabel].
+     * Called once we lock onto a device so we're not wasting resources on other adapters.
+     */
+    fun stopOtherDevices(lockedDeviceLabel: String) {
+        for ((name, handle) in activeHandles) {
+            val label = deviceLabels[name] ?: name
+            if (label.equals(lockedDeviceLabel, ignoreCase = true)) continue
+            logger.info("Stopping capture on non-locked device: {} ({})", label, name)
+            try { handle.breakLoop() } catch (_: Exception) {}
+            try { handle.close() } catch (_: Exception) {}
+            activeHandles.remove(name)
+            stoppedDeviceNames.add(name)
+        }
+    }
+
+    /**
+     * Restart captures on devices that were previously stopped by [stopOtherDevices].
+     * Called when the detection lock is reset so all devices can be re-scanned.
+     */
+    fun restartStoppedDevices() {
+        if (!running.get()) return
+        val toRestart = stoppedDeviceNames.toList()
+        stoppedDeviceNames.clear()
+        if (toRestart.isEmpty()) return
+
+        val devices = getAllDevices()
+        for (nif in devices) {
+            if (nif.name in toRestart && !activeHandles.containsKey(nif.name)) {
+                logger.info("Restarting capture on device: {} (reset)", nif.description ?: nif.name)
+                captureOnDevice(nif)
             }
         }
     }

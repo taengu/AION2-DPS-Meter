@@ -76,6 +76,20 @@ class PacketAccumulator {
     }
 
     @Synchronized
+    fun trimToTail(keepBytes: Int) {
+        val allBytes = getCached()
+        buffer.reset()
+        if (keepBytes <= 0 || allBytes.isEmpty()) {
+            cachedBytes = null
+            return
+        }
+        val keep = keepBytes.coerceAtMost(allBytes.size)
+        val start = allBytes.size - keep
+        buffer.write(allBytes, start, keep)
+        cachedBytes = null
+    }
+
+    @Synchronized
     private fun getCached(): ByteArray {
         val cached = cachedBytes
         if (cached != null) return cached

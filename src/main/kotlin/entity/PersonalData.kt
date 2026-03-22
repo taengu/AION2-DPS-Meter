@@ -17,8 +17,29 @@ data class PersonalData(
         amount += damage
     }
 
+    fun mergeFrom(other: PersonalData) {
+        amount += other.amount
+        for ((skillCode, otherSkill) in other.analyzedData) {
+            val existing = analyzedData[skillCode]
+            if (existing == null) {
+                analyzedData[skillCode] = otherSkill
+            } else {
+                existing.times += otherSkill.times
+                existing.damageAmount += otherSkill.damageAmount
+                existing.critTimes += otherSkill.critTimes
+                existing.backTimes += otherSkill.backTimes
+                existing.parryTimes += otherSkill.parryTimes
+                existing.doubleTimes += otherSkill.doubleTimes
+                existing.perfectTimes += otherSkill.perfectTimes
+                existing.dotTimes += otherSkill.dotTimes
+                existing.dotDamageAmount += otherSkill.dotDamageAmount
+                existing.healAmount += otherSkill.healAmount
+            }
+        }
+    }
+
     fun processPdp(pdp: ParsedDamagePacket) {
-        addDamage(pdp.getDamage().toDouble())
+        addDamage((pdp.getDamage() + pdp.getMultiHitDamage()).toDouble())
         if (!analyzedData.containsKey(pdp.getSkillCode1())) {
             val analyzedSkill = AnalyzedSkill(pdp)
             analyzedData[pdp.getSkillCode1()] = analyzedSkill
@@ -29,10 +50,10 @@ data class PersonalData(
         }
         if (pdp.isDoT()) {
             analyzedSkill.dotTimes ++
-            analyzedSkill.dotDamageAmount += pdp.getDamage()
+            analyzedSkill.dotDamageAmount += pdp.getDamage() + pdp.getMultiHitDamage()
         } else {
             analyzedSkill.times++
-            analyzedSkill.damageAmount += pdp.getDamage()
+            analyzedSkill.damageAmount += pdp.getDamage() + pdp.getMultiHitDamage()
             if (pdp.isCrit()) analyzedSkill.critTimes++
             if (pdp.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
             if (pdp.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++

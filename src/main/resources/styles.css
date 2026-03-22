@@ -30,11 +30,11 @@
   /* Player name / primary label shadow (Ember-grade readability) */
   --player-name-shadow:
           -1px  0   0 rgba(0,0,0,0.85),
-           1px  0   0 rgba(0,0,0,0.85),
-           0   -1px 0 rgba(0,0,0,0.85),
-           0    1px 0 rgba(0,0,0,0.85),
-           0    2px 3px rgba(0,0,0,0.70),
-           0    4px 8px rgba(0,0,0,0.45);
+          1px  0   0 rgba(0,0,0,0.85),
+          0   -1px 0 rgba(0,0,0,0.85),
+          0    1px 0 rgba(0,0,0,0.85),
+          0    2px 3px rgba(0,0,0,0.70),
+          0    4px 8px rgba(0,0,0,0.45);
 
   --rounded-lg: 12px;
   --rounded: 10px;
@@ -51,12 +51,21 @@
   --indicator-idle: #7f8a9a;
   --font: 16px;
   --details-bg-opacity: 0.8;
-  --cjk-font-stack: "Noto Sans SC", "Noto Sans TC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --cjk-font-stack: "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Noto Sans SC", "Noto Sans TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+
+  /* dmgFill bar background — alpha baked in to avoid compositing layers */
+  --dmg-fill-bg: rgba(106, 166, 255, 0.8);
+
+  /* Fallbacks to resolve IDE warnings */
+  --details-skill-name-width: 144px;
+  --tooltip-skill-icon-size: 20px;
+  --window-opacity: 0.4;
 }
 
 :root[data-theme="aion2"] {
   --row-fill: #5a47b0;
   --isUser-fill: #4fb6ff;
+  --dmg-fill-bg: rgba(79, 182, 255, 0.8);
 
   --warning-fill: #f2b45a;
   --error-fill: #e85b7f;
@@ -68,23 +77,24 @@
   --title: rgba(225, 235, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(140,180,255,0.42),
-    0 1px 1px rgba(140,180,255,0.32),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(100,140,255,0.24);
+          0 0 1px rgba(140,180,255,0.42),
+          0 1px 1px rgba(140,180,255,0.32),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(100,140,255,0.24);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.95),
-     1px  0   0 rgba(0,0,0,0.95),
-     0   -1px 0 rgba(0,0,0,0.95),
-     0    1px 0 rgba(0,0,0,0.95),
-     0    3px 6px rgba(0,0,0,0.8),
-     0    6px 12px rgba(0,0,0,0.6);
+          -1px  0   0 rgba(0,0,0,0.95),
+          1px  0   0 rgba(0,0,0,0.95),
+          0   -1px 0 rgba(0,0,0,0.95),
+          0    1px 0 rgba(0,0,0,0.95),
+          0    3px 6px rgba(0,0,0,0.8),
+          0    6px 12px rgba(0,0,0,0.6);
 }
 
 :root[data-theme="ember"] {
   --row-fill: #d9772a;
   --isUser-fill: #ff6f4f;
+  --dmg-fill-bg: rgba(255, 111, 79, 0.8);
 
   --warning-fill: #f5c16c;
   --error-fill: #e84b5f;
@@ -96,15 +106,16 @@
   --title: rgba(255, 240, 220, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(255,180,120,0.48),
-    0 1px 1px rgba(255,160,100,0.36),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(255,120,80,0.26);
+          0 0 1px rgba(255,180,120,0.48),
+          0 1px 1px rgba(255,160,100,0.36),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(255,120,80,0.26);
 }
 
 :root[data-theme="frost"] {
   --row-fill: #5fa3b5;
   --isUser-fill: #8fd3ff;
+  --dmg-fill-bg: rgba(143, 211, 255, 0.8);
 
   --warning-fill: #f2c97d;
   --error-fill: #e56b6b;
@@ -116,15 +127,16 @@
   --title: rgba(235, 245, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(180,220,255,0.52),
-    0 1px 1px rgba(160,210,255,0.38),
-    0 2px 3px rgba(0,0,0,0.4),
-    0 6px 14px rgba(120,200,255,0.26);
+          0 0 1px rgba(180,220,255,0.52),
+          0 1px 1px rgba(160,210,255,0.38),
+          0 2px 3px rgba(0,0,0,0.4),
+          0 6px 14px rgba(120,200,255,0.26);
 }
 
 :root[data-theme="natura"] {
   --row-fill: #4f9b6a;
   --isUser-fill: #7be3a2;
+  --dmg-fill-bg: rgba(123, 227, 162, 0.8);
 
   --warning-fill: #f0c36d;
   --error-fill: #e06666;
@@ -136,15 +148,16 @@
   --title: rgba(230, 245, 235, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(160,220,190,0.48),
-    0 1px 1px rgba(140,200,170,0.38),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(120,200,160,0.24);
+          0 0 1px rgba(160,220,190,0.48),
+          0 1px 1px rgba(140,200,170,0.38),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(120,200,160,0.24);
 }
 
 :root[data-theme="asmodian"] {
   --row-fill: #6a4a8a;
   --isUser-fill: #b064ff;
+  --dmg-fill-bg: rgba(176, 100, 255, 0.8);
 
   --warning-fill: #ffb65a;
   --error-fill: #ff4f7a;
@@ -156,21 +169,22 @@
   --title: rgba(245, 235, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(200,150,255,0.42),
-    0 1px 1px rgba(200,150,255,0.32),
-    0 2px 3px rgba(0,0,0,0.45),
-    0 6px 14px rgba(176,100,255,0.24);
+          0 0 1px rgba(200,150,255,0.42),
+          0 1px 1px rgba(200,150,255,0.32),
+          0 2px 3px rgba(0,0,0,0.45),
+          0 6px 14px rgba(176,100,255,0.24);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.96),
-    0 1px 2px rgba(0,0,0,0.80),
-    0 2px 8px rgba(0,0,0,0.60),
-    0 0 14px rgba(176,100,255,0.36);
+          0 0 1px rgba(0,0,0,0.96),
+          0 1px 2px rgba(0,0,0,0.80),
+          0 2px 8px rgba(0,0,0,0.60),
+          0 0 14px rgba(176,100,255,0.36);
 }
 
 :root[data-theme="varian"] {
   --row-fill: #a2862b;
   --isUser-fill: #ffe062;
+  --dmg-fill-bg: rgba(255, 224, 98, 0.8);
 
   --warning-fill: #ffe991;
   --error-fill: #ef5f5f;
@@ -182,28 +196,29 @@
   --title: rgba(255, 252, 235, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(255,230,140,0.48),
-    0 1px 1px rgba(255,220,120,0.38),
-    0 2px 3px rgba(0,0,0,0.50),
-    0 6px 14px rgba(255,224,98,0.22);
+          0 0 1px rgba(255,230,140,0.48),
+          0 1px 1px rgba(255,220,120,0.38),
+          0 2px 3px rgba(0,0,0,0.50),
+          0 6px 14px rgba(255,224,98,0.22);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.96),
-    0 1px 2px rgba(0,0,0,0.82),
-    0 2px 8px rgba(0,0,0,0.55),
-    0 0 10px rgba(255,230,140,0.30);
+          0 0 1px rgba(0,0,0,0.96),
+          0 1px 2px rgba(0,0,0,0.82),
+          0 2px 8px rgba(0,0,0,0.55),
+          0 0 10px rgba(255,230,140,0.30);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.92),
-     1px  0   0 rgba(0,0,0,0.92),
-     0   -1px 0 rgba(0,0,0,0.92),
-     0    1px 0 rgba(0,0,0,0.92),
-     0    3px 6px rgba(0,0,0,0.80);
+          -1px  0   0 rgba(0,0,0,0.92),
+          1px  0   0 rgba(0,0,0,0.92),
+          0   -1px 0 rgba(0,0,0,0.92),
+          0    1px 0 rgba(0,0,0,0.92),
+          0    3px 6px rgba(0,0,0,0.80);
 }
 
 :root[data-theme="fera"] {
   --row-fill: #7a2f3a;
   --isUser-fill: #c84a5a;
+  --dmg-fill-bg: rgba(200, 74, 90, 0.8);
   --warning-fill: #f0c36a;
   --error-fill: #ff5a6d;
   --dps: #fff0f2;
@@ -215,6 +230,7 @@
 :root[data-theme="cogni"] {
   --row-fill: #2f567a;
   --isUser-fill: #4fb3ff;
+  --dmg-fill-bg: rgba(79, 179, 255, 0.8);
   --warning-fill: #f2c24f;
   --error-fill: #e35b6f;
   --dps: #eef8ff;
@@ -226,6 +242,7 @@
 :root[data-theme="elyos"] {
   --row-fill: #9bbef6;
   --isUser-fill: #4a9cff;
+  --dmg-fill-bg: rgba(74, 156, 255, 0.8);
 
   --warning-fill: #ffd98b;
   --error-fill: #f36f8a;
@@ -238,27 +255,28 @@
   --title: rgba(244, 252, 255, 0.98);
 
   --text-shadow:
-    0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.9),
-    0 2px 6px rgba(0,0,0,0.8);
+          0 0 1px rgba(0,0,0,0.95),
+          0 1px 2px rgba(0,0,0,0.9),
+          0 2px 6px rgba(0,0,0,0.8);
 
   --dps-shadow:
-    0 0 1px rgba(0,0,0,0.95),
-    0 1px 2px rgba(0,0,0,0.9),
-    0 2px 6px rgba(0,0,0,0.8);
+          0 0 1px rgba(0,0,0,0.95),
+          0 1px 2px rgba(0,0,0,0.9),
+          0 2px 6px rgba(0,0,0,0.8);
 
   --player-name-shadow:
-    -1px  0   0 rgba(0,0,0,0.95),
-     1px  0   0 rgba(0,0,0,0.95),
-     0   -1px 0 rgba(0,0,0,0.95),
-     0    1px 0 rgba(0,0,0,0.95),
-     0    3px 6px rgba(0,0,0,0.8),
-     0    0  12px rgba(140,205,255,0.4);
+          -1px  0   0 rgba(0,0,0,0.95),
+          1px  0   0 rgba(0,0,0,0.95),
+          0   -1px 0 rgba(0,0,0,0.95),
+          0    1px 0 rgba(0,0,0,0.95),
+          0    3px 6px rgba(0,0,0,0.8),
+          0    0  12px rgba(140,205,255,0.4);
 }
 
 :root[data-theme="obsidian"] {
   --row-fill: #3f3f46;
   --isUser-fill: #6fd3ff;
+  --dmg-fill-bg: rgba(111, 211, 255, 0.8);
   --warning-fill: #f2b84f;
   --error-fill: #e35d5d;
   --dps: #f5f5f5;
@@ -296,6 +314,7 @@ html, body {
   font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
 }
 
+/* noinspection CssNoGenericFontName */
 button,
 input,
 select,
@@ -343,11 +362,11 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 }
 .meter {
   width: 380px;
-  background: rgba(12, 22, 40, 0.4);
+  background: rgba(12, 22, 40, var(--window-opacity));
 
   /* backdrop-filter: blur(1px) saturate(180%); */
   /* background-color: rgba(255, 255, 255, 0.1); */
-  border: 1px solid var(--panel-border);
+  border: 1px solid rgba(255, 255, 255, min(0.3, calc(var(--window-opacity) * 0.3)));
   border-radius: var(--rounded);
   position: relative;
   min-width: 300px;
@@ -363,7 +382,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   display: flex;
   align-items: center;
   align-content: center;
-  gap: 16px;
+  gap: 8px;
   padding: 8px 12px;
   .bossIcon {
     display: flex;
@@ -413,7 +432,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     align-items: center;
     font-weight: bold;
     color: white;
-    gap: 6px;
+    gap: 8px;
     text-shadow: var(--text-shadow);
     cursor: pointer;
     .headerBtn {
@@ -430,7 +449,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       border: none;
       background: transparent;
       color: inherit;
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -464,7 +483,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       border: none;
       background: transparent;
       color: inherit;
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -477,13 +496,18 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   display: none;
   left: 372px;
   top: 0;
-  width: 420px;
+  width: 720px;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   padding: 12px 8px;
   border-radius: var(--rounded-lg);
-  text-shadow: var(--text-shadow);
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
   z-index: 2;
+  contain: layout style;
+  overflow: visible;
 
   &.isOpen {
     display: flex;
@@ -510,7 +534,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       font-size: 22px;
       padding: 2px 8px;
       border-radius: 4px;
-      transition: 0.2s;
     }
 
     .closeX:hover {
@@ -558,19 +581,27 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 
   .settingsValue {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     font-weight: 700;
   }
 
   .lockedIp {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .lockedPort::before {
     content: "/";
     opacity: 0.6;
     margin: 0 6px;
+  }
+
+  .lockedPort.isPcapError {
+    color: #e05555;
+    font-weight: 600;
+  }
+  .lockedPort.isPcapError::before {
+    content: none;
   }
 
   .characterNameInput {
@@ -589,8 +620,38 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     padding: 6px 10px;
     background: var(--panel-field-bg);
     color: var(--text-color);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
+  }
+
+  .keybindBtn {
+    min-width: 140px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--rounded-xs);
+    padding: 6px 12px;
+    background: var(--panel-field-bg);
+    color: var(--text-color);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  .keybindBtn:hover {
+    border-color: var(--isUser-fill);
+  }
+  .keybindBtn.recording {
+    border-color: var(--isUser-fill);
+    background: rgba(var(--isUser-fill-rgb, 100, 180, 255), 0.15);
+    animation: keybindPulse 1s ease-in-out infinite;
+  }
+  @keyframes keybindPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .keybindBtn .keybindText {
+    pointer-events: none;
   }
 
   .settingsSelect {
@@ -648,7 +709,7 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid var(--panel-border);
-    transition: background 0.2s ease, border-color 0.2s ease;
+    transition: none;
   }
 
   .settingsToggleTrack::after {
@@ -737,12 +798,36 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     width: 100%;
   }
 }
+.meterTotalBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+.meter.slim .meterTotalBar {
+  font-size: 11px;
+  padding: 0 20px 0 12px;
+}
+.meterTotalBar .meterTotalDps,
+.meterTotalBar .meterTotalDmg {
+  color: rgba(255, 255, 255, 0.55);
+}
+.meterTotalBar .meterTotalSep {
+  opacity: 0.3;
+}
 .list {
   display: grid;
   gap: 4px;
   padding: 0 12px;
   &:has(.item:not([style*="display: none"])) {
     padding: 4px 12px 16px;
+  }
+  &:has(.item:not([style*="display: none"])) + .meterTotalBar {
+    margin-top: -13px;
   }
   .item {
     position: relative;
@@ -774,8 +859,6 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     opacity: 0.8;
     transform-origin: left center;
     transform: scaleX(0);
-
-    transition: transform 150ms ease;
     overflow: hidden;
 
     &::after {
@@ -823,18 +906,20 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     .name {
       flex: 1;
       color: var(--text-color);
-      font-size: 18px;
-      line-height: 1.2;
+      font-size: 21px;
+      line-height: 1;
       padding-bottom: 1px;
-      text-shadow: var(--player-name-shadow, var(--text-shadow));
-      font-weight: 400;
+      text-shadow:
+              0 0 2px rgba(0,0,0,0.95),
+              0 1px 3px rgba(0,0,0,0.90),
+              0 3px 6px rgba(0,0,0,0.70);
+      font-weight: 500;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
     .name.isCjk {
       font-family: var(--cjk-font-stack);
-      font-weight: 500;
       letter-spacing: 0;
     }
     .dps {
@@ -878,7 +963,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
     color: var(--text-color);
     text-shadow: var(--text-shadow);
     font-weight: 700;
-    font-size: 14px;
+    font-size: 17px;
   }
 
   .analysisStatus {
@@ -895,11 +980,20 @@ body.mainPlayerDpsBold .meter .item .content .dps {
     background: rgba(255, 255, 255, 0.25);
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
     flex: 0 0 auto;
+    position: relative;
   }
 
   &.state-fighting .status {
     background: var(--indicator-combat);
-    animation: combatStatusRipple 1.4s ease-out infinite;
+  }
+
+  &.state-fighting .status::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 999px;
+    background: var(--indicator-combat);
+    opacity: 0.35;
   }
   &.state-grace .status {
     background: var(--indicator-wait);
@@ -933,27 +1027,469 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-bottom: 2px solid rgba(255, 255, 255, 0.7);
 }
 
+/* Shared close button — used in settingsPanel, detailsPanel, and historyPanel */
+.closeX {
+  cursor: pointer;
+  user-select: none;
+  font-size: 22px;
+  padding: 2px 8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* History panel */
+.historyPanel {
+  position: absolute;
+  color: var(--text-color);
+  display: none;
+  left: min(372px, calc(100vw - 292px));
+  right: 12px;
+  top: 0;
+  width: max-content;
+  min-width: 280px;
+  max-width: min(760px, calc(100vw - 304px));
+  max-height: calc(100vh - 24px);
+  border: 1px solid var(--panel-border);
+  background: rgba(12, 22, 40, 0.95);
+  border-radius: var(--rounded-lg);
+  overflow: hidden;
+  flex-direction: column;
+
+  &.open {
+    display: flex;
+  }
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 6px;
+}
+
+.historyTitle {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--title);
+}
+
+.historyBody {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+
+.historyEmpty {
+  padding: 20px 16px;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  font-size: 13px;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.12s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.historyRowIcons {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.historyIconWrap {
+  position: relative;
+  display: inline-flex;
+}
+.historyIconWrap[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 14, 0.95);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 200;
+}
+.historyIconWrap[data-tip]:hover::after {
+  opacity: 1;
+}
+.historyRowClassIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+.historyRowInfo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.historyRowName {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyRowMeta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 2px;
+}
+
+.historyRowActions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.historyClassDropdown {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.historyClassDropdown .historyClassDropdownTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+}
+.historyClassDropdownLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.historyClassDropdownChevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.historyClassDropdown.open .historyClassDropdownChevron {
+  transform: rotate(180deg);
+}
+.historyClassDropdownMenu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1a1c22;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 300;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.historyClassDropdown.open .historyClassDropdownMenu {
+  display: block;
+}
+.historyClassOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.historyClassOption:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.historyClassOption.selected {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.historyClassDropdownIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.historyFilters {
+  display: flex;
+  gap: 6px;
+  padding: 6px 14px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.historyFilterSelect {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.45)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 12px;
+  padding: 6px 26px 6px 10px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+}
+.historyFilterSelect option {
+  background: #1e2028;
+  color: #fff;
+}
+.historyList {
+  max-height: 540px;
+  overflow-y: auto;
+}
+.historyList::-webkit-scrollbar {
+  width: 10px;
+}
+.historyList::-webkit-scrollbar-track {
+  background: rgb(30, 30, 30);
+  border-radius: 999px;
+}
+.historyList::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.historyList::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.historyDeleteBtn {
+  background: none;
+  border: none;
+  color: #e06b6b;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #ff8080;
+    background: rgba(224, 107, 107, 0.12);
+  }
+}
+
+.historyPanel.deleteMode .historyDeleteBtn {
+  display: inline-flex;
+}
+
+.historyTrainToggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.4;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  &.active {
+    color: var(--accent, #7ecfff);
+    background: rgba(126, 207, 255, 0.1);
+  }
+}
+
+.historyDeleteToggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover {
+    color: #e06b6b;
+    background: rgba(224, 107, 107, 0.1);
+  }
+
+  &.active {
+    color: #e06b6b;
+    background: rgba(224, 107, 107, 0.12);
+  }
+}
+
+.historyTrainBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dps-text);
+  background: var(--row-fill);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.historyLiveBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #e05050;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Details back button */
+.detailsBackBtn {
+  background: rgba(255, 255, 255, 0.13);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  & svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+/* Ping display — sits below the meter, outside the meter viewport */
+.pingDisplay {
+  display: none;
+  margin-top: 2px;
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  width: fit-content;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  align-items: center;
+  gap: 5px;
+}
+.pingDisplay.isVisible {
+  display: flex;
+}
+.pingDisplay .pingIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.pingDisplay.ping-good {
+  color: #5fcaff;
+}
+.pingDisplay.ping-warn {
+  color: #f2b94f;
+}
+.pingDisplay.ping-high {
+  color: #f27a3a;
+}
+.pingDisplay.ping-bad {
+  color: #e06b6b;
+}
+
 .detailsPanel {
   position: absolute;
   color: white;
   display: none;
   flex-direction: column;
   --details-font-size: var(--font);
+  --details-skill-icon-size: 24px;
   /* display: block; */
   /* left: calc(100% + 8px); */
-  left: 372px;
+  left: min(372px, calc(100vw - 292px));
   right: 12px;
   /* top: calc(100% + 4px); */
   top: 0;
   font-weight: bold;
-  width: min(1030px, max(280px, calc(100vw - 384px)));
+  width: min(1130px, max(280px, calc(100vw - 304px)));
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, var(--details-bg-opacity, 0.5));
   padding: 6px 4px;
   border-radius: var(--rounded-lg);
   max-height: calc(100vh - 24px);
-  max-width: max(280px, calc(100vw - 384px));
-  overflow: hidden;
+  max-width: max(280px, calc(100vw - 304px));
+  overflow: visible;
+  contain: layout style;
 
   &.flash {
     animation: detailsFlash 1s ease-out;
@@ -992,12 +1528,14 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       background: transparent;
       border: none;
       color: inherit;
-      font: inherit;
+      /* noinspection CssNoGenericFontName */
+      font-family: inherit;
+      font-size: inherit;
       padding: 0;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .detailsDropdownCaret {
@@ -1068,7 +1606,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       border: none;
       background: transparent;
       color: var(--isUser-fill);
-      transition: 0.2s;
     }
 
     .detailsScreenshotBtn svg {
@@ -1092,7 +1629,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       background: transparent;
       color: inherit;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       padding: 2px 6px;
       border-radius: 999px;
       cursor: pointer;
@@ -1112,7 +1649,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       border: none;
       background: transparent;
       color: inherit;
-      transition: 0.2s;
     }
 
     .detailsRefreshBtn:hover {
@@ -1138,7 +1674,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       border: none;
       background: transparent;
       color: inherit;
-      transition: 0.2s;
     }
     .detailsSettingsBtn:hover {
       background: rgba(255, 255, 255, 0.08);
@@ -1164,7 +1699,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       user-select: none;
       font-size: 22px;
       padding: 2px 8px;
-      transition: 0.2s;
       border-radius: 4px;
     }
     .closeX:hover {
@@ -1197,8 +1731,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
     gap: 12px;
 
     .detailsSettingsLabel {
-      font-size: 12px;
-      opacity: 0.7;
+      opacity: 0.8;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
@@ -1223,39 +1757,29 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 
   .detailsSkills {
     .cell {
-      min-width: 46px;
+      min-width: 0;
       display: flex;
       align-items: center;
+      overflow: hidden;
     }
     .cell.center {
       justify-content: center;
-      flex: 0 0 56px;
     }
     .cell.name {
-      flex: 0 0 200px;
       justify-content: flex-start;
       white-space: nowrap;
-
       color: var(--isUser-fill);
     }
 
-
     .cell.dmg {
-      flex: 0 0 220px;
       text-align: center;
-    }
-    .cell.right {
-      justify-content: flex-end;
-    }
-    .cell.center {
-      justify-content: center;
-      flex: 0 0 56px;
     }
 
     .skillHeader {
-      display: flex;
+      display: grid;
+      grid-template-columns: var(--skill-grid-cols);
+      gap: 8px;
       align-items: center;
-      gap: 12px;
       padding: 6px 12px;
       font-weight: 700;
 
@@ -1270,6 +1794,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       overflow-y: auto;
       overflow-x: hidden;
       scrollbar-gutter: stable;
+      contain: layout paint;
 
       &::-webkit-scrollbar {
         width: 10px;
@@ -1291,39 +1816,32 @@ body.mainPlayerDpsBold .meter .item .content .dps {
         background: transparent;
       }
       .skillRow {
-        display: flex;
+        display: grid;
+        grid-template-columns: var(--skill-grid-cols);
+        gap: 8px;
         align-items: center;
-        gap: 12px;
         padding: 2px 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        position: relative;
         &:last-child {
           border-bottom: none;
         }
 
-        .cell.dmg {
+        .rowFill {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: calc(var(--details-skill-icon-size, 24px) + 6px);
+          background: var(--row-fill);
+          opacity: 0.5;
+          border-radius: var(--rounded-xs);
+          transform-origin: left center;
+          pointer-events: none;
+        }
+        .cell {
           position: relative;
-          overflow: hidden;
-          height: 20px;
-
-          .dmgFill {
-            position: absolute;
-            inset: 0;
-            background: var(--isUser-fill);
-            opacity: 0.8;
-            border-radius: var(--rounded-xs);
-            transform-origin: left center;
-          }
-          .dmgText {
-            position: relative;
-            z-index: 1;
-            height: 100%;
-            display: flex;
-            justify-content: end;
-            align-items: center;
-            text-shadow: var(--text-shadow);
-            color: var(--dps-text);
-            font-weight: 400;
-          }
+          z-index: 1;
         }
       }
     }
@@ -1390,6 +1908,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .header .bossNames {
   flex: 1;
+  min-width: 0;
   color: var(--title);
   text-shadow: var(--text-shadow);
   font-weight: bold;
@@ -1397,9 +1916,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   display: flex;
   align-items: center;
   font-size: 18px;
+  overflow: hidden;
 }
-.header .bossNames .bossName.isAllTargets {
-  font-size: 19px;
+.header .bossNames .bossName {
+  white-space: nowrap;
 }
 .header .headerBtns {
   display: flex;
@@ -1442,7 +1962,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   text-align: center;
@@ -1455,7 +1975,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   text-align: right;
@@ -1475,7 +1995,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 0 16px 10px;
 }
 .settingsPanel .settingsHeader .settingsTitle {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
 }
 .settingsPanel .settingsHeader .closeX {
@@ -1485,7 +2005,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   font-size: 22px;
   padding: 2px 8px;
   border-radius: 4px;
-  transition: 0.2s;
 }
 .settingsPanel .settingsHeader .closeX:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -1493,7 +2012,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .settingsPanel .settingsBody {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   padding: 0 16px 8px;
 }
 .settingsPanel .settingsRow {
@@ -1552,14 +2071,15 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   margin: 4px 0 2px;
 }
 .settingsPanel .settingsMiniTitle {
-  font-size: 14px;
+  font-size: 18px;
   letter-spacing: 0.02em;
-  opacity: 0.9;
+  opacity: 1;
   font-weight: 700;
+  color: var(--title);
 }
 .settingsPanel .settingsSubValue {
-  font-size: 12px;
-  opacity: 0.75;
+  font-size: 13px;
+  opacity: 0.8;
 }
 .settingsPanel .settingsInfo {
   display: flex;
@@ -1568,12 +2088,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .settingsPanel .settingsLabel {
   font-size: 16px;
-  font-weight: 700;
-  color: rgba(200, 215, 230, 1);
+  font-weight: 600;
+  color: #ffffff;
 }
 .settingsPanel .settingsValue {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   font-weight: 700;
 }
 .settingsPanel .lockedPort::before {
@@ -1596,7 +2116,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 6px 10px;
   background: var(--panel-field-bg);
   color: var(--text-color);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 .settingsPanel .settingsSelect {
@@ -1606,7 +2126,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
-  font: inherit;
+  /* noinspection CssNoGenericFontName */
+  font-family: inherit;
+  font-size: inherit;
 }
 .settingsPanel .settingsSelect option,
 .settingsPanel .settingsSelect optgroup {
@@ -1627,7 +2149,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: inherit;
-  font: inherit;
+  /* noinspection CssNoGenericFontName */
+  font-family: inherit;
+  font-size: inherit;
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
@@ -1643,19 +2167,30 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   text-overflow: ellipsis;
 }
 .settingsPanel .themeDropdownBtn {
-  color: var(--dps-text);
-  text-shadow: var(--dps-shadow, var(--text-shadow));
-  background: rgba(12, 22, 40, 1);
+  color: var(--text-color);
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
+  background: var(--row-fill);
+  opacity: var(--meter-fill-opacity, 0.8);
+  font-weight: 500;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 18px;
+  box-sizing: border-box;
 }
 .settingsPanel .themeDropdownBtn .settingsDropdownText {
-  color: var(--dps-text);
-  text-shadow: var(--dps-shadow, var(--text-shadow));
+  color: var(--text-color);
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
 .settingsPanel .themeDropdownMenu .settingsDropdownItem {
-  text-shadow: var(--dps-shadow, var(--text-shadow));
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
+  font-size: 18px;
 }
 .settingsPanel .themeDropdownMenu {
   background: rgba(12, 22, 40, 1);
+}
+body.mainPlayerNamesBold .settingsPanel .themeDropdownBtn .settingsDropdownText,
+body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem {
+  font-weight: 700;
 }
 .settingsPanel .settingsDropdownCaret {
   opacity: 0.6;
@@ -1737,15 +2272,21 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 18px;
   cursor: pointer;
   color: #ffffff;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 17px;
   border-radius: 6px;
   background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+  flex: 0 0 auto;
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
 }
 .settingsPanel .supportButton:hover {
   transform: translateY(-1px);
@@ -1775,17 +2316,20 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px;
   color: white;
   cursor: pointer;
-  background: linear-gradient(90deg, rgba(88, 101, 242, 0.85), rgba(78, 91, 213, 0.85));
-  text-shadow: var(--text-shadow);
+  background: #5865F2;
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
+  font-weight: 700;
   width: 100%;
   text-align: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex: 0 0 60%;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform 0.15s ease;
 }
 .settingsPanel .discordButton:hover {
   transform: translateY(-1px);
@@ -1798,15 +2342,19 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   filter: brightness(0.98);
 }
 .settingsPanel .quitButton {
-  flex: 0 0 40%;
   text-align: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform 0.15s ease;
   background: linear-gradient(90deg, rgba(185, 53, 53, 0.85), rgba(146, 44, 44, 0.85));
+  font-weight: 700;
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
 }
 .settingsPanel .quitButton:hover {
   transform: translateY(-1px);
@@ -1820,20 +2368,34 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .settingsPanel .discordButton .discordIcon {
   display: inline-flex;
+  align-self: center;
   width: 20px;
-  height: 20px;
+  height: 15px;
+  flex-shrink: 0;
 }
 .settingsPanel .discordButton .discordIcon svg {
   width: 100%;
   height: 100%;
   fill: currentColor;
 }
+.settingsPanel .supportButton .supportIcon {
+  display: inline-flex;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.settingsPanel .supportButton .supportIcon svg {
+  width: 100%;
+  height: 100%;
+}
 .settingsPanel .settingsFooter {
   margin-top: 0;
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  opacity: 0.7;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0.8;
+  font-size: 13px;
 }
 .settingsPanel .settingsFooterLabel {
   letter-spacing: 0.04em;
@@ -1845,7 +2407,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: none;
   border: none;
   padding: 0;
-  font: inherit;
+  /* noinspection CssNoGenericFontName */
+  font-family: inherit;
+  font-size: inherit;
   cursor: pointer;
 }
 .settingsPanel .settingsFooterValue:hover {
@@ -1877,7 +2441,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   opacity: var(--meter-fill-opacity, 0.8);
   transform-origin: left center;
   transform: scaleX(0);
-  transition: transform 150ms ease;
   overflow: hidden;
 }
 .list .item .fill::after {
@@ -1885,11 +2448,17 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -40%;
+  left: 0; /* Changed from -40% to 0 */
   width: 40%;
   opacity: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(
+          110deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.35) 50%,
+          rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%); /* Use transform for initial position */
 }
 .list .item.hoverRippleOnce .fill::after {
   opacity: 1;
@@ -1926,6 +2495,10 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   font-family: var(--cjk-font-stack);
   font-weight: 500;
   letter-spacing: 0;
+  text-shadow:
+          0 0 2px rgba(0,0,0,0.95),
+          0 1px 3px rgba(0,0,0,0.90),
+          0 3px 6px rgba(0,0,0,0.70);
 }
 .list .item .dps {
   color: var(--dps-text);
@@ -1944,7 +2517,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--text-color);
   text-shadow: var(--text-shadow);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 17px;
 }
 .battleTime .status {
   width: 10px;
@@ -1953,10 +2526,18 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: rgba(255, 255, 255, 0.25);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
   flex: 0 0 auto;
+  position: relative;
 }
 .battleTime.state-fighting .status {
   background: var(--indicator-combat);
-  animation: combatStatusRipple 1.4s ease-out infinite;
+}
+.battleTime.state-fighting .status::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  background: var(--indicator-combat);
+  opacity: 0.35;
 }
 .battleTime.state-grace .status {
   background: var(--indicator-wait);
@@ -1969,7 +2550,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 .detailsPanel.open {
-  display: block;
+  display: flex;
 }
 .detailsPanel .detailsHeader {
   display: flex;
@@ -1979,17 +2560,17 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   padding: 8px 12px;
   gap: 12px;
 }
-.detailsPanel .detailsHeader .detailsTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 20px;
+.detailsPanel .detailsHeader .detailsFightTitle {
+  flex: 1;
+  font-size: 19px;
   font-weight: 700;
-  flex-wrap: wrap;
+  color: var(--title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.detailsPanel .detailsHeader .detailsTitleSeparator,
-.detailsPanel .detailsHeader .detailsTitleVs {
-  opacity: 0.6;
+.detailsPanel .detailsHeader .detailsFightTitle .fightTitleBossName {
+  color: #ff55cc;
 }
 .detailsPanel .detailsHeader .detailsDropdownWrapper {
   position: relative;
@@ -1998,12 +2579,13 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: transparent;
   border: none;
   color: inherit;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
   padding: 0;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .detailsPanel .detailsHeader .detailsDropdownCaret {
   opacity: 0.6;
@@ -2076,7 +2658,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: var(--isUser-fill);
-  transition: 0.2s;
 }
 .detailsPanel .detailsHeader .detailsScreenshotBtn svg {
   width: 28px;
@@ -2096,7 +2677,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   background: transparent;
   color: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 999px;
   cursor: pointer;
@@ -2114,7 +2695,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  transition: 0.2s;
 }
 .detailsPanel .detailsHeader .detailsRefreshBtn:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -2127,6 +2707,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsHeader .detailsSettingsMenuWrapper {
   position: relative;
+  overflow: visible;
 }
 .detailsPanel .detailsHeader .detailsSettingsBtn {
   cursor: pointer;
@@ -2138,16 +2719,14 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border: none;
   background: transparent;
   color: inherit;
-  transition: 0.2s;
 }
 .detailsPanel .detailsHeader .detailsSettingsBtn:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 .detailsPanel .detailsHeader .detailsSettingsMenu {
-  position: fixed;
-  right: auto;
-  top: auto;
-  bottom: auto;
+  position: absolute;
+  right: 0;
+  top: 100%;
   min-width: 260px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -2165,7 +2744,6 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   user-select: none;
   font-size: 22px;
   padding: 2px 8px;
-  transition: 0.2s;
   border-radius: 4px;
 }
 .detailsPanel .detailsHeader .closeX:hover {
@@ -2177,8 +2755,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   gap: 12px;
 }
 .detailsPanel .detailsSettings .detailsSettingsLabel {
-  font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -2214,7 +2792,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid var(--panel-border);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: none;
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleTrack::after {
   content: "";
@@ -2228,16 +2806,16 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   transition: transform 0.2s ease;
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:checked
-  + .detailsSettingsToggleTrack {
++ .detailsSettingsToggleTrack {
   background: var(--isUser-fill);
   border-color: var(--isUser-fill);
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:checked
-  + .detailsSettingsToggleTrack::after {
++ .detailsSettingsToggleTrack::after {
   transform: translateX(16px);
 }
 .detailsPanel .detailsSettings .detailsSettingsToggleControl input[type="checkbox"]:focus-visible
-  + .detailsSettingsToggleTrack {
++ .detailsSettingsToggleTrack {
   outline: 2px solid var(--isUser-fill);
   outline-offset: 2px;
 }
@@ -2264,7 +2842,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--text-color);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .detailsPanel .detailsSettings .detailsSettingsControl {
   display: flex;
@@ -2275,6 +2853,9 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   width: 190px;
 }
 .detailsPanel .detailsSettings .detailsFontSizeInput {
+  width: 190px;
+}
+.detailsPanel .detailsSettings .detailsIconSizeInput {
   width: 190px;
 }
 .detailsPanel .detailsSettings .detailsOpacityValue {
@@ -2289,11 +2870,32 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-width: 44px;
   text-align: right;
 }
+.detailsPanel .detailsSettings .detailsIconSizeValue {
+  font-size: 12px;
+  opacity: 0.75;
+  min-width: 44px;
+  text-align: right;
+}
+.detailsPanel .detailsStatsRow {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.detailsPanel .detailsPartyList {
+  flex: 0 0 33.33%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
 .detailsPanel .detailsStats {
+  flex: 1;
   display: grid;
-  gap: 6px 12px;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 6px 12px;
+  gap: 4px 10px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 6px 10px;
+  align-content: start;
 }
 .detailsPanel .detailsStats .stat {
   display: flex;
@@ -2308,12 +2910,71 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   color: var(--isUser-fill);
 }
 .detailsPanel .detailsStats .stat .value {
-  font-weight: 400;
+  font-weight: 700;
 }
 .detailsPanel .detailsStats .stat .label,
 .detailsPanel .detailsStats .stat .value {
   margin: 0;
 }
+/* Party bars in details left column */
+.detailsPanel .detailsPartyBar {
+  position: relative;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  cursor: pointer;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+.detailsPanel .detailsPartyBar:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.detailsPanel .detailsPartyBar.isSelected {
+  background: rgba(255, 255, 255, 0.08);
+}
+.detailsPanel .detailsPartyBarFill {
+  position: absolute;
+  inset: 0;
+  background: var(--row-fill);
+  opacity: 0.45;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.detailsPanel .detailsPartyBarContent {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.detailsPanel .detailsPartyBarIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.detailsPanel .detailsPartyBarName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.detailsPanel .detailsPartyBarName.isCjk {
+  font-family: var(--cjk-font-stack);
+  letter-spacing: 0;
+}
+.detailsPanel .detailsPartyBarDmg {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .detailsPanel .detailsBody {
   font-weight: 400;
   display: flex;
@@ -2321,6 +2982,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  overflow-y: auto;
   font-size: var(--details-font-size, var(--font));
 }
 .detailsPanel .detailsSkills {
@@ -2330,6 +2992,37 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: hidden;
+  --skill-grid-cols:
+    minmax(90px, 3fr)
+    minmax(54px, 0.9fr)  /* dmg */
+    minmax(30px, 0.8fr)
+    minmax(30px, 0.8fr)
+    minmax(54px, 0.9fr)  /* mdmg */
+    minmax(24px, 0.7fr)
+    minmax(30px, 0.8fr)
+    minmax(36px, 0.9fr)
+    minmax(34px, 0.9fr)
+    minmax(28px, 0.7fr)
+    minmax(24px, 0.7fr)
+    minmax(50px, 0.8fr)  /* mindmg */
+    minmax(50px, 0.8fr)  /* avgdmg */
+    minmax(50px, 0.8fr); /* maxdmg */
+}
+/* Column-hiding: when .detailsPanel has .hide-col-X, collapse that column to 0 */
+.detailsPanel.hide-col-hit  .detailsSkills .cell.hit,
+.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
+.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg,
+.detailsPanel.hide-col-dmg .detailsSkills .cell.dmg,
+.detailsPanel.hide-col-dmgpct .detailsSkills .cell.dmgpct,
+.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
+.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
+.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
+.detailsPanel.hide-col-double .detailsSkills .cell.double,
+.detailsPanel.hide-col-back .detailsSkills .cell.back,
+.detailsPanel.hide-col-mindmg .detailsSkills .cell.mindmg,
+.detailsPanel.hide-col-avgdmg .detailsSkills .cell.avgdmg,
+.detailsPanel.hide-col-maxdmg .detailsSkills .cell.maxdmg {
+  display: none;
 }
 .detailsPanel .detailsSkills .skillHeader .cell[data-sort-key] {
   cursor: pointer;
@@ -2338,58 +3031,68 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-width: 0;
   display: flex;
   align-items: center;
+  overflow: hidden;
 }
 .detailsPanel .detailsSkills .skillHeader .cell,
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   white-space: nowrap;
-}
-.detailsPanel .detailsSkills .skillHeader .cell {
-  min-width: max-content;
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell {
   font-weight: 400;
 }
 .detailsPanel .detailsSkills .skills .skillRow .cell.name {
   font-weight: 700;
+  white-space: nowrap;
+  align-items: center;
 }
 .detailsPanel .detailsSkills .cell.name {
-  flex: 0 0 var(--details-skill-name-width, 144px);
-  min-width: var(--details-skill-name-width, 144px);
   justify-content: flex-start;
   white-space: nowrap;
   color: var(--isUser-fill);
 }
+.detailsPanel .detailsSkills .cell.name .skillIcon {
+  width: var(--details-skill-icon-size, 24px);
+  height: var(--details-skill-icon-size, 24px);
+  border-radius: 3px;
+  margin-right: 6px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+.detailsPanel .detailsSkills .cell.name .skillIcon.isPlaceholder {
+  background: transparent;
+  border:     1px solid transparent;
+}
 .detailsPanel .detailsSkills .cell.name .skillNameText {
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  font-size: 0.88em;
+  padding-left: 3px;
+  text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
-  flex: 0 1 auto;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
-.detailsPanel .detailsSkills .cell.heal {
-  flex: 0.9 1 0;
-}
-.detailsPanel .detailsSkills .cell.mhit,
-.detailsPanel .detailsSkills .cell.mdmg {
-  flex: 0.9 1 0;
-}
-.detailsPanel .detailsSkills .cell.dmg {
-  flex: 2.5 1 0;
-  min-width: 170px;
+.detailsPanel .detailsSkills .cell.dmg,
+.detailsPanel .detailsSkills .cell.dmgpct {
   justify-content: center;
 }
-.detailsPanel .detailsSkills .cell.right {
-  justify-content: flex-end;
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmg,
+.detailsPanel .detailsSkills .skills .skillRow .cell.dmgpct {
+  font-weight: 700;
 }
 .detailsPanel .detailsSkills .skillHeader {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--skill-grid-cols);
+  gap: 8px;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  /* Right padding = 12px content + measured scrollbar width (set by JS as --scrollbar-w) */
+  padding: 6px calc(12px + var(--scrollbar-w, 10px)) 6px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: 700;
   width: 100%;
@@ -2399,6 +3102,34 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 .detailsPanel .detailsSkills .skillHeader .cell.name {
   color: white;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip] {
+  position: relative;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 14, 0.95);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 100;
+}
+.detailsPanel .detailsSkills .skillHeader .cell[data-tip]:hover::after {
+  opacity: 1;
+}
+.detailsPanel .detailsSkills .skillHeader .cell.name[data-tip]::after {
+  left: 0;
+  transform: none;
 }
 .detailsPanel .detailsSkills .skills {
   padding: 0 12px;
@@ -2411,12 +3142,13 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   min-width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  contain: layout paint;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar-thumb {
@@ -2426,83 +3158,11 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 .detailsPanel .detailsSkills::-webkit-scrollbar-corner {
   background: transparent;
 }
-.detailsPanel.hide-col-hit .detailsSkills .cell.hit,
-.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
-.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
-.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
-.detailsPanel.hide-col-double .detailsSkills .cell.double,
-.detailsPanel.hide-col-back .detailsSkills .cell.back,
-.detailsPanel.hide-col-heal .detailsSkills .cell.heal,
-.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
-.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg {
-  display: none;
-}
-.detailsPanel .detailsSettings .detailsSettingsColumns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
-}
-.detailsResizeHandle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 14px;
-  height: 14px;
-  cursor: se-resize;
-  opacity: 0.65;
-  z-index: 30;
-}
-.detailsResizeHandle::before {
-  content: "";
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid rgba(255, 255, 255, 0.7);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
-}
-.detailsPanel.hide-col-hit .detailsSkills .cell.hit,
-.detailsPanel.hide-col-crit .detailsSkills .cell.crit,
-.detailsPanel.hide-col-parry .detailsSkills .cell.parry,
-.detailsPanel.hide-col-perfect .detailsSkills .cell.perfect,
-.detailsPanel.hide-col-double .detailsSkills .cell.double,
-.detailsPanel.hide-col-back .detailsSkills .cell.back,
-.detailsPanel.hide-col-heal .detailsSkills .cell.heal,
-.detailsPanel.hide-col-mhit .detailsSkills .cell.mhit,
-.detailsPanel.hide-col-mdmg .detailsSkills .cell.mdmg {
-  display: none;
-}
-.detailsPanel .detailsSettings .detailsSettingsColumns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
-}
-.detailsResizeHandle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 14px;
-  height: 14px;
-  cursor: se-resize;
-  opacity: 0.65;
-  z-index: 30;
-}
-.detailsResizeHandle::before {
-  content: "";
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid rgba(255, 255, 255, 0.7);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
-}
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar {
   width: 10px;
 }
 .detailsPanel .detailsSkills .skills::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
   margin-top: 8px;
   margin-bottom: -8px;
@@ -2518,7 +3178,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   width: 10px;
 }
 .detailsPanel .detailsBody::-webkit-scrollbar-track {
-  background: rgba(30, 30, 30);
+  background: rgb(30, 30, 30);
   border-radius: 999px;
   margin-top: 8px;
   margin-bottom: 8px;
@@ -2533,74 +3193,207 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 
 @keyframes meterBarHoverRipple {
   0% {
-    left: -40%;
+    transform: translateX(-100%); /* GPU optimized */
     opacity: 0;
   }
   20% {
     opacity: 1;
   }
   100% {
-    left: 110%;
+    transform: translateX(350%); /* GPU optimized (moves across the bar) */
     opacity: 0;
   }
 }
 
-@keyframes combatStatusRipple {
-  0% {
-    box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 0 var(--indicator-combat);
-  }
-  70% {
-    box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 10px rgba(0, 0, 0, 0);
-  }
-  100% {
-    box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.25),
-      0 0 0 0 rgba(0, 0, 0, 0);
-  }
-}
+
 .detailsPanel .detailsSkills .skills .skillRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--skill-grid-cols);
+  gap: 8px;
   align-items: center;
-  gap: 6px;
   padding: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
 }
 .detailsPanel .detailsSkills .skills .skillRow:last-child {
   border-bottom: none;
 }
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg {
-  position: relative;
-  overflow: hidden;
-  height: 20px;
-}
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgFill {
+.detailsPanel .detailsSkills .skills .skillRow .rowFill {
   position: absolute;
-  inset: 0;
-  background: var(--isUser-fill);
-  opacity: 0.8;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--details-skill-icon-size, 24px) + 6px);
+  background: var(--row-fill);
+  opacity: 0.5;
   border-radius: var(--rounded-xs);
   transform-origin: left center;
+  pointer-events: none;
 }
-.detailsPanel .detailsSkills .skills .skillRow .cell.dmg .dmgText {
+.detailsPanel .detailsSkills .skills .skillRow .cell {
   position: relative;
   z-index: 1;
-  height: 100%;
-  display: flex;
-  justify-content: end;
-  align-items: center;
-  text-shadow: var(--text-shadow);
-  color: var(--dps-text);
-  font-weight: 700;
 }
 .detailsPanel .detailsSkills .detailsFootnote {
   font-size: 0.85em;
   opacity: 0.6;
   padding: 6px 12px 0;
   font-weight: 400;
+}
+
+/* ── Collapsible sections ── */
+.detailsPanel .detailsSection {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.detailsPanel .detailsSection.isExpanded {
+  flex: 1 1 auto;
+}
+.detailsPanel .detailsSection .detailsSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  transition: color 0.15s;
+}
+.detailsPanel .detailsSection .detailsSectionHeader:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+.detailsPanel .detailsSection .detailsSectionArrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.2s;
+}
+.detailsPanel .detailsSection.isExpanded > .detailsSectionHeader .detailsSectionArrow {
+  transform: rotate(90deg);
+}
+.detailsPanel .detailsSection .detailsSectionContent {
+  display: none;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.detailsPanel .detailsSection.isExpanded > .detailsSectionContent {
+  display: flex;
+}
+
+/* ── DPS Chart ── */
+.detailsPanel .dpsChartSection .detailsSectionContent {
+  padding: 0;
+}
+.detailsPanel .dpsChartWrap {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 0;
+}
+.detailsPanel .dpsChartLegend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 0 4px;
+  flex-wrap: wrap;
+}
+.detailsPanel .dpsChartLegend .legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82em;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+.detailsPanel .dpsChartLegend .legendItem svg {
+  flex-shrink: 0;
+}
+.detailsPanel .dpsChartCanvas {
+  display: block;
+  width: 100%;
+}
+.detailsPanel .dpsChartXAxis {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0 4px;
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.5);
+}
+.detailsPanel .dpsChartXAxis span {
+  flex-shrink: 0;
+}
+
+/* ── Timeline chart ── */
+.detailsPanel .timelineChart {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 0;
+}
+.detailsPanel .timelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 4px 12px 6px;
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.8);
+}
+.detailsPanel .timelineLegend .legendItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.detailsPanel .timelineLegend .legendItem img {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.detailsPanel .timelineViewport {
+  flex: 1 1 auto;
+  min-height: 80px;
+  max-height: 320px;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-track {
+  background: rgb(30, 30, 30);
+  border-radius: 999px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-thumb {
+  background-color: rgb(77, 77, 77);
+  border-radius: 999px;
+}
+.detailsPanel .timelineViewport::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.detailsPanel .timelineCanvas {
+  display: block;
+}
+.detailsPanel .timelineXAxis {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 12px 0;
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.5);
+}
+.detailsPanel .timelineXAxis span {
+  flex-shrink: 0;
 }
 
 .updateModal.isOpen {
@@ -2708,8 +3501,8 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   border-radius: 10px;
   padding: 10px 8px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2790,4 +3583,276 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   user-select: none !important;
   pointer-events: none !important;
   cursor: grabbing !important;
+}
+
+.hoverDetailsTooltip {
+  position: absolute;
+  z-index: 40;
+  min-width: 280px;
+  max-width: 380px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(12, 22, 40, 0.88);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: var(--title);
+  text-shadow: var(--text-shadow);
+  opacity: 0;
+  transform: translateY(2px);
+  pointer-events: none;
+  transition: opacity 80ms ease, transform 80ms ease;
+}
+
+.hoverDetailsTooltip.isVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hoverDetailsTooltipHeader {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hoverDetailsTooltipClassIcon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.hoverDetailsTooltipStats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  opacity: 0.95;
+  margin-bottom: 8px;
+}
+
+.hoverDetailsTooltipSkills {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.hoverDetailsTooltipSkill {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.hoverDetailsTooltipSkill .idx {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.hoverDetailsTooltipSkill .name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.hoverDetailsTooltipSkill .name .skillIcon {
+  width: var(--tooltip-skill-icon-size, 20px);
+  height: var(--tooltip-skill-icon-size, 20px);
+  border-radius: 3px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+.hoverDetailsTooltipSkill .name .skillIcon.isPlaceholder {
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.hoverDetailsTooltipSkill .name .skillName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.hoverDetailsTooltipSkill .dmg {
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.hoverDetailsTooltipSkill.muted {
+  display: block;
+  opacity: 0.75;
+}
+
+/* ========== Slim Mode ========== */
+.meter.slim .header {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.meter.slim .header .bossIcon {
+  width: 72px;
+}
+.meter.slim .header .bossIcon img {
+  border: none;
+  border-radius: 0;
+}
+.meter.slim .header .bossIcon .bossIconOverlay {
+  display: none;
+}
+.meter.slim .header .bossNames {
+  font-size: 16px;
+  height: 22px;
+}
+.meter.slim .header .headerBtns .headerBtn {
+  width: 16px;
+  height: 16px;
+}
+.meter.slim .footerBtns {
+  bottom: 1px;
+  right: 16px;
+}
+.meter.slim .footerBtns .footerBtn {
+  width: 16px;
+  height: 16px;
+}
+.meter.slim .footerBtns .metricToggleBtn,
+.meter.slim .footerBtns .targetModeBtn {
+  font-size: 13px;
+}
+.meter.slim .list:has(.item:not([style*="display: none"])) + .meterTotalBar {
+  margin-top: 0;
+}
+.meter.slim .list {
+  gap: 2px;
+}
+.meter.slim .list:has(.item:not([style*="display: none"])) {
+  padding: 2px 10px 6px;
+}
+.meter.slim .list .item {
+  height: 24px;
+  padding: 0 6px;
+}
+.meter.slim .list .item .content {
+  gap: 5px;
+}
+.meter.slim .list .item .classIcon {
+  width: 18px;
+}
+.meter.slim .list .item .name {
+  font-size: 14px;
+}
+.meter.slim .list .item .name.isCjk {
+  font-size: 16px;
+}
+.meter.slim .list .item .dps {
+  font-size: 13px;
+  gap: 4px;
+}
+.meter.slim .battleTime {
+  bottom: 1px;
+  left: 10px;
+}
+.meter.slim .battleTime .tick {
+  font-size: 14px;
+}
+.meter.slim .battleTime .status {
+  width: 8px;
+  height: 8px;
+}
+.meter.slim .resizeHandle {
+  width: 12px;
+  height: 12px;
+}
+
+/* ========== Settings Panel 2-Column Layout ========== */
+.settingsPanel .settingsColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+  align-items: start;
+}
+.settingsPanel .settingsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--panel-border);
+}
+
+/* Inline range + value (e.g. opacity slider) */
+.settingsPanel .settingsRangeInline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.settingsPanel .settingsRangeInline .settingsRange {
+  margin-left: 0;
+}
+
+/* Advanced collapsible section */
+.settingsAdvancedToggle {
+  margin-top: 4px;
+}
+.settingsAdvancedBtn {
+  background: none;
+  border: none;
+  color: rgba(200, 215, 230, 1);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+.settingsAdvancedBtn:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+.settingsAdvancedCaret {
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.settingsAdvancedToggle.isOpen .settingsAdvancedCaret {
+  transform: rotate(180deg);
+}
+.settingsAdvancedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Discord/Support/Quit button row */
+.settingsPanel .settingsButtonRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+  margin-top: 8px;
+}
+.settingsPanel .settingsButtonRow .settingsButtonLeft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.settingsPanel .settingsButtonRow .settingsButtonRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.settingsPanel .settingsButtonRow .discordButton,
+.settingsPanel .settingsButtonRow .supportButton {
+  padding: 8px 20px;
+}
+.settingsPanel .settingsButtonRow .quitButton {
+  padding: 8px 24px;
+  width: auto;
+}
+.settingsPanel .playerLimitNarrow {
+  min-width: 80px;
 }

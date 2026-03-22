@@ -19,6 +19,9 @@
     "fontSize": {
       "label": "Font size"
     },
+    "iconSize": {
+      "label": "Skill icon size"
+    },
     "screenshots": {
       "label": "Screenshots",
       "includeMeter": "Include main DPS meter",
@@ -39,16 +42,33 @@
     },
     "skills": {
       "skill": "Skill",
-      "hits": "Hits",
+      "skillTooltip": "Skill Name",
+      "hits": "Casts",
+      "hitsTooltip": "Casts",
+      "dmg": "Dmg",
+      "dmgTooltip": "Damage",
+      "dmgPct": "D%",
+      "dmgPctTooltip": "Damage %",
       "crit": "Crit",
-      "parry": "Parry",
-      "perfect": "Perfect",
-      "double": "Double",
+      "critTooltip": "Crit %",
+      "parry": "Par",
+      "parryTooltip": "Parry %",
+      "perfect": "Per",
+      "perfectTooltip": "Perfect %",
+      "double": "Dbl",
+      "doubleTooltip": "Double %",
       "back": "Back",
-      "multiHit": "MHits",
-      "multiHitDamage": "MHDmg",
-      "totalDamage": "Total Dmg",
-      "heal": "Heal"
+      "backTooltip": "Back Attack %",
+      "multiHit": "MH%",
+      "multiHitTooltip": "Multi-hit %",
+      "multiHitDamage": "MHD",
+      "multiHitDamageTooltip": "Multi-hit Damage",
+      "minDmg": "Min",
+      "minDmgTooltip": "Min Damage",
+      "avgDmg": "Avg",
+      "avgDmgTooltip": "Avg Damage",
+      "maxDmg": "Max",
+      "maxDmgTooltip": "Max Damage"
     },
     "stats": {
       "totalDamage": "Total Damage",
@@ -62,11 +82,33 @@
       "combatTime": "Combat Time",
       "selfHealing": "Self-Healing",
       "multiHitDamage": "Multi-Hit Damage",
-      "multiHitHits": "Multi-Hits"
+      "multiHitHits": "Multi-Hits",
+      "maxHp": "Max HP"
     },
     "titleFor": "for",
     "titleVs": "vs",
-    "all": "All"
+    "fightVs": "Fight vs",
+    "all": "All",
+    "history": {
+      "allPlayers": "All Players"
+    },
+    "dpsChart": "DPS Chart",
+    "historyBtn": "History",
+    "timeline": "Timeline"
+  },
+  "history": {
+    "title": "Battle History",
+    "empty": "No boss fights recorded yet.",
+    "delete": "Delete",
+    "showTraining": "Show Training",
+    "hideTraining": "Hide Training",
+    "showTrainingBattles": "Show Training Battles",
+    "hideTrainingBattles": "Hide Training Battles",
+    "trainBadge": "Training",
+    "liveBadge": "Live",
+    "filterBoss": "Boss name...",
+    "filterPlayer": "Player class...",
+    "filterDate": "Date (YYYY-MM-DD)..."
   },
   "settings": {
     "title": "Settings",
@@ -75,14 +117,26 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "Enter your character name",
     "pinMeToTop": "Always show me at the top",
+    "slimMode": "Slim mode",
+    "appearance": "Appearance",
+    "connection": "Connection",
+    "advanced": "Advanced",
+    "bossLogs": "Enable per-boss logs",
+    "saveRawPackets": "Enable packet logging",
+    "resetAllSettings": "Reset all settings",
     "bold": {
       "label": "Bold",
       "names": "Names",
       "dps": "DPS"
     },
+    "showPing": "Show ping",
+    "showTotalDps": "Show total DPS/DMG",
+    "playerLimit": {
+      "label": "Max players shown"
+    },
     "debugLogging": "Enable debug logging",
     "quit": "Quit",
-    "discord": "Find us on Discord",
+    "discord": "Discord",
     "version": "Version",
     "theme": {
       "label": "Theme",
@@ -102,8 +156,11 @@
     "language": {
       "label": "Language"
     },
+    "windowOpacity": {
+      "label": "Main window opacity"
+    },
     "meterOpacity": {
-      "label": "Meter opacity"
+      "label": "Meter bar opacity"
     },
     "targetWindow": {
       "label": "Target time range",
@@ -135,6 +192,13 @@
       }
     },
     "meterSettings": "Meter Settings",
+    "keybinds": "Keybinds",
+    "keybind": {
+      "reload": "Reload data",
+      "toggle": "Show/Hide window",
+      "pressKeys": "Press keys...",
+      "needModifiers": "Need 2+ modifiers"
+    },
     "trainingMode": {
       "label": "Training Mode target",
       "options": {
@@ -144,7 +208,7 @@
     }
   },
   "support": {
-    "button": "Support me ☕",
+    "button": "Support Me",
     "title": "Support the author on Ko-fi",
     "titleWechat": "Support the author on WeChat",
     "label": {
@@ -192,6 +256,17 @@
   "target": {
     "all": "All Targets",
     "identifying": "Identifying you...",
-    "train": "Training Scarecrow"
+    "train": "Training Scarecrow",
+    "boss": "Boss Targets"
+  },
+  "classes": {
+    "GLADIATOR": "Gladiator",
+    "TEMPLAR": "Templar",
+    "RANGER": "Ranger",
+    "ASSASSIN": "Assassin",
+    "SORCERER": "Sorcerer",
+    "CLERIC": "Cleric",
+    "ELEMENTALIST": "Elementalist",
+    "CHANTER": "Chanter"
   }
 }

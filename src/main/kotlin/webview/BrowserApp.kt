@@ -1,10 +1,14 @@
 package com.tbread.webview
 
 import com.tbread.DpsCalculator
+import com.tbread.FightHistoryManager
 import com.tbread.entity.DpsData
+import com.tbread.entity.FightSummary
 import com.tbread.logging.UnifiedLogger
 import com.tbread.packet.CaptureDispatcher
 import com.tbread.packet.CombatPortDetector
+import com.tbread.packet.PcapCapturer
+import com.tbread.packet.PingTracker
 import com.tbread.packet.LocalPlayer
 import com.tbread.packet.PropertyHandler
 import com.tbread.windows.WindowTitleDetector
@@ -27,14 +31,13 @@ import javafx.stage.DirectoryChooser
 import javafx.scene.image.WritablePixelFormat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.awt.image.BufferedImage
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
@@ -52,6 +55,7 @@ class BrowserApp(
     private var jsBridge: JSBridge? = null
     override fun stop() {
         jsBridge?.dispose()
+        historyAutoSaveScheduler.shutdown()
         super.stop()
     }
 
@@ -62,7 +66,8 @@ class BrowserApp(
         val locked: Boolean,
         val characterName: String?,
         val device: String?,
-        val localPlayerId: Long?
+        val localPlayerId: Long?,
+        val pcapError: String? = null
     )
 
     inner class JSBridge(
@@ -77,6 +82,7 @@ class BrowserApp(
         private val keyHookEvent = KeyHookEvent(engine) { toggleMainWindowVisibility() }
         private var windowHiddenByHotkey = false
 
+        @Suppress("unused")
         fun moveWindow(x: Double, y: Double) {
             if (stage.x == x && stage.y == y) {
                 return
@@ -107,15 +113,63 @@ class BrowserApp(
             stage.requestFocus()
         }
 
-
-        fun resetDps(){
+        @Suppress("unused")
+        fun resetDps() {
+            try {
+                val records = dpsCalculator.snapshotBossFights()
+                records.forEach { FightHistoryManager.save(it) }
+            } catch (e: Exception) {
+                logger.warn("Failed to snapshot boss fights before reset", e)
+            }
             dpsCalculator.resetDataStorage()
         }
 
+        @Suppress("unused")
+        fun getFightHistory(): String {
+            val liveRecords = try { dpsCalculator.snapshotBossFights() } catch (e: Exception) { emptyList() }
+            val liveSummaries = liveRecords
+                .sortedByDescending { it.startTimeMs }
+                .map { record ->
+                    FightSummary(
+                        id = "live_${record.targetId}",
+                        bossName = record.bossName,
+                        targetId = record.targetId,
+                        startTimeMs = record.startTimeMs,
+                        durationMs = record.durationMs,
+                        totalDamage = record.totalDamage,
+                        jobs = record.jobs,
+                        isTrain = record.isTrain,
+                        isLive = true,
+                    )
+                }
+            val savedSummaries = FightHistoryManager.list()
+            return Json.encodeToString(liveSummaries + savedSummaries)
+        }
+
+        @Suppress("unused")
+        fun getFightDetails(id: String): String? {
+            if (id.startsWith("live_")) {
+                val targetId = id.removePrefix("live_").toIntOrNull() ?: return null
+                val records = try { dpsCalculator.snapshotBossFights() } catch (e: Exception) { emptyList() }
+                val record = records.find { it.targetId == targetId } ?: return null
+                return Json.encodeToString(record.copy(id = id))
+            }
+            val record = FightHistoryManager.load(id) ?: return null
+            return Json.encodeToString(record)
+        }
+
+        @Suppress("unused")
+        fun deleteFight(id: String): Boolean {
+            if (id.startsWith("live_")) return false
+            return FightHistoryManager.delete(id)
+        }
+
+        @Suppress("unused")
         fun resetAutoDetection() {
             CombatPortDetector.reset()
         }
 
+        @Suppress("unused")
         fun setCharacterName(name: String?) {
             val trimmed = name?.trim().orEmpty()
             val normalized = if (trimmed.isBlank()) null else trimmed
@@ -126,43 +180,52 @@ class BrowserApp(
             }
         }
 
+        @Suppress("unused")
         fun setLocalPlayerId(actorId: String?) {
             val parsed = actorId?.trim()?.toLongOrNull()
             LocalPlayer.playerId = parsed?.takeIf { it > 0 }
         }
 
+        @Suppress("unused")
         fun setTargetSelection(mode: String?) {
             dpsCalculator.setTargetSelectionModeById(mode)
         }
 
+        @Suppress("unused")
         fun restartTargetSelection() {
             dpsCalculator.restartTargetSelection()
         }
 
+        @Suppress("unused")
         fun setAllTargetsWindowMs(value: String?) {
             val parsed = value?.trim()?.toLongOrNull() ?: return
             dpsCalculator.setAllTargetsWindowMs(parsed)
         }
 
+        @Suppress("unused")
         fun setTrainSelectionMode(mode: String?) {
             dpsCalculator.setTrainSelectionModeById(mode)
         }
 
+        @Suppress("unused")
         fun setTargetSelectionWindowMs(value: String?) {
             val parsed = value?.trim()?.toLongOrNull() ?: return
             dpsCalculator.setTargetSelectionWindowMs(parsed)
         }
 
+        @Suppress("unused")
         fun bindLocalActorId(actorId: String?) {
             val parsed = actorId?.trim()?.toLongOrNull() ?: return
             dpsCalculator.bindLocalActorId(parsed)
         }
 
+        @Suppress("unused")
         fun bindLocalNickname(actorId: String?, nickname: String?) {
             val parsed = actorId?.trim()?.toLongOrNull() ?: return
             dpsCalculator.bindLocalNickname(parsed, nickname)
         }
 
+        @Suppress("unused")
         fun getConnectionInfo(): String {
             val ip = PropertyHandler.getProperty("server.ip")
             val lockedPort = CombatPortDetector.currentPort()
@@ -173,19 +236,23 @@ class BrowserApp(
                 locked = lockedPort != null,
                 characterName = LocalPlayer.characterName,
                 device = lockedDevice,
-                localPlayerId = LocalPlayer.playerId
+                localPlayerId = LocalPlayer.playerId,
+                pcapError = PcapCapturer.pcapError
             )
             return Json.encodeToString(info)
         }
 
+        @Suppress("unused")
         fun getLastParsedAtMs(): Long {
             return CombatPortDetector.lastParsedAtMs()
         }
 
+        @Suppress("unused")
         fun getAion2WindowTitle(): String? {
             return windowTitleProvider()
         }
 
+        @Suppress("unused")
         fun openBrowser(url: String) {
             try {
                 hostServices.showDocument(url)
@@ -194,164 +261,211 @@ class BrowserApp(
             }
         }
 
+        // ── Skill icon disk cache ──
+        private val iconCacheDir: File by lazy {
+            val appdata = System.getenv("APPDATA") ?: System.getProperty("user.home")
+            File(appdata, "AionDPS/icon_cache").also { it.mkdirs() }
+        }
+
+        @Suppress("unused")
+        fun readCachedIcon(filename: String): String? {
+            val safe = filename.replace(Regex("[^a-zA-Z0-9._-]"), "")
+            val file = File(iconCacheDir, safe)
+            if (!file.exists()) return null
+            return try {
+                java.util.Base64.getEncoder().encodeToString(file.readBytes())
+            } catch (_: Exception) { null }
+        }
+
+        @Suppress("unused")
+        fun writeCachedIcon(filename: String, base64Data: String) {
+            val safe = filename.replace(Regex("[^a-zA-Z0-9._-]"), "")
+            try {
+                val bytes = java.util.Base64.getDecoder().decode(base64Data)
+                File(iconCacheDir, safe).writeBytes(bytes)
+            } catch (_: Exception) {}
+        }
+
+        @Suppress("unused")
         fun readResource(path: String): String? {
             val normalized = if (path.startsWith("/")) path else "/$path"
             return try {
                 javaClass.getResourceAsStream(normalized)?.bufferedReader(StandardCharsets.UTF_8)?.use {
                     it.readText()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
 
+        @Suppress("unused")
         fun getSetting(key: String): String? {
             return PropertyHandler.getProperty(key)
         }
 
+        @Suppress("unused")
         fun setSetting(key: String, value: String) {
             PropertyHandler.setProperty(key, value)
         }
 
+        @Suppress("unused")
         fun setDebugLoggingEnabled(enabled: Boolean) {
             UnifiedLogger.setDebugEnabled(enabled)
             PropertyHandler.setProperty(UnifiedLogger.DEBUG_SETTING_KEY, enabled.toString())
         }
 
+        @Suppress("unused")
+        fun setBossLogsEnabled(enabled: Boolean) {
+            com.tbread.logging.BossEncounterLogger.enabled = enabled
+            PropertyHandler.setProperty(com.tbread.logging.BossEncounterLogger.SETTING_KEY, enabled.toString())
+        }
+
+        @Suppress("unused")
+        fun setSaveRawPackets(enabled: Boolean) {
+            com.tbread.logging.RawPacketLogger.enabled = enabled
+            PropertyHandler.setProperty(com.tbread.logging.RawPacketLogger.SETTING_KEY, enabled.toString())
+        }
+
+        @Suppress("unused")
         fun logDebug(message: String?) {
             if (message.isNullOrBlank()) return
             UnifiedLogger.debug(logger, "UI {}", message.trim())
         }
 
+        @Suppress("unused")
         fun isRunningViaGradle(): Boolean {
             val gradleAppName = System.getProperty("org.gradle.appname")
             val javaCommand = System.getProperty("sun.java.command").orEmpty()
             return gradleAppName != null || javaCommand.contains("org.gradle", ignoreCase = true)
         }
 
+        @Suppress("unused")
         fun isRunningFromIde(): Boolean {
             return System.getProperty("idea.version") != null ||
-                System.getProperty("idea.active") != null ||
-                System.getProperty("idea.platform.prefix") != null
+                    System.getProperty("idea.active") != null ||
+                    System.getProperty("idea.platform.prefix") != null
         }
 
+        @Suppress("unused")
         fun getParsingBacklog(): Int {
             return captureDispatcher.getParsingBacklog()
         }
 
-        fun exitApp() {
-          Platform.exit()     
-          exitProcess(0)       
+        @Suppress("unused")
+        fun getPingMs(): Int {
+            return PingTracker.currentPingMs() ?: -1
         }
 
+        @Suppress("unused")
+        fun exitApp() {
+            Platform.exit()
+            exitProcess(0)
+        }
 
+        @Suppress("unused")
         fun setHotkey(modifiers: Int, keyCode: Int) {
             logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
             keyHookEvent.setHotkey(modifiers, keyCode)
         }
 
+        @Suppress("unused")
         fun getCurrentHotKey(): String {
             return keyHookEvent.getCurrentHotKey()
+        }
+
+        @Suppress("unused")
+        fun setToggleWindowHotkey(modifiers: Int, keyCode: Int) {
+            logger.info("setToggleWindowHotkey called mods={} vk={}", modifiers, keyCode)
+            keyHookEvent.setToggleWindowHotkey(modifiers, keyCode)
+        }
+
+        @Suppress("unused")
+        fun getCurrentToggleWindowHotKey(): String {
+            return keyHookEvent.getCurrentToggleWindowHotKey()
         }
 
         fun dispose() {
             keyHookEvent.stop()
         }
 
-        fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
-            val scene = stage.scene ?: return false
+        private fun computeCrop(
+            x: Double, y: Double, width: Double, height: Double,
+            scale: Double, imageWidth: Int, imageHeight: Int
+        ): IntArray {
+            val sx = (x * scale).toInt().coerceAtLeast(0)
+            val sy = (y * scale).toInt().coerceAtLeast(0)
+            val sw = (width * scale).toInt().coerceAtLeast(1).coerceAtMost(imageWidth - sx)
+            val sh = (height * scale).toInt().coerceAtLeast(1).coerceAtMost(imageHeight - sy)
+            return intArrayOf(sx, sy, sw, sh)
+        }
+
+        private fun <T> runOnFxThread(timeoutSeconds: Long = 2, action: () -> T?): T? {
             val latch = CountDownLatch(1)
-            var success = false
+            var result: T? = null
             Platform.runLater {
                 try {
-                    val image = scene.snapshot(null)
-                    val pixelReader = image.pixelReader
-                    if (pixelReader == null) {
-                        latch.countDown()
-                        return@runLater
-                    }
-                    val imageWidth = image.width.toInt()
-                    val imageHeight = image.height.toInt()
-                    val scaledX = (x * scale).toInt()
-                    val scaledY = (y * scale).toInt()
-                    val scaledWidth = (width * scale).toInt()
-                    val scaledHeight = (height * scale).toInt()
-                    val safeX = scaledX.coerceAtLeast(0)
-                    val safeY = scaledY.coerceAtLeast(0)
-                    val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
-                    val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
-                    val cropped = javafx.scene.image.WritableImage(pixelReader, safeX, safeY, safeWidth, safeHeight)
-                    val clipboard = Clipboard.getSystemClipboard()
-                    val content = ClipboardContent()
-                    content.putImage(cropped)
-                    success = clipboard.setContent(content)
-                } catch (e: Exception) {
-                    logger.warn("Failed to capture screenshot", e)
+                    result = action()
                 } finally {
                     latch.countDown()
                 }
             }
-            latch.await(2, TimeUnit.SECONDS)
-            return success
+            latch.await(timeoutSeconds, TimeUnit.SECONDS)
+            return result
         }
 
+        @Suppress("unused")
+        fun captureScreenshotToClipboard(x: Double, y: Double, width: Double, height: Double, scale: Double): Boolean {
+            val scene = stage.scene ?: return false
+            return runOnFxThread {
+                try {
+                    val image = scene.snapshot(null)
+                    val pixelReader = image.pixelReader ?: return@runOnFxThread false
+                    val (cx, cy, cw, ch) = computeCrop(x, y, width, height, scale, image.width.toInt(), image.height.toInt())
+                    val cropped = javafx.scene.image.WritableImage(pixelReader, cx, cy, cw, ch)
+                    val content = ClipboardContent()
+                    content.putImage(cropped)
+                    Clipboard.getSystemClipboard().setContent(content)
+                } catch (e: Exception) {
+                    logger.warn("Failed to capture screenshot", e)
+                    false
+                }
+            } ?: false
+        }
+
+        @Suppress("unused")
         fun captureScreenshotToFile(
-            x: Double,
-            y: Double,
-            width: Double,
-            height: Double,
-            scale: Double,
-            folderPath: String?,
-            filename: String?
+            x: Double, y: Double, width: Double, height: Double,
+            scale: Double, folderPath: String?, filename: String?
         ): Boolean {
             val scene = stage.scene ?: return false
             if (folderPath.isNullOrBlank() || filename.isNullOrBlank()) return false
-            val latch = CountDownLatch(1)
-            var success = false
-            Platform.runLater {
+            return runOnFxThread {
                 try {
                     val image = scene.snapshot(null)
-                    val pixelReader = image.pixelReader
-                    if (pixelReader == null) {
-                        latch.countDown()
-                        return@runLater
-                    }
-                    val imageWidth = image.width.toInt()
-                    val imageHeight = image.height.toInt()
-                    val scaledX = (x * scale).toInt()
-                    val scaledY = (y * scale).toInt()
-                    val scaledWidth = (width * scale).toInt()
-                    val scaledHeight = (height * scale).toInt()
-                    val safeX = scaledX.coerceAtLeast(0)
-                    val safeY = scaledY.coerceAtLeast(0)
-                    val safeWidth = scaledWidth.coerceAtLeast(1).coerceAtMost(imageWidth - safeX)
-                    val safeHeight = scaledHeight.coerceAtLeast(1).coerceAtMost(imageHeight - safeY)
+                    val pixelReader = image.pixelReader ?: return@runOnFxThread false
+                    val (cx, cy, cw, ch) = computeCrop(x, y, width, height, scale, image.width.toInt(), image.height.toInt())
                     val folder = File(folderPath)
-                    if (!folder.exists()) {
-                        folder.mkdirs()
-                    }
-                    val targetFile = File(folder, filename)
-                    val buffer = IntArray(safeWidth * safeHeight)
+                    if (!folder.exists()) folder.mkdirs()
+                    val buffer = IntArray(cw * ch)
                     val format = WritablePixelFormat.getIntArgbInstance()
-                    pixelReader.getPixels(safeX, safeY, safeWidth, safeHeight, format, buffer, 0, safeWidth)
-                    val buffered = BufferedImage(safeWidth, safeHeight, BufferedImage.TYPE_INT_ARGB)
-                    buffered.setRGB(0, 0, safeWidth, safeHeight, buffer, 0, safeWidth)
-                    success = ImageIO.write(buffered, "png", targetFile)
+                    pixelReader.getPixels(cx, cy, cw, ch, format, buffer, 0, cw)
+                    val buffered = BufferedImage(cw, ch, BufferedImage.TYPE_INT_ARGB)
+                    buffered.setRGB(0, 0, cw, ch, buffer, 0, cw)
+                    ImageIO.write(buffered, "png", File(folder, filename))
                 } catch (e: Exception) {
                     logger.warn("Failed to capture screenshot to file", e)
-                } finally {
-                    latch.countDown()
+                    false
                 }
-            }
-            latch.await(2, TimeUnit.SECONDS)
-            return success
+            } ?: false
         }
 
+        @Suppress("unused")
         fun getDefaultScreenshotFolder(): String {
             val userHome = System.getProperty("user.home") ?: "."
             return Paths.get(userHome, "Pictures", "AION2 DPS Meter").toString()
         }
 
+        @Suppress("unused")
         fun chooseScreenshotFolder(currentPath: String?): String? {
             val chooser = DirectoryChooser()
             chooser.title = "Select screenshot folder"
@@ -382,17 +496,25 @@ class BrowserApp(
             return selectedPath
         }
 
+        @Suppress("unused")
         fun notifyUiReady() {
             uiReadyNotifier()
         }
     }
 
     @Volatile
-    private var dpsData: DpsData = dpsCalculator.getDps()
+    private var dpsData: DpsData = DpsData()
+
+    @Volatile
+    private var cachedDpsJson: String = Json.encodeToString(DpsData())
+
+    private val dpsUpdateScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "dps-updater").apply { isDaemon = true }
+    }
 
     private val debugMode = false
 
-    private val version = "0.1.6"
+    private val version = "1.0.0"
 
     @Volatile
     private var cachedWindowTitle: String? = null
@@ -403,13 +525,35 @@ class BrowserApp(
         }
     }
 
+    private val windowTitleScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "window-title-poller").apply { isDaemon = true }
+    }
+
+    private val historyAutoSaveScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "history-autosave").apply { isDaemon = true }
+    }
+
+    private fun startHistoryAutoSave() {
+        historyAutoSaveScheduler.scheduleAtFixedRate({
+            try {
+                val records = dpsCalculator.snapshotBossFights()
+                records.forEach { FightHistoryManager.save(it) }
+            } catch (e: Exception) {
+                logger.warn("History auto-save failed", e)
+            }
+        }, 10L, 10L, TimeUnit.SECONDS)
+    }
+
     private fun startWindowTitlePolling() {
-        Timeline(KeyFrame(Duration.seconds(1.0), {
-            cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
-        })).apply {
-            cycleCount = Timeline.INDEFINITE
-            play()
-        }
+        // Run off the JavaFX Application Thread — EnumWindows + OpenProcess per window
+        // can take 50–200ms, which would block rendering and JS execution if on the JAT.
+        windowTitleScheduler.scheduleAtFixedRate({
+            try {
+                cachedWindowTitle = WindowTitleDetector.findAion2WindowTitle()
+            } catch (e: Exception) {
+                logger.warn("Window title polling failed", e)
+            }
+        }, 0L, 1L, TimeUnit.SECONDS)
     }
 
     private fun ensureStageVisible(stage: Stage, reason: String) {
@@ -427,32 +571,41 @@ class BrowserApp(
     override fun start(stage: Stage) {
         UnifiedLogger.loadDebugFromSettings()
         startWindowTitlePolling()
+        startHistoryAutoSave()
         stage.setOnCloseRequest {
             exitProcess(0)
         }
         val webView = WebView()
         val engine = webView.engine
+
+        engine.history.maxSize = 0
+
         webEngine = engine
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier, engine)
         jsBridge = bridge
-        @Suppress("DEPRECATION")
+
+        // Push ping updates to the webview immediately when parsed
+        PingTracker.onPingUpdate = { pingMs ->
+            Platform.runLater {
+                runCatching {
+                    engine.executeScript("window._dpsApp?.updatePing?.($pingMs)")
+                }
+            }
+        }
+
         val injectBridge = {
             runCatching {
                 val window = engine.executeScript("window")
-                when (window) {
-                    is JSObject -> {
-                        window.setMember("javaBridge", bridge)
-                        window.setMember("dpsData", this)
-                    }
-                    else -> {
-                        val setMember = window.javaClass.methods.firstOrNull {
-                            it.name == "setMember" && it.parameterCount == 2
-                        } ?: error("setMember(String, Object) not found on window object")
-                        setMember.invoke(window, "javaBridge", bridge)
-                        setMember.invoke(window, "dpsData", this)
-                    }
-                }
+                // Use getMethod instead of firstOrNull to be more explicit,
+                // and ensure we are looking at the correct interface
+                val setMember = window.javaClass.getMethod("setMember", String::class.java, Any::class.java)
+
+                // This is the critical line that works with the --add-opens above
+                setMember.isAccessible = true
+
+                setMember.invoke(window, "javaBridge", bridge)
+                setMember.invoke(window, "dpsData", this)
             }.onFailure { error ->
                 logger.warn("Failed to inject Java bridge into WebView", error)
             }
@@ -514,30 +667,41 @@ class BrowserApp(
             cycleCount = 1
             play()
         }
-        Timeline(KeyFrame(Duration.millis(500.0), {
-            dpsData = dpsCalculator.getDps()
-        })).apply {
-            cycleCount = Timeline.INDEFINITE
-            play()
-        }
+        // Run getDps() on a background thread so it never blocks the JavaFX Application
+        // Thread (which also drives WebView rendering and JS↔Java bridge calls).
+        // The volatile write to dpsData is safe to read from any thread.
+        dpsUpdateScheduler.scheduleAtFixedRate({
+            try {
+                val data = dpsCalculator.getDps()
+                dpsData = data
+                cachedDpsJson = Json.encodeToString(data)
+            } catch (e: Exception) {
+                logger.warn("getDps() failed on background thread", e)
+            }
+        }, 0L, 500L, TimeUnit.MILLISECONDS)
     }
 
+    @Suppress("unused")
     fun getDpsData(): String {
-        return Json.encodeToString(dpsData)
+        return cachedDpsJson
     }
 
+    @Suppress("unused")
     fun isDebuggingMode(): Boolean {
         return debugMode
     }
 
+    @Suppress("unused")
     fun getBattleDetail(uid:Int):String{
         return Json.encodeToString(dpsData.map[uid]?.analyzedData)
     }
 
+    @Suppress("unused")
     fun getDetailsContext(): String {
         return Json.encodeToString(dpsCalculator.getDetailsContext())
     }
 
+    @Suppress("unused")
     fun getTargetDetails(targetId: Int, actorIdsJson: String?): String {
         val actorIds = actorIdsJson
             ?.takeIf { it.isNotBlank() }
@@ -546,6 +710,7 @@ class BrowserApp(
         return Json.encodeToString(dpsCalculator.getTargetDetails(targetId, actorIds))
     }
 
+    @Suppress("unused")
     fun getVersion():String{
         return version
     }

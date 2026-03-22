@@ -33,6 +33,12 @@ class KeyHookEvent(
     private var lastHotkeyKey = 0
 
     @Volatile
+    private var lastToggleMods = 0
+
+    @Volatile
+    private var lastToggleKey = 0
+
+    @Volatile
     private var isAion2ForegroundCached = false
 
     @Volatile
@@ -40,6 +46,12 @@ class KeyHookEvent(
 
     @Volatile
     private var registeredHotkeyKey = 0
+
+    @Volatile
+    private var registeredToggleMods = 0
+
+    @Volatile
+    private var registeredToggleKey = 0
 
     @Volatile
     private var hotkeyThread: Thread? = null
@@ -58,7 +70,21 @@ class KeyHookEvent(
                 PropertyHandler.setProperty(HOTKEY_MODS_KEY, lastHotkeyMods.toString())
                 PropertyHandler.setProperty(HOTKEY_KEY_KEY, lastHotkeyKey.toString())
             }
-            updateHotkeyRegistration(true)
+
+            val storedToggleMods = PropertyHandler.getProperty(TOGGLE_MODS_KEY)?.toIntOrNull()
+            val storedToggleKey = PropertyHandler.getProperty(TOGGLE_KEY_KEY)?.toIntOrNull()
+            val normalizedToggle = normalizeHotkey(
+                storedToggleMods ?: DEFAULT_TOGGLE_MODS,
+                storedToggleKey ?: DEFAULT_TOGGLE_KEY_CODE
+            )
+            lastToggleMods = normalizedToggle.first
+            lastToggleKey = normalizedToggle.second
+            if (storedToggleMods != lastToggleMods || storedToggleKey != lastToggleKey) {
+                PropertyHandler.setProperty(TOGGLE_MODS_KEY, lastToggleMods.toString())
+                PropertyHandler.setProperty(TOGGLE_KEY_KEY, lastToggleKey.toString())
+            }
+
+            updateHotkeyRegistration()
         }.onFailure { error ->
             logger.warn("Failed to initialize hotkey registration", error)
         }
@@ -70,12 +96,27 @@ class KeyHookEvent(
         lastHotkeyKey = normalized.second
         PropertyHandler.setProperty(HOTKEY_MODS_KEY, lastHotkeyMods.toString())
         PropertyHandler.setProperty(HOTKEY_KEY_KEY, lastHotkeyKey.toString())
-        updateHotkeyRegistration(true)
+        updateHotkeyRegistration()
+    }
+
+    fun setToggleWindowHotkey(modifiers: Int, keyCode: Int) {
+        val normalized = normalizeHotkey(modifiers, keyCode)
+        lastToggleMods = normalized.first
+        lastToggleKey = normalized.second
+        PropertyHandler.setProperty(TOGGLE_MODS_KEY, lastToggleMods.toString())
+        PropertyHandler.setProperty(TOGGLE_KEY_KEY, lastToggleKey.toString())
+        updateHotkeyRegistration()
     }
 
     fun getCurrentHotKey(): String {
-        val mods = registeredHotkeyMods
-        val key = registeredHotkeyKey
+        return formatHotkey(registeredHotkeyMods, registeredHotkeyKey)
+    }
+
+    fun getCurrentToggleWindowHotKey(): String {
+        return formatHotkey(registeredToggleMods, registeredToggleKey)
+    }
+
+    private fun formatHotkey(mods: Int, key: Int): String {
         if (mods == 0 || key == 0) {
             return ""
         }
@@ -95,6 +136,8 @@ class KeyHookEvent(
     private fun startHotkeyThread(modifiers: Int, keyCode: Int) {
         stopHotkeyThread()
         hotkeyRunning = true
+        val toggleMods = lastToggleMods
+        val toggleKey = lastToggleKey
         hotkeyThread = Thread {
             val registeredMods = modifiers or WinUser.MOD_NOREPEAT
             val resetRegistered = User32.INSTANCE.RegisterHotKey(null, resetHotkeyId, registeredMods, keyCode)
@@ -105,18 +148,18 @@ class KeyHookEvent(
                 logger.info("Register reset hotkey registered mods={} vk={}", registeredMods, keyCode)
             }
 
-            val toggleMods = (TOGGLE_WINDOW_MODS or WinUser.MOD_NOREPEAT)
+            val toggleModsWithNoRepeat = (toggleMods or WinUser.MOD_NOREPEAT)
             val toggleRegistered = User32.INSTANCE.RegisterHotKey(
                 null,
                 toggleWindowHotkeyId,
-                toggleMods,
-                TOGGLE_WINDOW_KEY_CODE
+                toggleModsWithNoRepeat,
+                toggleKey
             )
             if (!toggleRegistered) {
                 val err = Kernel32.INSTANCE.GetLastError()
-                logger.warn("Register toggle hotkey failed mods={} vk={} err={}", toggleMods, TOGGLE_WINDOW_KEY_CODE, err)
+                logger.warn("Register toggle hotkey failed mods={} vk={} err={}", toggleModsWithNoRepeat, toggleKey, err)
             } else {
-                logger.info("Register toggle hotkey registered mods={} vk={}", toggleMods, TOGGLE_WINDOW_KEY_CODE)
+                logger.info("Register toggle hotkey registered mods={} vk={}", toggleModsWithNoRepeat, toggleKey)
             }
 
             val msg = WinUser.MSG()
@@ -216,26 +259,26 @@ class KeyHookEvent(
         hotkeyThread = null
         registeredHotkeyMods = 0
         registeredHotkeyKey = 0
+        registeredToggleMods = 0
+        registeredToggleKey = 0
     }
 
     @Synchronized
-    private fun updateHotkeyRegistration(shouldRegister: Boolean) {
+    private fun updateHotkeyRegistration() {
         if (!System.getProperty("os.name").lowercase().contains("windows")) {
             logger.info("Global hotkeys are only supported on Windows.")
             stopHotkeyThread()
             return
         }
-        if (!shouldRegister) {
-            stopHotkeyThread()
-            return
-        }
-        if (lastHotkeyMods == 0 && lastHotkeyKey == 0) {
+        if (lastHotkeyMods == 0 && lastHotkeyKey == 0 && lastToggleMods == 0 && lastToggleKey == 0) {
             stopHotkeyThread()
             return
         }
         if (hotkeyRunning &&
             lastHotkeyMods == registeredHotkeyMods &&
-            lastHotkeyKey == registeredHotkeyKey
+            lastHotkeyKey == registeredHotkeyKey &&
+            lastToggleMods == registeredToggleMods &&
+            lastToggleKey == registeredToggleKey
         ) {
             return
         }
@@ -243,6 +286,8 @@ class KeyHookEvent(
         startHotkeyThread(lastHotkeyMods, lastHotkeyKey)
         registeredHotkeyMods = lastHotkeyMods
         registeredHotkeyKey = lastHotkeyKey
+        registeredToggleMods = lastToggleMods
+        registeredToggleKey = lastToggleKey
     }
 
     private fun dispatchResetHotKey() {
@@ -275,8 +320,8 @@ class KeyHookEvent(
     private fun matchesToggleWindowHotkey(lParam: Long): Boolean {
         val messageMods = (lParam and 0xFFFF).toInt() and HOTKEY_MODIFIER_MASK
         val messageKey = ((lParam ushr 16) and 0xFFFF).toInt()
-        val expectedMods = TOGGLE_WINDOW_MODS and HOTKEY_MODIFIER_MASK
-        return messageMods == expectedMods && messageKey == TOGGLE_WINDOW_KEY_CODE
+        val expectedMods = registeredToggleMods and HOTKEY_MODIFIER_MASK
+        return messageMods == expectedMods && messageKey == registeredToggleKey
     }
 
     private fun isModifierVirtualKey(vk: Int): Boolean {
@@ -298,10 +343,12 @@ class KeyHookEvent(
     companion object {
         private const val HOTKEY_MODS_KEY = "dpsMeter.hotkey.modifiers"
         private const val HOTKEY_KEY_KEY = "dpsMeter.hotkey.keyCode"
+        private const val TOGGLE_MODS_KEY = "dpsMeter.hotkey.toggle.modifiers"
+        private const val TOGGLE_KEY_KEY = "dpsMeter.hotkey.toggle.keyCode"
         private const val DEFAULT_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
         private const val DEFAULT_KEY_CODE = 82 // R
-        private const val TOGGLE_WINDOW_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
-        private const val TOGGLE_WINDOW_KEY_CODE = 0x26 // VK_UP (Up Arrow)
+        private const val DEFAULT_TOGGLE_MODS = WinUser.MOD_CONTROL or WinUser.MOD_ALT
+        private const val DEFAULT_TOGGLE_KEY_CODE = 0x26 // VK_UP (Up Arrow)
         private const val HOTKEY_MODIFIER_MASK = WinUser.MOD_ALT or WinUser.MOD_CONTROL or WinUser.MOD_SHIFT or WinUser.MOD_WIN
     }
 }

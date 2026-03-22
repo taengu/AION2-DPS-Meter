@@ -19,6 +19,9 @@
     "fontSize": {
       "label": "字體大小"
     },
+    "iconSize": {
+      "label": "技能圖示大小"
+    },
     "screenshots": {
       "label": "螢幕截圖",
       "includeMeter": "包含主 DPS 計量器",
@@ -39,16 +42,33 @@
     },
     "skills": {
       "skill": "技能",
-      "hits": "命中",
+      "skillTooltip": "技能名稱",
+      "hits": "施放",
+      "hitsTooltip": "施放次數",
+      "dmg": "傷害",
+      "dmgTooltip": "傷害量",
+      "dmgPct": "傷%",
+      "dmgPctTooltip": "傷害 %",
       "crit": "暴擊",
+      "critTooltip": "暴擊 %",
       "parry": "格擋",
+      "parryTooltip": "格擋 %",
       "perfect": "完美",
+      "perfectTooltip": "完美 %",
       "double": "雙重",
+      "doubleTooltip": "雙重 %",
       "back": "背擊",
-      "multiHit": "多段打擊",
-      "multiHitDamage": "額外傷害",
-      "totalDamage": "總傷害",
-      "heal": "治療"
+      "backTooltip": "背擊 %",
+      "multiHit": "MH%",
+      "multiHitTooltip": "多段打擊 %",
+      "multiHitDamage": "MHD",
+      "multiHitDamageTooltip": "額外傷害",
+      "minDmg": "最小",
+      "minDmgTooltip": "最小傷害",
+      "avgDmg": "平均",
+      "avgDmgTooltip": "平均傷害",
+      "maxDmg": "最大",
+      "maxDmgTooltip": "最大傷害"
     },
     "stats": {
       "totalDamage": "總傷害",
@@ -60,11 +80,33 @@
       "parryRate": "格擋率",
       "combatTime": "戰鬥時間",
       "multiHitDamage": "額外傷害",
-      "multiHitHits": "多段打擊"
+      "multiHitHits": "多段打擊",
+      "maxHp": "最大HP"
     },
     "titleFor": "針對",
     "titleVs": "vs",
-    "all": "全部"
+    "fightVs": "戰鬥 vs",
+    "all": "全部",
+    "history": {
+      "allPlayers": "全體玩家"
+    },
+    "dpsChart": "DPS 圖表",
+    "historyBtn": "歷史",
+    "timeline": "時間軸"
+  },
+  "history": {
+    "title": "戰鬥歷史",
+    "empty": "尚無BOSS戰鬥記錄。",
+    "delete": "刪除",
+    "showTraining": "顯示訓練",
+    "hideTraining": "隱藏訓練",
+    "showTrainingBattles": "顯示訓練戰鬥",
+    "hideTrainingBattles": "隱藏訓練戰鬥",
+    "trainBadge": "訓練",
+    "liveBadge": "進行中",
+    "filterBoss": "Boss名稱...",
+    "filterPlayer": "玩家職業...",
+    "filterDate": "日期 (YYYY-MM-DD)..."
   },
   "settings": {
     "title": "設定",
@@ -73,14 +115,26 @@
     "characterName": "Name#ID",
     "characterNamePlaceholder": "輸入你的角色名稱",
     "pinMeToTop": "將我置頂",
+    "slimMode": "精簡模式",
+    "appearance": "外觀",
+    "connection": "連線",
+    "advanced": "進階",
+    "bossLogs": "啟用每場Boss記錄",
+    "saveRawPackets": "啟用封包日誌",
+    "resetAllSettings": "重置所有設定",
     "bold": {
       "label": "加粗",
       "names": "名稱",
       "dps": "DPS"
     },
+    "showPing": "顯示延遲",
+    "showTotalDps": "顯示總DPS/DMG",
+    "playerLimit": {
+      "label": "最大顯示人數"
+    },
     "debugLogging": "啟用除錯記錄",
     "quit": "結束",
-    "discord": "在 Discord 找到我們",
+    "discord": "Discord",
     "version": "版本",
     "theme": {
       "label": "主題",
@@ -100,8 +154,11 @@
     "language": {
       "label": "語言"
     },
+    "windowOpacity": {
+      "label": "主視窗不透明度"
+    },
     "meterOpacity": {
-      "label": "水錶不透明度"
+      "label": "計量條不透明度"
     },
     "targetWindow": {
       "label": "目標時間範圍",
@@ -133,6 +190,13 @@
       }
     },
     "meterSettings": "計量設定",
+    "keybinds": "快捷鍵",
+    "keybind": {
+      "reload": "重新載入數據",
+      "toggle": "顯示/隱藏視窗",
+      "pressKeys": "請按下按鍵...",
+      "needModifiers": "需要2個以上修飾鍵"
+    },
     "trainingMode": {
       "label": "訓練模式",
       "options": {
@@ -142,7 +206,7 @@
     }
   },
   "support": {
-    "button": "支持我一下 ☕",
+    "button": "支持我一下",
     "title": "在愛發電支持作者",
     "titleWechat": "在微信支持作者",
     "label": {
@@ -190,6 +254,17 @@
   "target": {
     "all": "所有目標",
     "identifying": "正在識別你...",
-    "train": "訓練用稻草人"
+    "train": "訓練用稻草人",
+    "boss": "首領目標"
+  },
+  "classes": {
+    "GLADIATOR": "劍聖",
+    "TEMPLAR": "守護聖",
+    "RANGER": "弓聖",
+    "ASSASSIN": "殺聖",
+    "SORCERER": "魔道聖",
+    "CLERIC": "治癒聖",
+    "ELEMENTALIST": "精靈聖",
+    "CHANTER": "護法聖"
   }
 }

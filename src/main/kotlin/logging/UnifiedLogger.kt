@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 
 object UnifiedLogger {
     const val DEBUG_SETTING_KEY = "dpsMeter.debugLoggingEnabled"
+    private const val DEBUG_ACTOR_KEY = "dpsMeter.debugActorId"
     private const val MAX_MESSAGE_LENGTH = 240
 
     private val lock = Any()
@@ -27,8 +28,10 @@ object UnifiedLogger {
     }
 
     fun loadDebugFromSettings() {
-        setDebugEnabled(false)
-        PropertyHandler.setProperty(DEBUG_SETTING_KEY, false.toString())
+        val enabled = PropertyHandler.getProperty(DEBUG_SETTING_KEY)
+            ?.trim()
+            ?.equals("true", ignoreCase = true) == true
+        setDebugEnabled(enabled)
     }
 
     fun isDebugEnabled(): Boolean = debugEnabled
@@ -40,7 +43,26 @@ object UnifiedLogger {
         appendLine(crashLogFile, line, throwable)
     }
 
+    private fun getDebugActorFilter(): Int? =
+        PropertyHandler.getProperty(DEBUG_ACTOR_KEY)?.trim()?.toIntOrNull()
+
+    /** Non-actor-specific log — suppressed when a debugActorId filter is active. */
     fun debug(logger: Logger, message: String, vararg args: Any?) {
+        if (getDebugActorFilter() != null) return
+        writeDebug("DEBUG", logger.name, message, args)
+    }
+
+    /** Only written when actorId matches the debugActorId filter (or no filter is set). */
+    fun debugForActor(logger: Logger, actorId: Int, message: String, vararg args: Any?) {
+        val filter = getDebugActorFilter()
+        if (filter != null && actorId != filter) return
+        writeDebug("DEBUG", logger.name, message, args)
+    }
+
+    /** Only written when at least one of the given actor IDs matches the filter (or no filter is set). */
+    fun debugForActors(logger: Logger, actor1: Int, actor2: Int, message: String, vararg args: Any?) {
+        val filter = getDebugActorFilter()
+        if (filter != null && actor1 != filter && actor2 != filter) return
         writeDebug("DEBUG", logger.name, message, args)
     }
 

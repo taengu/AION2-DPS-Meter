@@ -6,6 +6,7 @@ const createI18n = ({
   let currentLanguage = defaultLanguage;
   let uiStrings = {};
   let skillStrings = {};
+  let npcStrings = {};
   const listeners = new Set();
 
   const safeGetStorage = (key) => {
@@ -145,11 +146,27 @@ const createI18n = ({
     return fallback;
   };
 
+  const getNpcName = (id, fallback = "") => {
+    const value = npcStrings?.[String(id)];
+    if (typeof value === "string" && value.trim()) return value;
+    if (value && typeof value === "object") {
+      const name = value?.name;
+      if (typeof name === "string" && name.trim()) return name;
+    }
+    return fallback;
+  };
+
   const applyTranslations = () => {
     document.querySelectorAll("[data-i18n]").forEach((el) => {
       const key = el.dataset.i18n;
       const text = t(key, el.textContent ?? "");
       if (text) el.textContent = text;
+    });
+
+    document.querySelectorAll("[data-i18n-tip]").forEach((el) => {
+      const key = el.dataset.i18nTip;
+      const text = t(key, el.getAttribute("data-tip") ?? "");
+      if (text) el.setAttribute("data-tip", text);
     });
 
     document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
@@ -173,13 +190,15 @@ const createI18n = ({
       safeSetStorage(storageKey, next);
     }
 
-    const [ui, skills] = await Promise.all([
+    const [ui, skills, npcs] = await Promise.all([
       loadJson(`./i18n/ui/${next}.json`),
       loadJson(`./i18n/skills/${next}.json`),
+      loadJson(`./i18n/npcs/${next}.json`),
     ]);
 
     uiStrings = ui || {};
     skillStrings = skills || {};
+    npcStrings = npcs || {};
     document.documentElement.setAttribute("lang", currentLanguage);
     applyTranslations();
     listeners.forEach((listener) => listener(currentLanguage));
@@ -201,6 +220,7 @@ const createI18n = ({
     t,
     format,
     getSkillName,
+    getNpcName,
     getLanguage: () => currentLanguage,
     onChange,
   };

@@ -44,3 +44,5 @@ bin/
 ### Mac OS ###
 .DS_Store
 /.idea/
+# Local runtime config
+settings.properties

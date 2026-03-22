@@ -7,7 +7,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
     id("org.graalvm.buildtools.native") version "0.10.3"
-    // REMOVED the failing JavaFX plugin - we handle it via jvmArgs/dependencies
 }
 
 java {
@@ -17,7 +16,7 @@ java {
 }
 
 group = "com.tbread"
-version = "0.1.6"
+version = "1.0.0"
 
 val appVersion = version.toString()
 
@@ -52,7 +51,6 @@ dependencies {
     implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
-    // Explicit JavaFX dependencies for Windows
     val javafxVersion = "25"
     implementation("org.openjfx:javafx-base:$javafxVersion:win")
     implementation("org.openjfx:javafx-graphics:$javafxVersion:win")
@@ -64,6 +62,9 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:1.7.26")
     implementation("net.java.dev.jna:jna:5.16.0")
     implementation("net.java.dev.jna:jna-platform:5.16.0")
+    implementation("at.yawk.lz4:lz4-java:1.10.4")
+
+    testImplementation(kotlin("test"))
 }
 
 graalvmNative {
@@ -90,47 +91,37 @@ graalvmNative {
             buildArgs.add("-Dprism.fontdir=C:\\Windows\\Fonts")
             buildArgs.add("--no-fallback")
             buildArgs.add("--enable-native-access=ALL-UNNAMED,javafx.base,javafx.graphics,javafx.controls,javafx.web,javafx.media")
-            // Critical for UI and async behavior
+
+            // GraalVM Native Image Memory Limits
+            buildArgs.add("-R:MaxHeapSize=256m")
+
+            // ----- Build Time Initializations -----
             buildArgs.add("--initialize-at-build-time=javafx,com.sun.javafx,com.sun.javafx.tk.quantum.PrimaryTimer,com.sun.scenario.animation.SplineInterpolator,com.sun.scenario.animation.StepInterpolator,kotlinx.coroutines,kotlinx.coroutines.internal.ThreadContextKt\$countAll\$1,kotlinx.coroutines.internal.ThreadContextKt\$updateState\$1,kotlinx.coroutines.scheduling.DefaultScheduler,kotlin.coroutines.ContinuationInterceptor\$Key")
             buildArgs.add("--initialize-at-build-time=com.sun.scenario.effect.Offset")
-            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.AbstractPrimaryTimer\$MainLoop")
-            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.SingleLoopClipEnvelope")
-            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.GeneralClipInterpolator")
-            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation.shared.TimelineClipCore")
-            buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Control")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.PopupControl")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Labeled\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Slider\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextField\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.TextInputControl\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.ScrollBar\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.Separator\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressIndicatorSkin")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.ProgressBarSkin\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.SkinBase\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.control.skin.TextInputControlSkin\$StyleableProperties")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.behavior.TextInputControlBehavior")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.Properties")
-            buildArgs.add("--initialize-at-run-time=javafx.scene.web.WebEngine")
-            buildArgs.add("--initialize-at-run-time=javafx.stage.Screen")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.ControlHelper")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control.LabeledHelper")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.Toolkit")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.QuantumToolkit")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.QuantumRenderer")
-            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk.quantum.PaintCollector")
-            buildArgs.add("--initialize-at-run-time=com.sun.glass.utils.NativeLibLoader")
+            buildArgs.add("--initialize-at-build-time=com.sun.scenario.animation")
 
-            // Ensure JavaFX native libraries (DLLs) are bundled for Prism/Glass on Windows
-            buildArgs.add("-H:IncludeResources=^prism_sw\\\\.dll$")
+            // ----- Run Time Initializations -----
+            buildArgs.add("--initialize-at-run-time=org.pcap4j.core.Pcaps")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.control")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.scene.control")
+            buildArgs.add("--initialize-at-run-time=javafx.scene.web")
+            buildArgs.add("--initialize-at-run-time=com.sun.java.scene.web")
+            buildArgs.add("--initialize-at-run-time=com.sun.webkit")
+            buildArgs.add("--initialize-at-run-time=javafx.stage.Screen")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.tk")
+            buildArgs.add("--initialize-at-run-time=com.sun.glass")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.font")
+            buildArgs.add("--initialize-at-run-time=com.sun.javafx.text")
+
+            // ----- Include Resources -----
+            buildArgs.add("-H:IncludeResources=.*\\.html$|.*\\.js$|.*\\.css$|.*\\.png$|.*\\.ico$|.*\\.json$|^prism_sw\\\\.dll$")
             buildArgs.add(
                 "-H:ReflectionConfigurationFiles=${project.file("src/main/resources/native-image/reflect-config.json")}"
             )
+            buildArgs.add("-H:JNIConfigurationFiles=${project.file("src/main/resources/native-image/jni-config.json")}")
+            buildArgs.add("-H:NativeLinkerOption=/MANIFEST:EMBED")
+            buildArgs.add("-H:NativeLinkerOption=/MANIFESTINPUT:${project.file("src/main/resources/native-image/app.manifest")}")
 
-            // Module support for the native compiler
             buildArgs.addAll(listOf("--class-path", appClassPath))
             buildArgs.addAll(listOf("--module-path", javafxModulePath))
             buildArgs.addAll(
@@ -156,8 +147,6 @@ val javafxNativeLibPatterns = listOf(
     "**/jfxmedia.dll"
 )
 
-
-
 tasks.named("nativeCompile").configure {
     doLast {
         val outputDir = layout.buildDirectory.dir("native/nativeCompile").get().asFile
@@ -173,6 +162,36 @@ tasks.named("nativeCompile").configure {
     }
 }
 
+val embedAdminManifest by tasks.registering(Exec::class) {
+    dependsOn("createDistributable")
+    val exeFile = layout.buildDirectory
+        .dir("compose/binaries/main/app/AION2 DPS Meter")
+        .map { it.asFile.resolve("AION2 DPS Meter.exe") }
+    val manifest = project.file("src/main/resources/native-image/app.manifest")
+    // Locate mt.exe from Windows SDK at configuration time (avoids config cache issues)
+    val sdkBase = File("C:/Program Files (x86)/Windows Kits/10/bin")
+    val mtExePath = sdkBase.listFiles()
+        ?.filter { it.isDirectory }
+        ?.sortedDescending()
+        ?.map { File(it, "x64/mt.exe") }
+        ?.firstOrNull { it.exists() }
+        ?.absolutePath
+        ?: "mt.exe"
+    doFirst {
+        val exe = exeFile.get()
+        if (!exe.exists()) error("Launcher exe not found at: $exe")
+        // jpackage creates the exe as read-only; make it writable so mt.exe can modify it
+        exe.setWritable(true)
+        commandLine(mtExePath, "-nologo",
+            "-manifest", manifest.absolutePath,
+            "-outputresource:${exe.absolutePath};#1")
+    }
+}
+
+tasks.matching { it.name == "packageMsi" }.configureEach {
+    dependsOn(embedAdminManifest)
+}
+
 compose.desktop {
     application {
         mainClass = "com.tbread.Launcher"
@@ -181,20 +200,27 @@ compose.desktop {
             "-XX:+UnlockExperimentalVMOptions",
             "-XX:+UseCompactObjectHeaders",
             "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=jdk.jsobject/netscape.javascript=ALL-UNNAMED",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djavafx.verbose=false",
             "-Dprism.order=sw",
             "-DdpsMeter.memProfileEnabled=true",
             "-DdpsMeter.memProfileInterval=30",
             "-DdpsMeter.memProfileTop=50",
             "-DdpsMeter.memProfileOutput=build/memory-profile",
-            // We removed the --add-modules here.
-            // JavaFX will load from the classpath as 'unnamed' modules.
-            "-Dapple.laf.useScreenMenuBar=true"
+            "-Dapple.laf.useScreenMenuBar=true",
+
+            // JVM Memory Shrinking Flags for UI Runtime / MSI Package
+            "-Xmx256m",
+            "-XX:+UseG1GC",
+            "-XX:MaxHeapFreeRatio=30",
+            "-XX:MinHeapFreeRatio=10",
+            "-XX:+ShrinkHeapInSteps"
         )
 
         nativeDistributions {
             windows {
                 includeAllModules = true
-                // Note: If you don't have an icon yet, comment out the line below
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 shortcut = true
                 menuGroup = "AION2 DPS Meter"
@@ -203,7 +229,7 @@ compose.desktop {
             }
             targetFormats(TargetFormat.Msi)
             packageName = "AION2 DPS Meter"
-            packageVersion = appVersion
+            packageVersion = computePackageVersion(appVersion)
         }
     }
 }
