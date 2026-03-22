@@ -258,13 +258,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         val trimmedNickname = nicknameBuilder.toString()
         if (trimmedNickname.isEmpty()) return null
-        if (trimmedNickname.length < 3 && !hasCjk) return null
         if (onlyNumbers) return null
-        if (trimmedNickname.length == 1 &&
-            (trimmedNickname[0] in 'A'..'Z' || trimmedNickname[0] in 'a'..'z')
-        ) {
-            return null
-        }
+        // Allow 2-char names that mix letters and digits (e.g. "B1", "1B")
+        val hasLetter = trimmedNickname.any { it.isLetter() }
+        val hasDigit = trimmedNickname.any { it.isDigit() }
+        val isShortAlphanumeric = trimmedNickname.length == 2 && hasLetter && hasDigit
+        if (trimmedNickname.length < 3 && !hasCjk && !isShortAlphanumeric) return null
         return trimmedNickname
     }
 
