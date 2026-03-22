@@ -20,26 +20,41 @@
 > **重要声明**
 > 如果游戏运营商提出要求、引入数据包加密或其他反制措施，或官方发表禁止使用的声明，本项目将**暂停或转为私有**。
 
+> **警惕仿冒和盗版！**
+> 市面上有其他 DPS 统计器在重新打包本项目的代码 — 有些收费出售，有些甚至不公开源代码。本工具现在和将来都是**免费且开源的**。唯一的官方来源是本 GitHub 仓库。如果有人向你出售 AION 2 DPS 统计器，你可能正在被骗。
+
 ---
 
 ## 安装方法
 
-1. 安装 **Npcap**：
-   https://npcap.com/#download
-   - **必须**勾选 **"Install Npcap in WinPcap API-compatible Mode"**（以 WinPcap API 兼容模式安装 Npcap）
+### 第一步 — 安装 Npcap（必需）
 
-2. 下载最新版本并安装：
-   👉 https://github.com/taengu/Aion2-Dps-Meter/releases
+从 https://npcap.com/#download 下载并安装 **Npcap**。
 
-3. 通过桌面快捷方式或开始菜单运行 **AION2 DPS Meter**
+> ⚠️ 安装过程中，**必须**勾选 **"Install Npcap in WinPcap API-compatible Mode"**。
+> 不启用此选项，统计器将无法工作。
 
-4. 首次打开应用时，**允许 Windows 防火墙**提示。
-   - 建议展开菜单并勾选"专用"和"公用"网络。
-   - 这有助于确保不会遗漏数据
+### 第二步 — 下载并安装统计器
 
-5. 如果统计器在之前正常工作后停止运作：
-   - 点击刷新图标
-   - 如果仍然无效，请退出并重新打开应用。
+👉 从 [Releases 页面](https://github.com/taengu/Aion2-Dps-Meter/releases) 获取最新安装包。
+
+运行安装程序并按提示操作。
+
+### 第三步 — 启动
+
+通过桌面快捷方式或开始菜单打开 **AION2 DPS Meter**。
+
+### 第四步 — 允许 Windows 防火墙
+
+首次启动时，Windows 会请求网络访问权限。
+点击**允许** — 展开提示并同时勾选**专用**和**公用**网络，以确保不会遗漏数据。
+
+### 故障排除
+
+如果统计器停止显示数据：
+1. 点击统计器窗口中的**刷新**图标。
+2. 如果没有效果，请关闭统计器并重新打开。
+3. 仍然无法使用？退出游戏到角色选择界面，重新启动统计器，然后重新进入游戏。
 
 ---
 
@@ -91,32 +106,6 @@ cd Aion2-Dps-Meter
 
 ---
 
-
-## 内存分析（RAM 调试）
-
-在使用 JVM 构建运行时捕获周期性内存使用快照和类直方图：
-
-```bash
-./gradlew clean run
-```
-
-`run` 现在会自动启用分析器，使用默认的开发设置（30秒间隔，前50个类），并将日志写入 `build/memory-profile/`。
-
-选项：
-- `--mem-profile` 使用默认值启用分析（60秒间隔，前30个类）。
-- `--mem-profile-interval=<seconds>` 更改快照频率（最小5秒）。
-- `--mem-profile-top=<count>` 控制每个直方图中显示多少个类。
-- `--mem-profile-output=<dir>` 更改日志输出目录（默认：`memory-profile/`）。
-
-对于 Gradle `run`，默认值通过 JVM 属性配置：
-- `-DdpsMeter.memProfileEnabled=true`
-- `-DdpsMeter.memProfileInterval=30`
-- `-DdpsMeter.memProfileTop=50`
-- `-DdpsMeter.memProfileOutput=build/memory-profile`
-
-您可以通过命令行参数或自定义 JVM 属性覆盖这些设置。
-每次运行会写入一个带时间戳的日志文件（默认：`memory-profile/`；Gradle `run`：`build/memory-profile/`），以便您识别随时间推移消耗 RAM 的内容。
-
 ## 常见问题
 
 **问：与原版统计器有什么区别？**
@@ -138,12 +127,6 @@ cd Aion2-Dps-Meter
 
 **问：独自一人时贡献率不是100%。**
 - 可能是名称捕获失败
-
-**问：是否支持聊天或命令功能？**
-- 目前不支持
-
-**问：命中次数高于技能释放次数。**
-- 多段攻击技能会分别计算每次命中
 
 **问：某些技能显示为数字。**
 - 这些通常是神石（Theostones）
