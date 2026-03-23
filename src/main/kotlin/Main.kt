@@ -132,6 +132,7 @@ fun main(args: Array<String>) {
 
     // 1. Check Admin
     ensureAdminOnWindows()
+    ensureRunAsAdminFlag()
 
     // 2. Setup Logging/Errors
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
@@ -179,6 +180,37 @@ private fun ensureAdminOnWindows() {
         WinUser.SW_SHOWNORMAL
     )
     exitProcess(0)
+}
+
+/**
+ * Sets the AppCompatFlags\Layers registry entry so the exe always triggers UAC elevation,
+ * even if the embedded admin manifest is not read by Windows for some reason.
+ */
+private fun ensureRunAsAdminFlag() {
+    val osName = System.getProperty("os.name") ?: return
+    if (!osName.startsWith("Windows", ignoreCase = true)) return
+    if (!isProcessElevated()) return
+
+    val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
+    try {
+        val regKey = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers"
+        val result = ProcessBuilder(
+            "reg", "query", regKey, "/v", exePath
+        ).redirectErrorStream(true).start()
+        val output = result.inputStream.bufferedReader().readText()
+        result.waitFor()
+        if (output.contains("RUNASADMIN")) return
+
+        ProcessBuilder(
+            "reg", "add", regKey,
+            "/v", exePath,
+            "/t", "REG_SZ",
+            "/d", "~ RUNASADMIN",
+            "/f"
+        ).redirectErrorStream(true).start().waitFor()
+    } catch (_: Exception) {
+        // Best-effort; don't block startup if registry write fails
+    }
 }
 
 private fun isProcessElevated(): Boolean {
