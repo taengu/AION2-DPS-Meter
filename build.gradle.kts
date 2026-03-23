@@ -16,7 +16,7 @@ java {
 }
 
 group = "com.tbread"
-version = "1.0.1"
+version = "1.0.2"
 
 val appVersion = version.toString()
 
