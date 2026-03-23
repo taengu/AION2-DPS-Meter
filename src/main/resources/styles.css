@@ -1881,9 +1881,13 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       margin: 24px 0;
       white-space: pre-line;
     }
+    .updateModalActions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
     .updateModalBtn {
       border: none;
-      background: var(--error-fill);
       font-size: 18px;
       font-weight: bold;
       border-radius: 8px;
@@ -1892,6 +1896,12 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       cursor: pointer;
       color: white;
       text-shadow: var(--text-shadow);
+    }
+    .updateModalBtn.updateNowBtn {
+      background: #4caf50;
+    }
+    .updateModalBtn.updateLaterBtn {
+      background: #ff9800;
     }
   }
 }
@@ -3414,9 +3424,13 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   margin: 24px 0;
   white-space: pre-line;
 }
+.updateModal .updateModalCard .updateModalActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .updateModal .updateModalCard .updateModalBtn {
   border: none;
-  background: var(--error-fill);
   font-size: 18px;
   font-weight: bold;
   border-radius: 8px;
@@ -3425,6 +3439,12 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   cursor: pointer;
   color: white;
   text-shadow: var(--text-shadow);
+}
+.updateModal .updateModalCard .updateModalBtn.updateNowBtn {
+  background: #4caf50;
+}
+.updateModal .updateModalCard .updateModalBtn.updateLaterBtn {
+  background: #ff9800;
 }
 
 .supportModal {

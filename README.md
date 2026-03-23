@@ -1,3 +1,5 @@
+[English](README.md) | [中文](README_ZH.md) | [한국어](README_KO.md)
+
 # AION2 DPS Meter
 
 A combat analysis (DPS meter) tool for **AION 2**, Taiwan or Korea servers.
@@ -15,29 +17,44 @@ If you'd like to get involved, you can reach us on Discord from the link below!
 
 Lovingly forked from [Aion2-Dps-Meter](https://github.com/TK-open-public/Aion2-Dps-Meter)
  
-> **Important Notice**  
+> **Important Notice**
 > This project will be **paused or made private** if requested by the game operator, if packet encryption or other countermeasures are introduced, or if there is an official statement prohibiting its use.
+
+> **Beware of clones and fakes!**
+> There are other DPS meters circulating that repackage this project's code — some charge money for it, and others don't even release their source code. This tool is and always will be **free and open-source**. The only official source is this GitHub repository. If someone is selling you an AION 2 DPS meter, you might be being scammed.
 
 ---
 
 ## How to Install
 
-1. Install **Npcap**:  
-   https://npcap.com/#download  
-   - You **must** check **“Install Npcap in WinPcap API-compatible Mode”**
+### Step 1 — Install Npcap (required)
 
-2. Download the latest release and install:  
-   👉 https://github.com/taengu/Aion2-Dps-Meter/releases
+Download and install **Npcap** from https://npcap.com/#download
 
-3. Run **AION2 DPS Meter** from the Desktop shortcut or Start Menu
+> ⚠️ During installation, you **must** check **”Install Npcap in WinPcap API-compatible Mode”**.
+> The meter will not work without this option enabled.
 
-4. **Allow Windows Firewall** prompt when you first open the app.
-   - Preferably, expand the menu and tick Private and Public.
-   - This helps ensure data isn't being missed
+### Step 2 — Download & install the meter
 
-5. If the meter stops working after previously functioning:
-   - Click the reload icon
-   - If it still does not work, quit and re-open it.
+👉 Grab the latest installer from the [Releases page](https://github.com/taengu/Aion2-Dps-Meter/releases).
+
+Run the installer and follow the prompts.
+
+### Step 3 — Launch
+
+Open **AION2 DPS Meter** from the Desktop shortcut or Start Menu.
+
+### Step 4 — Allow through Windows Firewall
+
+On first launch, Windows will ask to allow network access.
+Click **Allow** — expand the prompt and tick both **Private** and **Public** networks to ensure no data is missed.
+
+### Troubleshooting
+
+If the meter stops showing data:
+1. Click the **reload** icon in the meter window.
+2. If that doesn't help, close the meter and reopen it.
+3. Still not working? Exit the game to character select, relaunch the meter, then re-enter the game.
 
 ---
 
@@ -85,35 +102,7 @@ cd Aion2-Dps-Meter
 ./gradlew packageDistributionForCurrentOS
 ```
 
-
-
 ---
-
-
-## Memory Profiling (RAM Debugging)
-
-To capture periodic memory usage snapshots and class histograms while running from the JVM build:
-
-```bash
-./gradlew clean run
-```
-
-`run` now enables the profiler automatically with default dev settings (30s interval, top 50 classes) and writes logs to `build/memory-profile/`.
-
-Options:
-- `--mem-profile` enables profiling with defaults (60s interval, top 30 classes).
-- `--mem-profile-interval=<seconds>` changes snapshot frequency (minimum 5 seconds).
-- `--mem-profile-top=<count>` controls how many classes are shown in each histogram.
-- `--mem-profile-output=<dir>` changes where logs are written (default: `memory-profile/`).
-
-For Gradle `run`, defaults are configured via JVM properties:
-- `-DdpsMeter.memProfileEnabled=true`
-- `-DdpsMeter.memProfileInterval=30`
-- `-DdpsMeter.memProfileTop=50`
-- `-DdpsMeter.memProfileOutput=build/memory-profile`
-
-You can override these with CLI flags or your own JVM properties.
-Each run writes a timestamped log file (default: `memory-profile/`; Gradle `run`: `build/memory-profile/`) so you can identify what is consuming RAM over time.
 
 ## FAQ
 
@@ -136,12 +125,6 @@ Each run writes a timestamped log file (default: `memory-profile/`; Gradle `run`
 
 **Q: Contribution is not 100% while solo.**  
 - Name capture may have failed
-
-**Q: Are chat or command features supported?**  
-- Not currently
-
-**Q: Hit count is higher than skill casts.**  
-- Multi-hit skills count each hit separately
 
 **Q: Some skills show as numbers.**  
 - These are usually Theostones  
