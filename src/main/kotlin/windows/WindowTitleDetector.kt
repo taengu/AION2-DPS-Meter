@@ -11,6 +11,11 @@ import com.sun.jna.platform.win32.WinUser
 import com.sun.jna.ptr.IntByReference
 import org.slf4j.LoggerFactory
 
+data class Aion2Window(
+    val title: String,
+    val hwnd: WinDef.HWND
+)
+
 object WindowTitleDetector {
 
     private val logger = LoggerFactory.getLogger(WindowTitleDetector::class.java)
@@ -19,10 +24,15 @@ object WindowTitleDetector {
     @Volatile
     private var lastLogMessage: String? = null
 
-    fun findAion2WindowTitle(): String? {
+    fun findAion2WindowTitle(): String? = findAion2Window()?.title
+
+    /**
+     * Find the AION2 game window, returning its title and HWND.
+     */
+    fun findAion2Window(): Aion2Window? {
         if (!isWindows()) return null
         return try {
-            var result: String? = null
+            var result: Aion2Window? = null
             val callback = WinUser.WNDENUMPROC { hwnd, _ ->
                 if (!User32.INSTANCE.IsWindowVisible(hwnd)) {
                     return@WNDENUMPROC true
@@ -39,14 +49,15 @@ object WindowTitleDetector {
                 User32.INSTANCE.GetWindowText(hwnd, buffer, buffer.size)
                 val title = Native.toString(buffer).trim()
                 if (title.startsWith(AION2_PREFIX)) {
-                    result = title
+                    result = Aion2Window(title, hwnd)
                     return@WNDENUMPROC false
                 }
                 true
             }
             User32.INSTANCE.EnumWindows(callback, Pointer.NULL)
-            val message = if (result != null) {
-                "Detected AION2 window title: $result"
+            val found = result
+            val message = if (found != null) {
+                "Detected AION2 window title: ${found.title}"
             } else {
                 "AION2 window title not found."
             }
@@ -59,6 +70,32 @@ object WindowTitleDetector {
             logger.debug("Failed to detect AION2 window title", e)
             null
         }
+    }
+
+    /**
+     * Check if the given HWND is minimized by inspecting the WS_MINIMIZE style bit.
+     */
+    fun isMinimized(hwnd: WinDef.HWND): Boolean {
+        val style = User32.INSTANCE.GetWindowLong(hwnd, WinUser.GWL_STYLE)
+        return (style and WinUser.WS_MINIMIZE) != 0
+    }
+
+    /**
+     * Check whether the foreground window belongs to the AION2 process.
+     */
+    fun isAion2Foreground(): Boolean {
+        val fgHwnd = User32.INSTANCE.GetForegroundWindow() ?: return false
+        val processName = getProcessName(fgHwnd) ?: return false
+        return processName.equals(AION2_PROCESS, ignoreCase = true)
+    }
+
+    /**
+     * Get the window rectangle for the given HWND.
+     * Returns [left, top, right, bottom] or null on failure.
+     */
+    fun getWindowRect(hwnd: WinDef.HWND): WinDef.RECT? {
+        val rect = WinDef.RECT()
+        return if (User32.INSTANCE.GetWindowRect(hwnd, rect)) rect else null
     }
 
     private fun getProcessName(hwnd: WinDef.HWND): String? {
