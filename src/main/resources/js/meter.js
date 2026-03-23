@@ -178,7 +178,8 @@ const createMeterUI = ({
       return getMetric(row);
     }
     const dps = Number(row?.dps) || 0;
-    return { value: dps, text: `${dpsFormatter.format(dps)}/s` };
+    const suffix = window.i18n?.t?.("meter.dpsSuffix", "/s") ?? "/s";
+    return { value: dps, text: `${dpsFormatter.format(dps)}${suffix}` };
   };
 
   let lastOrderKey = "";

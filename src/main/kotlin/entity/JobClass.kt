@@ -11,6 +11,25 @@ enum class JobClass(val className: String, val classPrefix: Int, val basicSkillC
     CHANTER("호법성", 18, 18010000);
 
     companion object {
+        /**
+         * Loose prefix-only job detection for orphan summon inference.
+         * Matches any 8-digit skill (10M–19M, sub != 0) to a job by its
+         * 2-digit prefix, WITHOUT the Elementalist sub-range whitelist.
+         * This lets spirit skills (e.g. sub-99) match ELEMENTALIST.
+         */
+        fun convertFromSkillLoose(skillCode: Int): JobClass? {
+            if (skillCode in 100510..103500 || skillCode in 109300..109362) {
+                return ELEMENTALIST
+            }
+            if (skillCode in 10_000_000..19_999_999) {
+                val prefix = skillCode / 1_000_000
+                val sub = (skillCode / 10000) % 100
+                if (sub == 0) return null
+                return entries.find { it.classPrefix == prefix }
+            }
+            return entries.find { it.basicSkillCode == skillCode }
+        }
+
         fun convertFromSkill(skillCode: Int): JobClass? {
             // 1. PC Elementalist specific 6-digit skills (Earth Chain, etc.)
             if (skillCode in 100510..103500 || skillCode in 109300..109362) {

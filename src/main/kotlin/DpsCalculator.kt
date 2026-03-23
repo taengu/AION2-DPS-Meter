@@ -154,7 +154,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
     }
 
-    private val targetInfoMap = hashMapOf<Int, TargetInfo>()
+    private val targetInfoMap = ConcurrentHashMap<Int, TargetInfo>()
 
     private var currentTarget: Int = 0
     private var lastDpsSnapshot: DpsData? = null
@@ -359,10 +359,15 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         for ((uid, data) in dpsData.map) {
             if (summonData.containsKey(uid)) continue      // already linked
             if (nicknameData.containsKey(uid)) continue     // is a player
-            if (data.job.isEmpty()) continue                // no class detected
+            // Use loose detection so spirit skills (e.g. sub-99) still match
+            val orphanJob = data.job.takeIf { it.isNotEmpty() }
+                ?: data.analyzedData.keys.firstNotNullOfOrNull { code ->
+                    JobClass.convertFromSkillLoose(code)
+                }?.className
+                ?: continue
             // Find all other actors with the same job that ARE real players (have nickname)
             val sameJobPlayers = dpsData.map.entries.filter { (otherId, otherData) ->
-                otherId != uid && otherData.job == data.job && nicknameData.containsKey(otherId)
+                otherId != uid && otherData.job == orphanJob && nicknameData.containsKey(otherId)
             }
             if (sameJobPlayers.size == 1) {
                 orphanSummons.add(uid to sameJobPlayers.first().key)
@@ -506,13 +511,24 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
             // Orphan summon inference: unlinked actors with a detected job
             // that match exactly one real player of the same class get merged.
+            // Use loose detection so spirit skills (e.g. sub-99) still match.
             val orphanSummons = mutableListOf<Pair<Int, Int>>()
             for ((uid, meta) in actorMeta) {
                 if (summonData.containsKey(uid)) continue
                 if (nicknameData.containsKey(uid)) continue
-                if (meta.job.isEmpty()) continue
+                val orphanJob = meta.job.takeIf { it.isNotEmpty() }
+                    ?: run {
+                        // Try loose detection from PDPs for this actor
+                        pdps.filter { (nicknameToCanonicalId[resolveNickname(
+                            resolveSummonerUid(it.getActorId(), summonData), nicknameData)] ?: resolveSummonerUid(it.getActorId(), summonData)) == uid }
+                            .firstNotNullOfOrNull { pdp ->
+                                val code = inferOriginalSkillCode(pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(), pdp.getDamage(), pdp.getHexPayload()) ?: return@firstNotNullOfOrNull null
+                                JobClass.convertFromSkillLoose(code)?.className
+                            }
+                    }
+                    ?: continue
                 val sameJobPlayers = actorMeta.entries.filter { (otherId, otherMeta) ->
-                    otherId != uid && otherMeta.job == meta.job && nicknameData.containsKey(otherId)
+                    otherId != uid && otherMeta.job == orphanJob && nicknameData.containsKey(otherId)
                 }
                 if (sameJobPlayers.size == 1) {
                     orphanSummons.add(uid to sameJobPlayers.first().key)
@@ -586,6 +602,42 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     }
                 }
             }
+            // Orphan summon inference: unlinked actors (no summon link, no nickname)
+            // with a detectable job matching exactly one selected player get merged.
+            val selectedPlayerJobs = mutableMapOf<Int, String>()
+            expanded.forEach { uid ->
+                if (!nicknameData.containsKey(uid)) return@forEach
+                pdps.filter { resolveSummonerUid(it.getActorId(), summonData) == uid }
+                    .forEach { pdp ->
+                        if (selectedPlayerJobs.containsKey(uid)) return@forEach
+                        val code = inferOriginalSkillCode(
+                            pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
+                            pdp.getDamage(), pdp.getHexPayload()
+                        ) ?: return@forEach
+                        val job = JobClass.convertFromSkill(code)
+                        if (job != null) selectedPlayerJobs[uid] = job.className
+                    }
+            }
+            // Find unlinked actors and check if they match a selected player's job
+            val orphanActors = mutableSetOf<Int>()
+            pdps.forEach { pdp ->
+                val uid = resolveSummonerUid(pdp.getActorId(), summonData)
+                if (uid <= 0 || expanded.contains(uid)) return@forEach
+                if (summonData.containsKey(uid)) return@forEach
+                if (nicknameData.containsKey(uid)) return@forEach
+                if (orphanActors.contains(uid)) return@forEach
+                val code = inferOriginalSkillCode(
+                    pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
+                    pdp.getDamage(), pdp.getHexPayload()
+                ) ?: return@forEach
+                val job = JobClass.convertFromSkillLoose(code) ?: return@forEach
+                val matchingPlayers = selectedPlayerJobs.entries
+                    .filter { it.value == job.className }
+                if (matchingPlayers.size == 1) {
+                    orphanActors.add(uid)
+                }
+            }
+            expanded.addAll(orphanActors)
             expanded
         } else null
 
@@ -594,10 +646,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             if (rawUid <= 0) return@forEach
             val uid = nicknameToCanonicalId[resolveNickname(rawUid, nicknameData)] ?: rawUid
             val damage = pdp.getDamage() + pdp.getMultiHitDamage()
-            totalTargetDamage += damage
             if (expandedActorIds != null && !expandedActorIds.contains(rawUid)) {
                 return@forEach
             }
+            totalTargetDamage += damage
             val timestamp = pdp.getTimeStamp()
             val currentStart = startTime
             if (currentStart == null || timestamp < currentStart) {

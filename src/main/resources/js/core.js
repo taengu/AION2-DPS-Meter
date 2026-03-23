@@ -637,7 +637,7 @@ class DpsApp {
     let top = 0;
     let left = 372;
     const dps = Number(row?.dps) || 0;
-    const dpsText = `${this.dpsFormatter.format(dps)}/s`;
+    const dpsText = `${this.dpsFormatter.format(dps)}${this.i18n?.t("meter.dpsSuffix", "/s") ?? "/s"}`;
     const totalDamage = Number(row?.totalDamage) || 0;
     const totalDamageText = this.dpsFormatter.format(totalDamage);
 
@@ -3028,7 +3028,7 @@ class DpsApp {
     const dps = Number(row?.dps) || 0;
     return {
       value: dps,
-      text: `${this.dpsFormatter.format(dps)}/s`,
+      text: `${this.dpsFormatter.format(dps)}${this.i18n?.t("meter.dpsSuffix", "/s") ?? "/s"}`,
     };
   }
 
@@ -3042,7 +3042,7 @@ class DpsApp {
     const totalDps = rows.reduce((sum, r) => sum + (Number(r?.dps) || 0), 0);
     this.meterTotalBar.style.display = "";
     if (this.meterTotalDpsEl) {
-      this.meterTotalDpsEl.textContent = `${this.dpsFormatter.format(totalDps)}/s`;
+      this.meterTotalDpsEl.textContent = `${this.dpsFormatter.format(totalDps)}${this.i18n?.t("meter.dpsSuffix", "/s") ?? "/s"}`;
     }
     if (this.meterTotalDmgEl) {
       this.meterTotalDmgEl.textContent = this.formatAbbreviatedNumber(totalDmg);
