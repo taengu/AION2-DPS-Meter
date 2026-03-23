@@ -561,6 +561,7 @@ const createDetailsUI = ({
     maxDmgEl.className = "cell center maxdmg";
 
     rowEl.appendChild(nameEl);
+    rowEl.appendChild(hitEl);
     rowEl.appendChild(dmgEl);
     rowEl.appendChild(dmgPctEl);
     rowEl.appendChild(multiHitEl);
@@ -570,7 +571,6 @@ const createDetailsUI = ({
     rowEl.appendChild(perfectEl);
     rowEl.appendChild(doubleEl);
     rowEl.appendChild(backEl);
-    rowEl.appendChild(hitEl);
     rowEl.appendChild(minDmgEl);
     rowEl.appendChild(avgDmgEl);
     rowEl.appendChild(maxDmgEl);
@@ -690,7 +690,7 @@ const createDetailsUI = ({
     avgdmg: "minmax(28px, 0.8fr)",
     maxdmg: "minmax(28px, 0.8fr)",
   };
-  const GRID_COL_ORDER = ["name", "dmg", "dmgpct", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "hit", "mindmg", "avgdmg", "maxdmg"];
+  const GRID_COL_ORDER = ["name", "hit", "dmg", "dmgpct", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "mindmg", "avgdmg", "maxdmg"];
 
   let lastMeasuredNameWidth = 0;
   const updateGridColumns = () => {

@@ -1897,11 +1897,45 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       color: white;
       text-shadow: var(--text-shadow);
     }
-    .updateModalBtn.updateNowBtn {
+    .updateModalBtn.updateInstallBtn {
       background: #4caf50;
+    }
+    .updateModalBtn.updateNotesBtn {
+      background: #2196f3;
+    }
+    .updateModalBtn.updateManualBtn {
+      background: #78909c;
     }
     .updateModalBtn.updateLaterBtn {
       background: #ff9800;
+    }
+    .updateProgress {
+      margin-top: 16px;
+      text-align: center;
+    }
+    .updateProgressTrack {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .updateProgressBar {
+      height: 100%;
+      width: 0%;
+      background: #4caf50;
+      border-radius: 4px;
+      transition: width 0.2s;
+    }
+    .updateProgressText {
+      margin-top: 8px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+    }
+    .updateStatusText {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 14px;
     }
   }
 }
@@ -3092,6 +3126,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .detailsPanel .detailsSkills .cell.dmgpct {
   justify-content: center;
 }
+.detailsPanel .detailsSkills .skills .skillRow .cell.hit,
 .detailsPanel .detailsSkills .skills .skillRow .cell.dmg,
 .detailsPanel .detailsSkills .skills .skillRow .cell.dmgpct {
   font-weight: 700;
@@ -3440,11 +3475,45 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   color: white;
   text-shadow: var(--text-shadow);
 }
-.updateModal .updateModalCard .updateModalBtn.updateNowBtn {
+.updateModal .updateModalCard .updateModalBtn.updateInstallBtn {
   background: #4caf50;
+}
+.updateModal .updateModalCard .updateModalBtn.updateNotesBtn {
+  background: #2196f3;
+}
+.updateModal .updateModalCard .updateModalBtn.updateManualBtn {
+  background: #78909c;
 }
 .updateModal .updateModalCard .updateModalBtn.updateLaterBtn {
   background: #ff9800;
+}
+.updateModal .updateModalCard .updateProgress {
+  margin-top: 16px;
+  text-align: center;
+}
+.updateModal .updateModalCard .updateProgressTrack {
+  width: 100%;
+  height: 8px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.updateModal .updateModalCard .updateProgressBar {
+  height: 100%;
+  width: 0%;
+  background: #4caf50;
+  border-radius: 4px;
+  transition: width 0.2s;
+}
+.updateModal .updateModalCard .updateProgressText {
+  margin-top: 8px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+}
+.updateModal .updateModalCard .updateStatusText {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
 }
 
 .supportModal {

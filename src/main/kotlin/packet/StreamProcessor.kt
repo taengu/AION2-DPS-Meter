@@ -569,8 +569,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsePerfectPacket(packet: ByteArray): Boolean {
         if (packet.size < 3) return false
 
-        // Try to extract summon link from 05 38 buff/heal packets BEFORE other parsers.
-        tryExtractBuffSummonLink(packet)
         // Try to extract summon link from 2A 38 replication packets.
         // The owner is the first varint, the summon is at fixed offset 27 + actor_varint_length.
         tryExtractReplicationSummonLink(packet)
@@ -616,7 +614,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (offset >= packet.size) return
         val effectType = packet[offset].toInt() and 0xFF
         offset += 1
-        if (effectType != 0x02) return  // Non-damage handled by tryExtractBuffSummonLink
+        if (effectType != 0x02) return  // Non-damage (buff/heal), skip
 
         val actorInfo = readVarInt(packet,offset)
         if (actorInfo.length < 0) return
@@ -859,51 +857,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         return foundAny
-    }
-
-    /**
-     * Extract summon ownership from 05 38 buff/heal packets.
-     * Format: length(varint) 05 38 target(varint) effect_type actor(varint) ...
-     * When effect_type != 0x02 (non-damage), actor is buffing/healing target.
-     * If target is not already a known player or summon, register as actor's summon.
-     */
-    private fun tryExtractBuffSummonLink(packet: ByteArray) {
-        val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return
-        var offset = packetLengthInfo.length
-
-        if (offset + 1 >= packet.size) return
-        if (packet[offset] != 0x05.toByte() || packet[offset + 1] != 0x38.toByte()) return
-        offset += 2
-
-        val targetInfo = readVarInt(packet, offset)
-        if (targetInfo.length <= 0 || targetInfo.value < 100) return
-        offset += targetInfo.length
-
-        if (offset >= packet.size) return
-        val effectType = packet[offset].toInt() and 0xFF
-        offset += 1
-        if (effectType == 0x02) return  // Damage — handled by DoT parser
-
-        if (offset >= packet.size) return
-        val actorInfo = readVarInt(packet, offset)
-        if (actorInfo.length <= 0 || actorInfo.value < 100) return
-        if (actorInfo.value == targetInfo.value) return
-
-        val actorId = actorInfo.value
-        val targetId = targetInfo.value
-
-        // Only buff-link targets already registered as NPCs/summons via 40 36 spawn.
-        // Without this guard, player-to-player buffs/heals (e.g. Chanter healing a
-        // party member) would falsely register the healed player as a summon.
-        if (!dataStorage.getMobData().containsKey(targetId)) return
-        if (dataStorage.getSummonData().containsKey(targetId)) return
-        val hp = dataStorage.getMobHpData()[targetId]
-        if (hp != null && hp > 500_000) return
-
-        logger.debug("Buff-link summon (05 38): Owner {} -> Summon {}, effectType={}", actorId, targetId, effectType)
-        UnifiedLogger.debugForActor(logger, actorId, "Buff-link summon (05 38): Owner {} -> Summon {}", actorId, targetId)
-        dataStorage.appendSummon(actorId, targetId)
     }
 
     /**

@@ -527,6 +527,10 @@ class DpsApp {
     if (!running) return;
     const detectedName = this.parseCharacterNameFromWindowTitle(title);
     if (!detectedName || detectedName === this.USER_NAME) return;
+    const hadPreviousName = !!this.USER_NAME;
+    if (hadPreviousName) {
+      this.resetAll({ callBackend: false });
+    }
     this.setUserName(detectedName, { persist: true, syncBackend: true });
     if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
       this.characterNameInput.value = detectedName;

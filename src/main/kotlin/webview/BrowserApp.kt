@@ -79,6 +79,7 @@ class BrowserApp(
         engine: WebEngine
     ) {
         private val logger = LoggerFactory.getLogger(JSBridge::class.java)
+        private val webEngine = engine
         private val keyHookEvent = KeyHookEvent(engine) { toggleMainWindowVisibility() }
         private var windowHiddenByHotkey = false
 
@@ -363,6 +364,64 @@ class BrowserApp(
         }
 
         @Suppress("unused")
+        fun startUpdate(msiUrl: String) {
+            Thread {
+                try {
+                    val tempDir = System.getProperty("java.io.tmpdir")
+                    val msiFile = File(tempDir, "aion2meter_tw_update.msi")
+
+                    val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
+                    connection.setRequestProperty("Accept", "application/octet-stream")
+                    connection.connect()
+                    val totalBytes = connection.contentLengthLong
+
+                    var downloadedBytes = 0L
+                    connection.inputStream.use { input ->
+                        java.io.FileOutputStream(msiFile).use { output ->
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                output.write(buffer, 0, bytesRead)
+                                downloadedBytes += bytesRead
+                                if (totalBytes > 0) {
+                                    val percent = (downloadedBytes * 100 / totalBytes).toInt()
+                                    Platform.runLater {
+                                        webEngine.executeScript("window.onDownloadProgress && window.onDownloadProgress($percent)")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Platform.runLater { webEngine.executeScript("window.onDownloadComplete && window.onDownloadComplete()") }
+
+                    val currentExe = ProcessHandle.current().info().command().orElse(null)
+                    val relaunchLine = if (currentExe != null)
+                        "Start-Process '${currentExe.replace("'", "''")}'"
+                    else ""
+
+                    val psFile = File(tempDir, "aion2meter_tw_updater.ps1")
+                    psFile.writeText("""
+                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn','/norestart' -Wait
+                        $relaunchLine
+                    """.trimIndent())
+
+                    ProcessBuilder(
+                        "powershell", "-ExecutionPolicy", "Bypass",
+                        "-WindowStyle", "Hidden",
+                        "-File", psFile.absolutePath
+                    ).start()
+
+                    Platform.exit()
+                    exitProcess(0)
+                } catch (e: Exception) {
+                    logger.error("Update failed", e)
+                    Platform.runLater { webEngine.executeScript("window.onDownloadError && window.onDownloadError()") }
+                }
+            }.apply { isDaemon = true }.start()
+        }
+
+        @Suppress("unused")
         fun setHotkey(modifiers: Int, keyCode: Int) {
             logger.info("setHotkey called mods={} vk={}", modifiers, keyCode)
             keyHookEvent.setHotkey(modifiers, keyCode)
@@ -514,7 +573,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.0"
+    private val version = "1.0.1"
 
     @Volatile
     private var cachedWindowTitle: String? = null

@@ -296,6 +296,7 @@
                 <div class="detailsSkills">
                   <div class="skillHeader">
                     <div class="cell name" data-sort-key="name" data-i18n="details.skills.skill" data-tip="Skill Name" data-i18n-tip="details.skills.skillTooltip">Skill</div>
+                    <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits" data-tip="Casts" data-i18n-tip="details.skills.hitsTooltip">Casts</div>
                     <div class="cell center dmg" data-sort-key="dmg" data-i18n="details.skills.dmg" data-tip="Damage" data-i18n-tip="details.skills.dmgTooltip">Dmg</div>
                     <div class="cell center dmgpct" data-sort-key="dmgpct" data-i18n="details.skills.dmgPct" data-tip="Damage %" data-i18n-tip="details.skills.dmgPctTooltip">D%</div>
                     <div class="cell center mhit" data-sort-key="mhit" data-i18n="details.skills.multiHit" data-tip="Multi-hit %" data-i18n-tip="details.skills.multiHitTooltip">MH%</div>
@@ -305,7 +306,6 @@
                     <div class="cell center perfect" data-sort-key="perfect" data-i18n="details.skills.perfect" data-tip="Perfect %" data-i18n-tip="details.skills.perfectTooltip">Per</div>
                     <div class="cell center double" data-sort-key="double" data-i18n="details.skills.double" data-tip="Double %" data-i18n-tip="details.skills.doubleTooltip">Dbl</div>
                     <div class="cell center back" data-sort-key="back" data-i18n="details.skills.back" data-tip="Back Attack %" data-i18n-tip="details.skills.backTooltip">Back</div>
-                    <div class="cell center hit" data-sort-key="hit" data-i18n="details.skills.hits" data-tip="Casts" data-i18n-tip="details.skills.hitsTooltip">Casts</div>
                     <div class="cell center mindmg" data-sort-key="mindmg" data-i18n="details.skills.minDmg" data-tip="Min Damage" data-i18n-tip="details.skills.minDmgTooltip">Min</div>
                     <div class="cell center avgdmg" data-sort-key="avgdmg" data-i18n="details.skills.avgDmg" data-tip="Avg Damage" data-i18n-tip="details.skills.avgDmgTooltip">Avg</div>
                     <div class="cell center maxdmg" data-sort-key="maxdmg" data-i18n="details.skills.maxDmg" data-tip="Max Damage" data-i18n-tip="details.skills.maxDmgTooltip">Max</div>
@@ -700,10 +700,19 @@
         <div
           class="updateModalText"
           id="updateModalText"></div>
-        <div class="updateModalActions">
-          <button class="updateModalBtn primary updateNowBtn" data-i18n="update.ok">OK</button>
+        <div class="updateModalActions" id="updateModalActions">
+          <button class="updateModalBtn updateInstallBtn" data-i18n="update.install">Install Now</button>
+          <button class="updateModalBtn updateNotesBtn" data-i18n="update.notes">Release Notes</button>
+          <button class="updateModalBtn updateManualBtn" data-i18n="update.manual">Manual Install</button>
           <button class="updateModalBtn updateLaterBtn" data-i18n="update.later">Update Later</button>
         </div>
+        <div class="updateProgress" id="updateProgress" style="display:none">
+          <div class="updateProgressTrack">
+            <div class="updateProgressBar" id="updateProgressBar"></div>
+          </div>
+          <div class="updateProgressText" id="updateProgressText">0%</div>
+        </div>
+        <div class="updateStatusText" id="updateStatusText" style="display:none"></div>
       </div>
     </div>
     <div class="supportModal" id="supportModal" aria-hidden="true">

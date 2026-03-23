@@ -1,6 +1,6 @@
 (() => {
-  const API = "https://api.github.com/repos/taengu/Aion2-Dps-Meter/releases?per_page=10";
-  const URL = "https://github.com/taengu/Aion2-Dps-Meter/releases";
+  const API = "https://api.github.com/repos/taengu/AION2-DPS-Meter/releases?per_page=10";
+  const RELEASES_URL = "https://github.com/taengu/AION2-DPS-Meter/releases";
   const START_DELAY = 800,
     RETRY = 500,
     LIMIT = 5;
@@ -18,30 +18,93 @@
     };
   };
 
-  let modal;
-  let text;
+  let modal, textEl, actionsEl, progressSection, progressBar, progressText, statusText;
   let once = false;
+  let msiUrl = null;
+  let releaseUrl = null;
+
+  const $ = (sel) => document.querySelector(sel);
+
+  const showActions = () => {
+    actionsEl.style.display = "flex";
+    progressSection.style.display = "none";
+    statusText.style.display = "none";
+  };
+
+  const showProgress = () => {
+    actionsEl.style.display = "none";
+    progressSection.style.display = "block";
+    statusText.style.display = "none";
+    progressBar.style.width = "0%";
+    progressText.textContent = "0%";
+  };
+
+  const showStatus = (msg, isError) => {
+    actionsEl.style.display = "none";
+    progressSection.style.display = "none";
+    statusText.style.display = "block";
+    statusText.textContent = msg;
+    statusText.style.color = isError ? "#ff5252" : "#4caf50";
+  };
+
+  const startDownload = () => {
+    if (!msiUrl || !window.javaBridge?.startUpdate) return;
+    showProgress();
+    window.javaBridge.startUpdate(msiUrl);
+  };
+
+  // Callbacks invoked from Kotlin via executeScript
+  window.onDownloadProgress = (percent) => {
+    if (progressBar && progressText) {
+      progressBar.style.width = percent + "%";
+      progressText.textContent = percent + "%";
+    }
+  };
+
+  window.onDownloadComplete = () => {
+    const msg = window.i18n?.t?.("update.installing") || "Installing update...";
+    showStatus(msg, false);
+  };
+
+  window.onDownloadError = () => {
+    const msg = window.i18n?.t?.("update.downloadError") || "Download failed. Please try again or install manually.";
+    showStatus(msg, true);
+    // Show actions again after a moment so user can retry or go manual
+    setTimeout(showActions, 2000);
+  };
 
   const start = () =>
     setTimeout(async () => {
-      if (once) {
-        return;
-      }
+      if (once) return;
       once = true;
 
-      modal = document.querySelector("#updateModal");
-      text = document.querySelector("#updateModalText");
+      modal = $("#updateModal");
+      textEl = $("#updateModalText");
+      actionsEl = $("#updateModalActions");
+      progressSection = $("#updateProgress");
+      progressBar = $("#updateProgressBar");
+      progressText = $("#updateProgressText");
+      statusText = $("#updateStatusText");
 
-      document.querySelector(".updateNowBtn").onclick = () => {
-        modal.classList.remove("isOpen");
-        window.javaBridge.openBrowser(URL);
-        window.javaBridge.exitApp();
+      // Install Now — download and install MSI directly
+      $(".updateInstallBtn").onclick = startDownload;
+
+      // Release Notes — open release page in browser
+      $(".updateNotesBtn").onclick = () => {
+        if (releaseUrl) window.javaBridge?.openBrowser?.(releaseUrl);
       };
 
-      document.querySelector(".updateLaterBtn").onclick = () => {
+      // Manual Install — open releases page in browser
+      $(".updateManualBtn").onclick = () => {
+        window.javaBridge?.openBrowser?.(RELEASES_URL);
+      };
+
+      // Update Later — dismiss
+      $(".updateLaterBtn").onclick = () => {
         modal.classList.remove("isOpen");
       };
 
+      // Wait for bridges
       for (
         let i = 0;
         i < LIMIT && !(window.dpsData?.getVersion && window.javaBridge?.openBrowser);
@@ -49,48 +112,58 @@
       ) {
         await new Promise((r) => setTimeout(r, RETRY));
       }
-      if (!(window.dpsData?.getVersion && window.javaBridge?.openBrowser)) {
-        return;
-      }
-      if (window.javaBridge?.isRunningViaGradle?.()) {
-        return;
-      }
+      if (!(window.dpsData?.getVersion && window.javaBridge?.openBrowser)) return;
+      if (window.javaBridge?.isRunningViaGradle?.()) return;
 
       const current = String(window.dpsData.getVersion() || "").trim();
-      const res = await fetch(API, {
-        headers: { Accept: "application/vnd.github+json" },
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        return;
-      }
+
+      let res;
+      try {
+        res = await fetch(API, {
+          headers: { Accept: "application/vnd.github+json" },
+          cache: "no-store",
+        });
+      } catch { return; }
+      if (!res.ok) return;
 
       const releases = await res.json();
-      const latest = releases.find((release) => {
-        const tag = String(release?.tag_name || "").trim().toLowerCase();
-        if (tag.startsWith("pre")) {
-          return false;
-        }
-        return !release?.draft && !release?.prerelease;
-      })?.tag_name;
-      if (latest) {
-        const latestInfo = parseVersion(latest);
-        const currentInfo = parseVersion(current);
-        const hasUpdate =
-          latestInfo.value > currentInfo.value ||
-          (latestInfo.value === currentInfo.value &&
-            currentInfo.prerelease &&
-            !latestInfo.prerelease);
-        if (!hasUpdate) {
-          return;
-        }
-        const fallback = `A new update is available!\n\nCurrent version: v.${current}\nLatest version: v.${latest}\n\nPlease update before continuing.
+      const release = releases.find((r) => {
+        const tag = String(r?.tag_name || "").trim().toLowerCase();
+        if (tag.startsWith("pre")) return false;
+        return !r?.draft && !r?.prerelease;
+      });
+      if (!release) return;
 
-The new version brings better data accuracy, performance improvements, and fixes. It's important you update soon.`;
-        text.textContent =
-          window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;
-        modal.classList.add("isOpen");
+      const latest = release.tag_name;
+      const latestInfo = parseVersion(latest);
+      const currentInfo = parseVersion(current);
+      const hasUpdate =
+        latestInfo.value > currentInfo.value ||
+        (latestInfo.value === currentInfo.value &&
+          currentInfo.prerelease &&
+          !latestInfo.prerelease);
+      if (!hasUpdate) return;
+
+      // Find MSI asset for direct download
+      const msiAsset = (release.assets || []).find(
+        (a) => a.name && a.name.toLowerCase().endsWith(".msi")
+      );
+      msiUrl = msiAsset?.browser_download_url || null;
+      releaseUrl = release.html_url || RELEASES_URL;
+
+      // Show/hide install button based on whether MSI is available
+      const installBtn = $(".updateInstallBtn");
+      if (msiUrl && window.javaBridge?.startUpdate) {
+        installBtn.style.display = "block";
+      } else {
+        installBtn.style.display = "none";
       }
+
+      const fallback = `A new update is available!\n\nCurrent version: v${current}\nLatest version: v${latest}`;
+      textEl.textContent =
+        window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;
+      showActions();
+      modal.classList.add("isOpen");
     }, START_DELAY);
 
   window.ReleaseChecker = { start };

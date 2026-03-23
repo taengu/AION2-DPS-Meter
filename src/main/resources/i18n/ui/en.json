@@ -244,9 +244,13 @@
   },
   "update": {
     "title": "New update available",
-    "ok": "OK",
+    "install": "Install Now",
+    "notes": "Release Notes",
+    "manual": "Manual Install",
     "later": "Update Later",
-    "text": "A new update is available!\n\nCurrent version: v.{current}\nLatest version: v.{latest}\n\nPlease update before continuing.\n\nThe new version brings better data accuracy, performance improvements, and fixes. It's important you update soon."
+    "text": "A new update is available!\n\nCurrent version: v{current}\nLatest version: v{latest}",
+    "installing": "Installing update...",
+    "downloadError": "Download failed. Please try again or install manually."
   },
   "connection": {
     "auto": "Auto",
