@@ -1,5 +1,6 @@
 package com.tbread
 
+import com.tbread.entity.JobClass
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SummonResolver
 import com.tbread.logging.UnifiedLogger
@@ -177,7 +178,33 @@ class DataStorage {
             logger.debug("Summon registration blocked: summoner {} is a known mob, not registering {} as its summon", summoner, summon)
             return
         }
+        // Job compatibility check: if the summon has used class-specific skills,
+        // its inferred job must match the candidate owner's job.
+        // Generic skills (basic attacks, mob sub-00) return null and are ignored.
+        val summonJob = inferJobFromSkills(summon)
+        val ownerJob = inferJobFromSkills(summoner)
+        if (summonJob != null && ownerJob != null && summonJob != ownerJob) {
+            logger.debug("Summon registration blocked: summon {} job {} != owner {} job {}",
+                summon, summonJob.className, summoner, ownerJob.className)
+            return
+        }
         summonStorage[summon] = summoner
+    }
+
+    /**
+     * Infer an actor's job class from the skills they have used in combat.
+     * Returns null if no class-specific skill has been recorded yet.
+     * Generic/mob skills (sub-00) and unrecognized codes are ignored,
+     * so summons that have only used basic attacks won't be filtered.
+     */
+    @Synchronized
+    private fun inferJobFromSkills(actorId: Int): JobClass? {
+        val packets = byActorStorage[actorId] ?: return null
+        for (pdp in packets) {
+            val job = JobClass.convertFromSkill(pdp.getSkillCode1())
+            if (job != null) return job
+        }
+        return null
     }
 
     @Synchronized

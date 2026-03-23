@@ -236,7 +236,8 @@
     "notRunning": "AION2 not running"
   },
   "meter": {
-    "identifyingPlayer": "Player #{id}"
+    "identifyingPlayer": "Player #{id}",
+    "dpsSuffix": "/s"
   },
   "skills": {
     "fallback": "Skill {code}",

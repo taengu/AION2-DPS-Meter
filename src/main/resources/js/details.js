@@ -15,6 +15,7 @@ const createDetailsUI = ({
   let openedRowId = null;
   let pinnedRowId = null;
   let openSeq = 0;
+  let autoRefreshTimer = null;
   let lastRow = null;
   let lastDetails = null;
   let detailsContext = null;
@@ -415,15 +416,17 @@ const createDetailsUI = ({
       .sort((a, b) => b.totalDmg - a.totalDmg);
   };
 
-  const renderPartyBars = (stats) => {
+  const renderPartyBars = (stats, battleTimeMs) => {
     if (!detailsPartyListEl) return;
     detailsPartyListEl.innerHTML = "";
     const actors = Array.isArray(stats) ? stats : [];
     if (actors.length === 0) return;
 
     const topDmg = actors.reduce((m, a) => Math.max(m, Number(a.totalDmg) || 0), 1);
+    const btMs = Number(battleTimeMs) || Number(lastDetails?.battleTimeMs) || 0;
+    const dpsSuffix = labelText("meter.dpsSuffix", "/s");
 
-    const rerender = () => renderPartyBars(buildPartyBarStats() || lastDetails?.perActorStats);
+    const rerender = () => renderPartyBars(buildPartyBarStats() || lastDetails?.perActorStats, lastDetails?.battleTimeMs);
 
     // "All" bar
     const allBar = document.createElement("div");
@@ -471,12 +474,22 @@ const createDetailsUI = ({
       nameEl.textContent = name;
       if (color) nameEl.style.color = color;
 
+      const dpsEl = document.createElement("span");
+      dpsEl.className = "detailsPartyBarDps";
+      dpsEl.textContent = btMs > 0 ? `${formatDamageCompact(dmg / btMs * 1000)}${dpsSuffix}` : "-";
+
       const dmgEl = document.createElement("span");
       dmgEl.className = "detailsPartyBarDmg";
-      dmgEl.textContent = `${formatDamageCompact(dmg)} [${pct.toFixed(1)}%]`;
+      dmgEl.textContent = formatDamageCompact(dmg);
+
+      const pctEl = document.createElement("span");
+      pctEl.className = "detailsPartyBarPct";
+      pctEl.textContent = `${pct.toFixed(1)}%`;
 
       contentEl.appendChild(nameEl);
+      contentEl.appendChild(dpsEl);
       contentEl.appendChild(dmgEl);
+      contentEl.appendChild(pctEl);
       bar.appendChild(fillEl);
       bar.appendChild(contentEl);
 
@@ -1732,7 +1745,7 @@ const createDetailsUI = ({
     }
     selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
     updateHeaderText();
-    renderPartyBars(buildPartyBarStats() || details?.perActorStats);
+    renderPartyBars(buildPartyBarStats() || details?.perActorStats, details?.battleTimeMs);
     renderStats(details, { compact: activeCompactMode });
     renderSkills(details, { compact: activeCompactMode });
     renderDpsChart(details);
@@ -1857,9 +1870,16 @@ const createDetailsUI = ({
       if (seq !== openSeq) return;
       // uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
     }
+
+    // Auto-refresh live details every 2 seconds (not for history views)
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    if (!historyRecord) {
+      autoRefreshTimer = setInterval(() => { refresh(); }, 2000);
+    }
   };
   const close = ({ keepPinned = false } = {}) => {
     openSeq++;
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
 
     openedRowId = null;
     if (!keepPinned) {
@@ -1890,6 +1910,7 @@ const createDetailsUI = ({
   });
 
   const openHistoryFight = async (record) => {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
     historyRecord = record;
     openSeq++;
     const seq = openSeq;
@@ -1980,6 +2001,18 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     await refreshDetailsView(seq);
+
+    // Re-fetch "All" stats so the white totals update alongside the pink player stats
+    if (seq !== openSeq) return;
+    const row = lastRow ?? NULL_ROW;
+    if (Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0) {
+      try {
+        const allDetails = await fetchUnfilteredDetails(row);
+        if (seq !== openSeq || !allDetails) return;
+        lastUnfilteredDetails = allDetails;
+        renderStats(lastDetails, { compact: activeCompactMode });
+      } catch (_) {}
+    }
   };
 
   const isPinned = () => pinnedRowId !== null;

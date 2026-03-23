@@ -15,44 +15,34 @@ object PropertyHandler {
 
     fun loadProperties(fname: String) {
         try {
-            FileInputStream(fname).use { fis ->
-                props.load(fis)
+            InputStreamReader(FileInputStream(fname), Charsets.UTF_8).use { reader ->
+                props.load(reader)
             }
-        } catch (e: FileNotFoundException) {
+        } catch (_: FileNotFoundException) {
             logger.info("Settings file not found; creating a new one.")
             FileOutputStream(fname).use {}
-        } catch (e: IOException) {
+        } catch (_: IOException) {
             logger.error("Failed to read settings file.")
         }
     }
 
-    private fun encodeToEucKr(key: String?): String? {
-        if (key == null) return null
-        return try {
-            String(key.toByteArray(Charsets.ISO_8859_1), charset("EUC-KR"))
-        } catch (e: UnsupportedEncodingException) {
-            key
-        }
-    }
-
     private fun save(){
-        FileOutputStream(PROPERTIES_FILE_NAME).use { fos ->
-            props.store(fos, "settings")
+        OutputStreamWriter(FileOutputStream(PROPERTIES_FILE_NAME), Charsets.UTF_8).use { writer ->
+            props.store(writer, "settings")
         }
     }
 
     fun getProperty(key: String): String? {
-        return encodeToEucKr(props.getProperty(key))
+        return props.getProperty(key)
     }
 
     fun getProperty(key: String, defaultValue: String): String? {
-        return encodeToEucKr(props.getProperty(key, defaultValue))
+        return props.getProperty(key, defaultValue)
     }
 
     fun setProperty(key:String,value:String){
         props.setProperty(key,value)
         save()
     }
-
 
 }

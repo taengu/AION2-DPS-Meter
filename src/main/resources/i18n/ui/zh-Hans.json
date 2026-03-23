@@ -234,7 +234,8 @@
     "notRunning": "AION2 not running"
   },
   "meter": {
-    "identifyingPlayer": "玩家 #{id}"
+    "identifyingPlayer": "玩家 #{id}",
+    "dpsSuffix": "/秒"
   },
   "skills": {
     "fallback": "技能 {code}",

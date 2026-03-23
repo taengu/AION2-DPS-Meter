@@ -29,7 +29,6 @@ import javafx.stage.StageStyle
 import javafx.util.Duration
 import javafx.application.Platform
 import javafx.stage.DirectoryChooser
-import javafx.geometry.Rectangle2D
 import javafx.scene.image.WritablePixelFormat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -764,6 +763,7 @@ class BrowserApp(
             when (newState) {
                 Worker.State.SUCCEEDED -> {
                     injectBridge()
+                    uiReadyNotifier()
                     if (stage.opacity < 1.0) {
                         stage.opacity = 1.0
                         ensureStageVisible(stage, "webview-loaded")
@@ -798,7 +798,7 @@ class BrowserApp(
         stage.scene = scene
         stage.isAlwaysOnTop = true
         stage.title = "Aion2 Dps Overlay"
-        stage.setOnShown { uiReadyNotifier() }
+        stage.setOnShown { /* uiReady now triggered by WebView SUCCEEDED instead */ }
         stage.opacity = 0.0
         stage.show()
         positionOnGameScreen(stage)
@@ -845,12 +845,22 @@ class BrowserApp(
 
     @Suppress("unused")
     fun getBattleDetail(uid:Int):String{
-        return Json.encodeToString(dpsData.map[uid]?.analyzedData)
+        return try {
+            Json.encodeToString(dpsData.map[uid]?.analyzedData)
+        } catch (e: Exception) {
+            logger.warn("getBattleDetail({}) failed", uid, e)
+            "{}"
+        }
     }
 
     @Suppress("unused")
     fun getDetailsContext(): String {
-        return Json.encodeToString(dpsCalculator.getDetailsContext())
+        return try {
+            Json.encodeToString(dpsCalculator.getDetailsContext())
+        } catch (e: Exception) {
+            logger.warn("getDetailsContext() failed", e)
+            "{\"currentTargetId\":0,\"targets\":[],\"actors\":[]}"
+        }
     }
 
     @Suppress("unused")
