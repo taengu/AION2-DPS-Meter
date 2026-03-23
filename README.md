@@ -63,7 +63,7 @@ If the meter stops showing data:
 <img width="439" height="288" alt="image" src="https://github.com/user-attachments/assets/eae5dfd9-25c1-4e38-821f-6af0012acc93" />
 
 
-- **Blue box** – Monster name display (planned)
+- **Blue box** – Monster name display (click to open History)
 - **Brown box** – Reset current combat data
 - **Yellow box** - Toggle between showing DPS or total DMG
 - **Pink box** – Expand / collapse DPS meter
@@ -78,8 +78,6 @@ If the meter stops showing data:
 - **Black box** - ID placeholder, when player name is still being searched for
 
 Clicking a player row opens detailed statistics.
-
-> **Hit count** refers to **successful hits**, not skill casts.
 
 
 ## Build Instructions
