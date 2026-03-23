@@ -23,11 +23,13 @@ import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import javafx.scene.web.WebView
 import javafx.scene.web.WebEngine
+import javafx.stage.Screen
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import javafx.util.Duration
 import javafx.application.Platform
 import javafx.stage.DirectoryChooser
+import javafx.geometry.Rectangle2D
 import javafx.scene.image.WritablePixelFormat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -47,6 +49,7 @@ import kotlin.system.exitProcess
 class BrowserApp(
     private val dpsCalculator: DpsCalculator,
     private val captureDispatcher: CaptureDispatcher,
+    private val replayNick: String? = null,
     private val onUiReady: (() -> Unit)? = null
 ) : Application() {
 
@@ -56,6 +59,7 @@ class BrowserApp(
     override fun stop() {
         jsBridge?.dispose()
         historyAutoSaveScheduler.shutdown()
+        gameVisibilityScheduler.shutdown()
         super.stop()
     }
 
@@ -443,6 +447,8 @@ class BrowserApp(
             return keyHookEvent.getCurrentToggleWindowHotKey()
         }
 
+        fun isWindowHiddenByHotkey(): Boolean = windowHiddenByHotkey
+
         fun dispose() {
             keyHookEvent.stop()
         }
@@ -592,6 +598,14 @@ class BrowserApp(
         Thread(r, "history-autosave").apply { isDaemon = true }
     }
 
+    private val gameVisibilityScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "game-visibility-poller").apply { isDaemon = true }
+    }
+
+    /** Tracks whether the meter was hidden by the game being minimized (vs. hidden by hotkey). */
+    @Volatile
+    private var hiddenByGameMinimize = false
+
     private fun startHistoryAutoSave() {
         historyAutoSaveScheduler.scheduleAtFixedRate({
             try {
@@ -603,7 +617,78 @@ class BrowserApp(
         }, 10L, 10L, TimeUnit.SECONDS)
     }
 
+    /**
+     * Position the stage on the same screen as the game window.
+     * If the game isn't running, defaults to the primary screen.
+     */
+    /**
+     * If the game is running on a non-primary screen, move the meter there.
+     * Otherwise leave the default JavaFX position untouched.
+     */
+    private fun positionOnGameScreen(stage: Stage) {
+        val gameWindow = WindowTitleDetector.findAion2Window() ?: return
+        val rect = WindowTitleDetector.getWindowRect(gameWindow.hwnd) ?: return
+
+        val gameCenterX = (rect.left + rect.right) / 2.0
+        val gameCenterY = (rect.top + rect.bottom) / 2.0
+        val gameScreen = Screen.getScreens().firstOrNull { it.bounds.contains(gameCenterX, gameCenterY) }
+            ?: return
+
+        // Only reposition if the game is on a different screen than primary
+        val primary = Screen.getPrimary()
+        if (gameScreen == primary) return
+
+        val bounds = gameScreen.visualBounds
+        stage.x = bounds.minX
+        stage.y = bounds.minY
+        logger.info("Moved meter to game screen: {}x{} at ({}, {})",
+            bounds.width.toInt(), bounds.height.toInt(), stage.x.toInt(), stage.y.toInt())
+    }
+
+    /**
+     * Poll game window visibility and auto-hide/restore the meter accordingly.
+     * Does not interfere with hotkey-based hiding.
+     */
+    private fun startGameVisibilityPolling(stage: Stage) {
+        if (replayNick != null) return  // Don't poll in replay mode
+
+        gameVisibilityScheduler.scheduleAtFixedRate({
+            try {
+                val gameWindow = WindowTitleDetector.findAion2Window()
+                val gameRunning = gameWindow != null
+                val gameMinimized = gameWindow != null && WindowTitleDetector.isMinimized(gameWindow.hwnd)
+                val gameOrMeterForeground = WindowTitleDetector.isAion2Foreground() || stage.isFocused
+
+                // Hide when game is running but not active (minimized or alt-tabbed away)
+                val shouldHide = gameRunning && (gameMinimized || !gameOrMeterForeground)
+
+                Platform.runLater {
+                    val bridge = jsBridge
+                    // Don't interfere if the user hid the meter via hotkey
+                    if (bridge != null && bridge.isWindowHiddenByHotkey()) return@runLater
+
+                    if (shouldHide && !hiddenByGameMinimize) {
+                        hiddenByGameMinimize = true
+                        stage.opacity = 0.0
+                        stage.isAlwaysOnTop = false
+                        stage.scene?.root?.isMouseTransparent = true
+                    } else if (!shouldHide && hiddenByGameMinimize) {
+                        hiddenByGameMinimize = false
+                        stage.opacity = 1.0
+                        stage.isAlwaysOnTop = true
+                        stage.scene?.root?.isMouseTransparent = false
+                    }
+                }
+            } catch (e: Exception) {
+                logger.warn("Game visibility polling failed", e)
+            }
+        }, 1L, 1L, TimeUnit.SECONDS)
+    }
+
     private fun startWindowTitlePolling() {
+        // In replay mode with a forced nickname, keep the synthetic window title
+        if (replayNick != null) return
+
         // Run off the JavaFX Application Thread — EnumWindows + OpenProcess per window
         // can take 50–200ms, which would block rendering and JS execution if on the JAT.
         windowTitleScheduler.scheduleAtFixedRate({
@@ -615,7 +700,7 @@ class BrowserApp(
         }, 0L, 1L, TimeUnit.SECONDS)
     }
 
-    private fun ensureStageVisible(stage: Stage, reason: String) {
+    private fun ensureStageVisible(stage: Stage, reason: String, grabFocus: Boolean = false) {
         if (!stage.isShowing) {
             logger.warn("Stage not showing ({}); forcing show", reason)
             stage.show()
@@ -623,12 +708,18 @@ class BrowserApp(
         if (stage.isIconified) {
             stage.isIconified = false
         }
-        stage.toFront()
-        stage.requestFocus()
+        if (grabFocus) {
+            stage.toFront()
+            stage.requestFocus()
+        }
     }
 
     override fun start(stage: Stage) {
         UnifiedLogger.loadDebugFromSettings()
+        if (replayNick != null) {
+            // Provide a synthetic window title so the JS polling detects the replay nickname
+            cachedWindowTitle = "AION2 | $replayNick"
+        }
         startWindowTitlePolling()
         startHistoryAutoSave()
         stage.setOnCloseRequest {
@@ -710,7 +801,9 @@ class BrowserApp(
         stage.setOnShown { uiReadyNotifier() }
         stage.opacity = 0.0
         stage.show()
-        ensureStageVisible(stage, "initial")
+        positionOnGameScreen(stage)
+        ensureStageVisible(stage, "initial", grabFocus = true)
+        startGameVisibilityPolling(stage)
         Timeline(KeyFrame(Duration.seconds(2.0), {
             if (stage.opacity < 1.0) {
                 stage.opacity = 1.0
