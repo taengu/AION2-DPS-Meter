@@ -41,6 +41,19 @@ class AionMeterApp : Application() {
             ?.trim()
             ?.equals("true", ignoreCase = true) == true
         val isReplayMode = replayLogFile.isNotBlank()
+        val replayNick = PropertyHandler.getProperty("capture.replayNick")?.trim()?.takeIf { it.isNotBlank() }
+        val replayId = PropertyHandler.getProperty("capture.replayID")?.trim()?.toLongOrNull()
+
+        if (isReplayMode) {
+            if (replayNick != null) {
+                LocalPlayer.characterName = replayNick
+                logger.info("Replay override: characterName={}", replayNick)
+            }
+            if (replayId != null && replayId > 0) {
+                LocalPlayer.playerId = replayId
+                logger.info("Replay override: playerId={}", replayId)
+            }
+        }
 
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
         val config = PcapCapturerConfig.loadFromProperties()
@@ -66,7 +79,7 @@ class AionMeterApp : Application() {
         }
 
         // Initialize and show the browser
-        val browserApp = BrowserApp(calculator, dispatcher) { markUiReady() }
+        val browserApp = BrowserApp(calculator, dispatcher, replayNick) { markUiReady() }
         try {
             browserApp.start(primaryStage)
         } catch (e: Exception) {

@@ -327,7 +327,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         while (idx + 2 < packet.size) {
             val marker = packet[idx].toInt() and 0xff
             val markerNext = packet[idx + 1].toInt() and 0xff
-            val isMarker = marker in listOf(0xF5, 0xF8) && (markerNext == 0x03 || markerNext == 0xA3)
+            val isMarker = marker in 0xF0..0xFF && (markerNext == 0x03 || markerNext == 0xA3)
             if (isMarker) {
                 var actorInfo: VarIntOutput? = null
                 val minOffset = maxOf(0, idx - 8)

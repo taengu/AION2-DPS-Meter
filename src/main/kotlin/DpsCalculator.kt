@@ -809,11 +809,29 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val localPlayerId = LocalPlayer.playerId?.toInt()
         if (localPlayerId != null) {
             localActorIds.add(localPlayerId)
-        } else if (normalizedLocalName.isNotBlank()) {
-            val nicknameData = dataStorage.getNickname()
+        }
+
+        // Resolve the effective local player name: prefer characterName, fall back to
+        // the nickname registered for the current playerId.  This handles the case where
+        // the user set their player ID manually without entering a character name.
+        val nicknameData = dataStorage.getNickname()
+        val effectiveName = if (normalizedLocalName.isNotBlank()) {
+            normalizedLocalName
+        } else if (localPlayerId != null) {
+            nicknameData[localPlayerId]?.trim()?.lowercase().orEmpty()
+        } else {
+            ""
+        }
+
+        // Always include ALL actor IDs that share the local player's name.
+        // When the server reassigns the player a new actor ID (dungeon reset / party
+        // change), the new ID starts doing damage before LocalPlayer.playerId is
+        // updated.  Including every name-matched ID ensures the meter tracks both
+        // old and new IDs seamlessly.
+        if (effectiveName.isNotBlank()) {
             localActorIds.addAll(
                 nicknameData
-                    .filterValues { it.trim().lowercase() == normalizedLocalName }
+                    .filterValues { it.trim().lowercase() == effectiveName }
                     .keys
             )
         }
