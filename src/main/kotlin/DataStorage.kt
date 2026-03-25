@@ -166,7 +166,12 @@ class DataStorage {
     fun appendSummon(summoner: Int, summon: Int) {
         // Never register a known player (has nickname) as a summon
         if (nicknameStorage.containsKey(summon)) {
-            logger.debug("Summon registration blocked: {} is a known player, not registering as summon of {}", summon, summoner)
+            logger.debug("Summon registration blocked: {} is a known player (has nickname), not registering as summon of {}", summon, summoner)
+            return
+        }
+        // Never register an actor that has used player-class skills as a summon
+        if (knownPlayerIds.contains(summon)) {
+            logger.debug("Summon registration blocked: {} uses player-class skills, not registering as summon of {}", summon, summoner)
             return
         }
         // Don't allow a summon or mob to be registered as an owner

@@ -368,31 +368,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
-        // Skill-based summon inference: unlinked actors using class-specific skills
-        // (e.g. Divine Aura summon with no spawn/ownership packet) get merged into
-        // the unique player of that class.
-        val orphanSummons = mutableListOf<Pair<Int, Int>>()  // orphanId -> ownerId
+        // Orphan summon inference: unlinked actors with no nickname whose detected
+        // job matches exactly one named player of that class get merged into that player.
+        val orphanMerges = mutableListOf<Pair<Int, Int>>()
         for ((uid, data) in dpsData.map) {
-            if (summonData.containsKey(uid)) continue      // already linked
-            if (nicknameData.containsKey(uid)) continue     // is a player
-            // Use loose detection so spirit skills (e.g. sub-99) still match
-            val orphanJob = data.job.takeIf { it.isNotEmpty() }
-                ?: data.analyzedData.keys.firstNotNullOfOrNull { code ->
-                    JobClass.convertFromSkillLoose(code)
-                }?.className
-                ?: continue
-            // Find all other actors with the same job that ARE real players (have nickname)
+            if (summonData.containsKey(uid)) continue
+            if (nicknameData.containsKey(uid)) continue
+            val job = data.job.takeIf { it.isNotEmpty() } ?: continue
             val sameJobPlayers = dpsData.map.entries.filter { (otherId, otherData) ->
-                otherId != uid && otherData.job == orphanJob && nicknameData.containsKey(otherId)
+                otherId != uid && otherData.job == job && nicknameData.containsKey(otherId)
             }
             if (sameJobPlayers.size == 1) {
-                orphanSummons.add(uid to sameJobPlayers.first().key)
+                orphanMerges.add(uid to sameJobPlayers.first().key)
             }
         }
-        for ((orphanId, ownerId) in orphanSummons) {
+        for ((orphanId, ownerId) in orphanMerges) {
             val orphanData = dpsData.map.remove(orphanId) ?: continue
-            val ownerData = dpsData.map[ownerId] ?: continue
-            ownerData.mergeFrom(orphanData)
+            dpsData.map[ownerId]?.mergeFrom(orphanData)
         }
 
         val localActorIds = resolveConfirmedLocalActorIds()
