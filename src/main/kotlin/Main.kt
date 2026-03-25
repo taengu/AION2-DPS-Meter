@@ -172,23 +172,54 @@ private fun configureJavaFxPipeline() {
 
 }
 
+/**
+ * Resolves the actual launcher exe path. In a jpackage JVM bundle,
+ * ProcessHandle returns the bundled java.exe (e.g. ...\runtime\bin\java.exe)
+ * rather than the launcher exe. We detect this and walk up to find the launcher.
+ */
+private fun resolveLauncherExe(): String? {
+    val command = ProcessHandle.current().info().command().orElse(null) ?: return null
+    val commandFile = java.io.File(command)
+
+    // Native image: the exe IS the process, so command is already correct
+    if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) return command
+
+    // jpackage bundle: java.exe lives at <install>/runtime/bin/java.exe
+    // The launcher exe is at <install>/<AppName>.exe
+    val binDir = commandFile.parentFile ?: return command
+    if (!binDir.name.equals("bin", ignoreCase = true)) return command
+    val runtimeDir = binDir.parentFile ?: return command
+    if (!runtimeDir.name.equals("runtime", ignoreCase = true)) return command
+    val installDir = runtimeDir.parentFile ?: return command
+
+    // Find the launcher exe: any .exe in the install dir that isn't java/javaw
+    val launcherExe = installDir.listFiles()
+        ?.filter { it.isFile && it.extension.equals("exe", ignoreCase = true) }
+        ?.firstOrNull { !it.nameWithoutExtension.equals("java", ignoreCase = true) &&
+                        !it.nameWithoutExtension.equals("javaw", ignoreCase = true) }
+
+    if (launcherExe != null) {
+        logger.info("Resolved launcher exe: {} (from java.exe at {})", launcherExe.absolutePath, command)
+        return launcherExe.absolutePath
+    }
+
+    logger.warn("Could not find launcher exe in {}, falling back to {}", installDir, command)
+    return command
+}
+
 private fun ensureAdminOnWindows() {
     val osName = System.getProperty("os.name") ?: return
     if (!osName.startsWith("Windows", ignoreCase = true)) return
     if (isProcessElevated()) return
 
-    val currentProcess = ProcessHandle.current()
-    val command = currentProcess.info().command().orElse(null) ?: return
+    val launcherExe = resolveLauncherExe() ?: return
 
-    val args = currentProcess.info().arguments().orElse(emptyArray())
-    val parameters = args.joinToString(" ") { "\"$it\"" }
-
-    logger.info("Requesting Admin Privileges...")
+    logger.info("Requesting Admin Privileges via {}...", launcherExe)
     Shell32.INSTANCE.ShellExecute(
         null,
         "runas",
-        command,
-        parameters.ifBlank { null },
+        launcherExe,
+        null,
         null,
         WinUser.SW_SHOWNORMAL
     )
@@ -204,11 +235,11 @@ private fun ensureRunAsAdminFlag() {
     if (!osName.startsWith("Windows", ignoreCase = true)) return
     if (!isProcessElevated()) return
 
-    val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
+    val launcherExe = resolveLauncherExe() ?: return
     try {
         val regKey = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers"
         val result = ProcessBuilder(
-            "reg", "query", regKey, "/v", exePath
+            "reg", "query", regKey, "/v", launcherExe
         ).redirectErrorStream(true).start()
         val output = result.inputStream.bufferedReader().readText()
         result.waitFor()
@@ -216,11 +247,12 @@ private fun ensureRunAsAdminFlag() {
 
         ProcessBuilder(
             "reg", "add", regKey,
-            "/v", exePath,
+            "/v", launcherExe,
             "/t", "REG_SZ",
             "/d", "~ RUNASADMIN",
             "/f"
         ).redirectErrorStream(true).start().waitFor()
+        logger.info("Set RUNASADMIN registry flag for {}", launcherExe)
     } catch (_: Exception) {
         // Best-effort; don't block startup if registry write fails
     }
