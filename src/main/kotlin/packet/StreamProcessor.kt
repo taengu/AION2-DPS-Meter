@@ -1135,7 +1135,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                             UnifiedLogger.debugForActor(logger, v.value, "Confirmed Pattern A nickname {} -> {}", v.value, sanitizedName)
                                             dataStorage.appendNickname(v.value, sanitizedName)
                                             parsedAny = true
-                                            searchOffset = lenIdx + nameLen
+                                            // Skip past the guild name that immediately follows the player name
+                                            searchOffset = skipGuildName(packet, lenIdx + 1 + nameLen)
                                             break
                                         }
                                     }
@@ -1169,6 +1170,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
                             // STRICT REQUIREMENT: The name length byte must be preceded by 00 00.
                             // This instantly prevents random coordinates from being parsed as "zaF".
+                            // In Aion 2, property blocks contain: [player_name] then [guild_name].
+                            // Both are preceded by XX XX 00 00, so we bind only the FIRST valid name
+                            // (the player name) and stop scanning to avoid picking up the guild name.
                             if (packet[blockScan] == 0x00.toByte() && packet[blockScan + 1] == 0x00.toByte()) {
                                 val lenIdx = blockScan + 2
                                 val nameLen = packet[lenIdx].toInt() and 0xFF
@@ -1182,8 +1186,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                             UnifiedLogger.debugForActor(logger, blockActor.value, "Confirmed Pattern B nickname {} -> {}", blockActor.value, sanitizedName)
                                             dataStorage.appendNickname(blockActor.value, sanitizedName)
                                             parsedAny = true
-                                            blockScan = lenIdx + nameLen
-                                            continue
+                                            break // Stop after first name — next 00 00 match would be the guild name
                                         }
                                     }
                                 }
@@ -1224,7 +1227,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                                             UnifiedLogger.debugForActor(logger, playerInfo.value, "Confirmed Pattern C nickname {} -> {}", playerInfo.value, sanitizedName)
                                             dataStorage.appendNickname(playerInfo.value, sanitizedName)
                                             parsedAny = true
-                                            searchOffset = lenIdx + nameLen
+                                            // Skip past any trailing guild name
+                                            searchOffset = skipGuildName(packet, lenIdx + 1 + nameLen)
                                             break
                                         }
                                     }

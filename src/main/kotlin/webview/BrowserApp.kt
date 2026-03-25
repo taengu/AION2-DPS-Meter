@@ -605,7 +605,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.4"
+    private val version = "1.0.5"
 
     @Volatile
     private var cachedWindowTitle: String? = null
@@ -651,6 +651,48 @@ class BrowserApp(
      * Position the stage on the same screen as the game window.
      * If the game isn't running, defaults to the primary screen.
      */
+    // ── Window position persistence ──
+
+    private fun hasSavedWindowPosition(): Boolean {
+        return PropertyHandler.getProperty("window.x") != null &&
+               PropertyHandler.getProperty("window.y") != null
+    }
+
+    private fun restoreWindowPosition(stage: Stage) {
+        val x = PropertyHandler.getProperty("window.x")?.toDoubleOrNull() ?: return
+        val y = PropertyHandler.getProperty("window.y")?.toDoubleOrNull() ?: return
+        // Verify the saved position is on a visible screen
+        val onScreen = Screen.getScreens().any { it.visualBounds.contains(x, y) }
+        if (onScreen) {
+            stage.x = x
+            stage.y = y
+            logger.info("Restored window position: ({}, {})", x.toInt(), y.toInt())
+        } else {
+            logger.info("Saved window position ({}, {}) is off-screen, ignoring", x.toInt(), y.toInt())
+        }
+    }
+
+    private fun saveWindowPosition(stage: Stage) {
+        if (stage.x.isNaN() || stage.y.isNaN()) return
+        PropertyHandler.setProperty("window.x", stage.x.toString())
+        PropertyHandler.setProperty("window.y", stage.y.toString())
+    }
+
+    private fun listenForWindowMoves(stage: Stage) {
+        // Save position when the user stops dragging (debounced via Timeline)
+        var saveTimer: Timeline? = null
+        val saveDelay = Duration.millis(500.0)
+        val handler = { _: Any ->
+            saveTimer?.stop()
+            val t = Timeline(KeyFrame(saveDelay, { saveWindowPosition(stage) }))
+            saveTimer = t
+            t.play()
+            Unit
+        }
+        stage.xProperty().addListener { _, _, _ -> handler(Unit) }
+        stage.yProperty().addListener { _, _, _ -> handler(Unit) }
+    }
+
     /**
      * If the game is running on a non-primary screen, move the meter there.
      * Otherwise leave the default JavaFX position untouched.
@@ -766,6 +808,7 @@ class BrowserApp(
         startWindowTitlePolling()
         startHistoryAutoSave()
         stage.setOnCloseRequest {
+            saveWindowPosition(stage)
             exitProcess(0)
         }
         val webView = WebView()
@@ -844,9 +887,14 @@ class BrowserApp(
         stage.title = "Aion2 Dps Overlay"
         stage.setOnShown { /* uiReady now triggered by WebView SUCCEEDED instead */ }
         stage.opacity = 0.0
+        restoreWindowPosition(stage)
         stage.show()
-        positionOnGameScreen(stage)
+        // Only override saved position if the game is on a non-primary screen and no position was restored
+        if (!hasSavedWindowPosition()) {
+            positionOnGameScreen(stage)
+        }
         ensureStageVisible(stage, "initial", grabFocus = true)
+        listenForWindowMoves(stage)
         startGameVisibilityPolling(stage)
         Timeline(KeyFrame(Duration.seconds(2.0), {
             if (stage.opacity < 1.0) {

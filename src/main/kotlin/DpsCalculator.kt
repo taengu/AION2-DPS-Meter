@@ -368,6 +368,25 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
+        // Orphan summon inference: unlinked actors with no nickname whose detected
+        // job matches exactly one named player of that class get merged into that player.
+        val orphanMerges = mutableListOf<Pair<Int, Int>>()
+        for ((uid, data) in dpsData.map) {
+            if (summonData.containsKey(uid)) continue
+            if (nicknameData.containsKey(uid)) continue
+            val job = data.job.takeIf { it.isNotEmpty() } ?: continue
+            val sameJobPlayers = dpsData.map.entries.filter { (otherId, otherData) ->
+                otherId != uid && otherData.job == job && nicknameData.containsKey(otherId)
+            }
+            if (sameJobPlayers.size == 1) {
+                orphanMerges.add(uid to sameJobPlayers.first().key)
+            }
+        }
+        for ((orphanId, ownerId) in orphanMerges) {
+            val orphanData = dpsData.map.remove(orphanId) ?: continue
+            dpsData.map[ownerId]?.mergeFrom(orphanData)
+        }
+
         val localActorIds = resolveConfirmedLocalActorIds()
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {

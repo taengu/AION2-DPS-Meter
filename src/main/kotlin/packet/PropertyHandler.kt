@@ -10,24 +10,20 @@ object PropertyHandler {
     private val logger = LoggerFactory.getLogger(PropertyHandler::class.java)
 
     private val settingsFile: File by lazy {
-        val appdata = System.getenv("APPDATA") ?: System.getProperty("user.home")
-        val dir = File(appdata, "AionDPS")
-        dir.mkdirs()
-        val target = File(dir, PROPERTIES_FILE_NAME)
-
-        // Migrate from old location (install directory) if the AppData file doesn't exist yet
-        if (!target.exists()) {
-            val legacy = File(PROPERTIES_FILE_NAME)
-            if (legacy.exists() && legacy.length() > 0) {
-                try {
-                    legacy.copyTo(target)
-                    logger.info("Migrated settings from {} to {}", legacy.absolutePath, target.absolutePath)
-                } catch (e: IOException) {
-                    logger.error("Failed to migrate settings file", e)
-                }
-            }
+        // If a local settings.properties exists in the working directory, use it (dev/IDE mode).
+        // Otherwise use %APPDATA%/AionDPS/ so MSI updates don't erase user settings.
+        val local = File(PROPERTIES_FILE_NAME)
+        if (local.exists()) {
+            logger.info("Using local settings file: {}", local.absolutePath)
+            local
+        } else {
+            val appdata = System.getenv("APPDATA") ?: System.getProperty("user.home")
+            val dir = File(appdata, "AionDPS")
+            dir.mkdirs()
+            val target = File(dir, PROPERTIES_FILE_NAME)
+            logger.info("Using AppData settings file: {}", target.absolutePath)
+            target
         }
-        target
     }
 
     init {
