@@ -1932,6 +1932,17 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       font-size: 14px;
       color: rgba(255,255,255,0.8);
     }
+    .updateProgressActions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .updateProgressActions .updateModalBtn {
+      flex: 1;
+    }
+    .updateModalBtn.updateCancelBtn {
+      background: #ff5252;
+    }
     .updateStatusText {
       margin-top: 16px;
       text-align: center;
@@ -3504,6 +3515,9 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .updateModal .updateModalCard .updateModalBtn.updateLaterBtn {
   background: #ff9800;
 }
+.updateModal .updateModalCard .updateModalBtn.updateCancelBtn {
+  background: #ff5252;
+}
 .updateModal .updateModalCard .updateProgress {
   margin-top: 16px;
   text-align: center;
@@ -3526,6 +3540,14 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   margin-top: 8px;
   font-size: 14px;
   color: rgba(255,255,255,0.8);
+}
+.updateModal .updateModalCard .updateProgressActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.updateModal .updateModalCard .updateProgressActions .updateModalBtn {
+  flex: 1;
 }
 .updateModal .updateModalCard .updateStatusText {
   margin-top: 16px;

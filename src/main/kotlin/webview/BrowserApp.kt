@@ -377,8 +377,12 @@ class BrowserApp(
             exitProcess(0)
         }
 
+        @Volatile
+        private var updateCancelled = false
+
         @Suppress("unused")
         fun startUpdate(msiUrl: String) {
+            updateCancelled = false
             Thread {
                 try {
                     val tempDir = System.getProperty("java.io.tmpdir")
@@ -395,6 +399,12 @@ class BrowserApp(
                             val buffer = ByteArray(8192)
                             var bytesRead: Int
                             while (input.read(buffer).also { bytesRead = it } != -1) {
+                                if (updateCancelled) {
+                                    connection.disconnect()
+                                    msiFile.delete()
+                                    Platform.runLater { webEngine.executeScript("window.onDownloadCancelled && window.onDownloadCancelled()") }
+                                    return@Thread
+                                }
                                 output.write(buffer, 0, bytesRead)
                                 downloadedBytes += bytesRead
                                 if (totalBytes > 0) {
@@ -429,10 +439,16 @@ class BrowserApp(
                     Platform.exit()
                     exitProcess(0)
                 } catch (e: Exception) {
+                    if (updateCancelled) return@Thread
                     logger.error("Update failed", e)
                     Platform.runLater { webEngine.executeScript("window.onDownloadError && window.onDownloadError()") }
                 }
             }.apply { isDaemon = true }.start()
+        }
+
+        @Suppress("unused")
+        fun cancelUpdate() {
+            updateCancelled = true
         }
 
         @Suppress("unused")

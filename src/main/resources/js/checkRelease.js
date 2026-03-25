@@ -73,6 +73,10 @@
     setTimeout(showActions, 2000);
   };
 
+  window.onDownloadCancelled = () => {
+    showActions();
+  };
+
   const start = () =>
     setTimeout(async () => {
       if (once) return;
@@ -90,8 +94,15 @@
       $(".updateInstallBtn").onclick = startDownload;
 
       // Release Notes — open release page in browser
-      $(".updateNotesBtn").onclick = () => {
-        if (releaseUrl) window.javaBridge?.openBrowser?.(releaseUrl);
+      document.querySelectorAll(".updateNotesBtn").forEach((btn) => {
+        btn.onclick = () => {
+          if (releaseUrl) window.javaBridge?.openBrowser?.(releaseUrl);
+        };
+      });
+
+      // Cancel — abort in-progress download
+      $(".updateCancelBtn").onclick = () => {
+        window.javaBridge?.cancelUpdate?.();
       };
 
       // Manual Install — open releases page in browser
