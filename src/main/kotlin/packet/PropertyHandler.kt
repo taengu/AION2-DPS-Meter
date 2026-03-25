@@ -45,4 +45,9 @@ object PropertyHandler {
         save()
     }
 
+    fun clearAll() {
+        props.clear()
+        save()
+    }
+
 }

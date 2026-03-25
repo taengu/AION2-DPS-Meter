@@ -24,7 +24,14 @@ enum class JobClass(val className: String, val classPrefix: Int, val basicSkillC
             if (skillCode in 10_000_000..19_999_999) {
                 val prefix = skillCode / 1_000_000
                 val sub = (skillCode / 10000) % 100
-                if (sub == 0) return null
+                if (sub == 0) {
+                    // Elementalist Spirit Commands (160011xx..160013xx)
+                    if (prefix == 16) {
+                        val commandRange = (skillCode / 100) % 100
+                        if (commandRange in 11..13) return ELEMENTALIST
+                    }
+                    return null
+                }
                 return entries.find { it.classPrefix == prefix }
             }
             return entries.find { it.basicSkillCode == skillCode }

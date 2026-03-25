@@ -390,14 +390,20 @@ const createDetailsUI = ({
 
   // Build party bar stats from detailsContext actorDamage (live fights).
   // Falls back to null if context has no actorDamage data (history fights use details.perActorStats).
+  // Returns { stats, battleTimeMs } where battleTimeMs is the context's overall fight time.
+  // Always uses ALL targets so stats stay stable regardless of which player is selected.
   const buildPartyBarStats = () => {
+    const allTargets = detailsTargets.filter((t) => Number(t?.targetId) > 0);
     const targets = selectedTargetId
-      ? (getTargetById(selectedTargetId) ? [getTargetById(selectedTargetId)] : getSelectableTargets())
-      : getSelectableTargets();
+      ? (getTargetById(selectedTargetId) ? [getTargetById(selectedTargetId)] : allTargets)
+      : allTargets;
     const combined = new Map();
+    let maxBattleTimeMs = 0;
     targets.forEach((target) => {
       const actorDmg = target?.actorDamage;
       if (!actorDmg || typeof actorDmg !== "object") return;
+      const bt = Number(target?.battleTime) || 0;
+      if (bt > maxBattleTimeMs) maxBattleTimeMs = bt;
       Object.entries(actorDmg).forEach(([id, dmg]) => {
         const actorId = Number(id);
         if (!Number.isFinite(actorId) || actorId <= 0) return;
@@ -406,14 +412,17 @@ const createDetailsUI = ({
     });
     if (combined.size === 0) return null;
     const total = [...combined.values()].reduce((s, v) => s + v, 0) || 1;
-    return [...combined.entries()]
-      .map(([actorId, dmg]) => ({
-        actorId,
-        job: detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "",
-        totalDmg: dmg,
-        contributionPct: (dmg / total) * 100,
-      }))
-      .sort((a, b) => b.totalDmg - a.totalDmg);
+    return {
+      stats: [...combined.entries()]
+        .map(([actorId, dmg]) => ({
+          actorId,
+          job: detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "",
+          totalDmg: dmg,
+          contributionPct: (dmg / total) * 100,
+        }))
+        .sort((a, b) => b.totalDmg - a.totalDmg),
+      battleTimeMs: maxBattleTimeMs,
+    };
   };
 
   const renderPartyBars = (stats, battleTimeMs) => {
@@ -426,7 +435,10 @@ const createDetailsUI = ({
     const btMs = Number(battleTimeMs) || Number(lastDetails?.battleTimeMs) || 0;
     const dpsSuffix = labelText("meter.dpsSuffix", "/s");
 
-    const rerender = () => renderPartyBars(buildPartyBarStats() || lastDetails?.perActorStats, lastDetails?.battleTimeMs);
+    const rerender = () => {
+      const ctx = buildPartyBarStats();
+      renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+    };
 
     // "All" bar
     const allBar = document.createElement("div");
@@ -1631,47 +1643,51 @@ const createDetailsUI = ({
       return;
     }
 
+    // When a player is selected, fetch unfiltered "All" details in parallel
+    // so the split stats (player / total) render immediately without delay.
+    const hasAttackerFilter = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0;
+    const unfilteredPromise = hasAttackerFilter
+      ? fetchUnfilteredDetails(row).catch(() => null)
+      : Promise.resolve(null);
+
     const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
     if (selectedTargetId === null) {
       const targetList = getSelectableTargets();
       if (!targetList.length) {
-        const details = await getDetails(row, {
-          targetId: null,
-          attackerIds: selectedAttackerIds,
-          totalTargetDamage: null,
-          showSkillIcons,
-        });
+        const [details, unfilteredDetails] = await Promise.all([
+          getDetails(row, {
+            targetId: null,
+            attackerIds: selectedAttackerIds,
+            totalTargetDamage: null,
+            showSkillIcons,
+          }),
+          unfilteredPromise,
+        ]);
         if (typeof seq === "number" && seq !== openSeq) return;
+        if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
         render(details, row);
         return;
       }
 
-      const [firstTarget, ...restTargets] = targetList;
-      const firstDetails = await getDetails(row, {
-        targetId: firstTarget.targetId,
-        attackerIds: selectedAttackerIds,
-        totalTargetDamage: firstTarget.totalDamage,
-        showSkillIcons,
-      });
-      if (typeof seq === "number" && seq !== openSeq) return;
-      render(firstDetails, row);
-
-      const restDetails = await Promise.all(
-        restTargets.map((target) =>
+      const allTargetDetails = await Promise.all([
+        ...targetList.map((target) =>
           getDetails(row, {
             targetId: target.targetId,
             attackerIds: selectedAttackerIds,
             totalTargetDamage: target.totalDamage,
             showSkillIcons,
           })
-        )
-      );
-      const detailsList = [firstDetails, ...restDetails];
+        ),
+        unfilteredPromise,
+      ]);
+      if (typeof seq === "number" && seq !== openSeq) return;
+      const unfilteredDetails = hasAttackerFilter ? allTargetDetails.pop() : null;
+      if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
       const totalTargetDamage = targetList.reduce(
         (sum, target) => sum + (Number(target?.totalDamage) || 0),
         0
       );
-      const mergedDetails = buildCombinedDetails(detailsList, totalTargetDamage, showSkillIcons);
+      const mergedDetails = buildCombinedDetails(allTargetDetails, totalTargetDamage, showSkillIcons);
       if (typeof seq === "number" && seq !== openSeq) return;
       render(mergedDetails, row);
       return;
@@ -1679,13 +1695,17 @@ const createDetailsUI = ({
 
     const target = getTargetById(selectedTargetId);
     const totalTargetDamage = target ? target.totalDamage : null;
-    const details = await getDetails(row, {
-      targetId: selectedTargetId,
-      attackerIds: selectedAttackerIds,
-      totalTargetDamage,
-      showSkillIcons,
-    });
+    const [details, unfilteredDetails] = await Promise.all([
+      getDetails(row, {
+        targetId: selectedTargetId,
+        attackerIds: selectedAttackerIds,
+        totalTargetDamage,
+        showSkillIcons,
+      }),
+      unfilteredPromise,
+    ]);
     if (typeof seq === "number" && seq !== openSeq) return;
+    if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
     render(details, row);
   };
 
@@ -1698,7 +1718,7 @@ const createDetailsUI = ({
       return await getDetails(row);
     }
     if (selectedTargetId === null) {
-      const targetList = getSelectableTargets();
+      const targetList = detailsTargets.filter((t) => Number(t?.targetId) > 0);
       if (!targetList.length) {
         return await getDetails(row, {
           targetId: null,
@@ -1745,7 +1765,8 @@ const createDetailsUI = ({
     }
     selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
     updateHeaderText();
-    renderPartyBars(buildPartyBarStats() || details?.perActorStats, details?.battleTimeMs);
+    const partyBarCtx = buildPartyBarStats();
+    renderPartyBars(partyBarCtx?.stats || details?.perActorStats, partyBarCtx?.battleTimeMs || details?.battleTimeMs);
     renderStats(details, { compact: activeCompactMode });
     renderSkills(details, { compact: activeCompactMode });
     renderDpsChart(details);
@@ -1753,17 +1774,8 @@ const createDetailsUI = ({
     lastRow = row;
     lastDetails = details;
 
-    // If a player is selected but we don't have "All" totals yet,
-    // fetch them in the background using the same multi-target merge
-    // logic that refreshDetailsView uses, then re-render stats.
-    if (!lastUnfilteredDetails && Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0) {
-      const capturedSeq = openSeq;
-      fetchUnfilteredDetails(row).then((allDetails) => {
-        if (capturedSeq !== openSeq || !allDetails) return;
-        lastUnfilteredDetails = allDetails;
-        renderStats(lastDetails, { compact: activeCompactMode });
-      }).catch(() => {});
-    }
+    // Unfiltered details are now fetched in parallel by refreshDetailsView,
+    // so lastUnfilteredDetails is already set before render() is called.
     const cacheRowId = String(row?.id ?? "").trim();
     if (cacheRowId) {
       detailsCacheByRowId.set(cacheRowId, details);
@@ -2001,18 +2013,6 @@ const createDetailsUI = ({
     syncSortButtons();
     updateHeaderText();
     await refreshDetailsView(seq);
-
-    // Re-fetch "All" stats so the white totals update alongside the pink player stats
-    if (seq !== openSeq) return;
-    const row = lastRow ?? NULL_ROW;
-    if (Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0) {
-      try {
-        const allDetails = await fetchUnfilteredDetails(row);
-        if (seq !== openSeq || !allDetails) return;
-        lastUnfilteredDetails = allDetails;
-        renderStats(lastDetails, { compact: activeCompactMode });
-      } catch (_) {}
-    }
   };
 
   const isPinned = () => pinnedRowId !== null;

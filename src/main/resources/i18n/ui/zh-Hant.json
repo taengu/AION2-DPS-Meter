@@ -129,6 +129,7 @@
     },
     "showPing": "顯示延遲",
     "showTotalDps": "顯示總DPS/DMG",
+    "autoHideMeter": "自動隱藏面板",
     "playerLimit": {
       "label": "最大顯示人數"
     },
@@ -197,6 +198,9 @@
       "pressKeys": "請按下按鍵...",
       "needModifiers": "需要2個以上修飾鍵"
     },
+    "defaultMeterMode": {
+      "label": "預設計量模式"
+    },
     "trainingMode": {
       "label": "訓練模式",
       "options": {
@@ -247,7 +251,7 @@
     "notes": "更新說明",
     "manual": "手動安裝",
     "later": "稍後更新",
-    "text": "有新更新可用！\n\n目前版本：v{current}\n最新版本：v{latest}",
+    "text": "有新更新可用！\n\n目前版本：{current}\n最新版本：{latest}",
     "installing": "正在安裝更新...",
     "downloadError": "下載失敗。請重試或手動安裝。"
   },

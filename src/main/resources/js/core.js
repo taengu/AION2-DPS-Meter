@@ -2,7 +2,7 @@ class DpsApp {
   constructor() {
     if (DpsApp.instance) return DpsApp.instance;
 
-    this.POLL_MS = 500;
+    this.POLL_MS = 100;
     this.WINDOW_TITLE_POLL_MS = 30000;
     this.USER_NAME = "";
     this.onlyShowUser = false;
@@ -28,6 +28,7 @@ class DpsApp {
       detailsSaveScreenshotToFolder: "dpsMeter.detailsSaveScreenshotToFolder",
       detailsScreenshotFolder: "dpsMeter.detailsScreenshotFolder",
       detailsHiddenColumns: "dpsMeter.detailsHiddenColumns",
+      defaultMeterMode: "dpsMeter.defaultMeterMode",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
@@ -40,6 +41,7 @@ class DpsApp {
       playerLimit: "dpsMeter.playerLimit",
       theme: "dpsMeter.theme",
       slimMode: "dpsMeter.slimMode",
+      autoHideMeter: "dpsMeter.autoHideMeter",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
       windowOpacity: "dpsMeter.windowOpacity",
@@ -1079,9 +1081,11 @@ class DpsApp {
     for (const key of Object.values(this.storageKeys)) {
       try {
         localStorage.removeItem(key);
-        window.javaBridge?.setSetting?.(key, null);
       } catch (_) {}
     }
+    try {
+      window.javaBridge?.clearAllSettings?.();
+    } catch (_) {}
     window.location.reload();
   }
 
@@ -1216,11 +1220,13 @@ class DpsApp {
     { targetId = null, attackerIds = null, totalTargetDamage = null, showSkillIcons = false, maxSkills = null } = {}
   ) {
     let raw = null;
+    let backendFiltered = false;
     if (window._historyDetailsOverride) {
       raw = window._historyDetailsOverride;
     } else if (targetId && window.dpsData?.getTargetDetails) {
       const payload = Array.isArray(attackerIds) ? JSON.stringify(attackerIds) : "";
       raw = await window.dpsData.getTargetDetails(targetId, payload);
+      backendFiltered = true;
     } else {
       raw = await window.dpsData?.getBattleDetail?.(row.id);
     }
@@ -1310,13 +1316,13 @@ class DpsApp {
     };
 
     const detailSkills = Array.isArray(detailObj?.skills) ? detailObj.skills : null;
-    const attackerIdSet = Array.isArray(attackerIds) && attackerIds.length > 0
+    const attackerIdSet = !backendFiltered && Array.isArray(attackerIds) && attackerIds.length > 0
       ? new Set(attackerIds.map(Number))
       : null;
     if (detailSkills) {
       for (const value of detailSkills) {
         if (!value || typeof value !== "object") continue;
-        // Filter by selected player when viewing history
+        // Filter by selected player when viewing history (skip when backend already filtered)
         if (attackerIdSet) {
           const skillActorId = Number(value.actorId);
           if (!Number.isFinite(skillActorId) || !attackerIdSet.has(skillActorId)) continue;
@@ -1594,6 +1600,8 @@ class DpsApp {
     this.targetWindowDropdownMenu = document.querySelector(".targetWindowDropdownMenu");
     this.trainSelectionModeDropdownBtn = document.querySelector(".trainSelectionModeDropdownBtn");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
+    this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
+    this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
@@ -1630,6 +1638,7 @@ class DpsApp {
     this.settingsSelections = {
       language: "en",
       theme: this.theme,
+      defaultMeterMode: "lastHitByMe",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
       targetSelectionWindowMs: "5000",
@@ -1658,6 +1667,7 @@ class DpsApp {
     const storedMainPlayerNamesBold = mainPlayerNamesBoldSetting !== "false";
     const mainPlayerDpsBoldSetting = this.safeGetSetting(this.storageKeys.mainPlayerDpsBold);
     const storedMainPlayerDpsBold = mainPlayerDpsBoldSetting !== "false";
+    const storedDefaultMeterMode = this.safeGetSetting(this.storageKeys.defaultMeterMode) || "lastHitByMe";
     const storedTargetSelection = this.safeGetStorage(this.storageKeys.targetSelection);
     const storedLanguage = this.safeGetStorage(this.storageKeys.language);
     const storedTheme = this.safeGetSetting(this.storageKeys.theme);
@@ -1676,14 +1686,14 @@ class DpsApp {
     if (mainPlayerDpsBoldSetting === null || mainPlayerDpsBoldSetting === undefined || mainPlayerDpsBoldSetting === "") {
       this.safeSetSetting(this.storageKeys.mainPlayerDpsBold, "true");
     }
-    const normalizedTargetSelection =
-      ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"].includes(storedTargetSelection)
-        ? storedTargetSelection
-         : "lastHitByMe";
-    this.setTargetSelection(normalizedTargetSelection, {
+    const validModes = ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"];
+    const normalizedDefaultMode = validModes.includes(storedDefaultMeterMode)
+      ? storedDefaultMeterMode : "lastHitByMe";
+    this.settingsSelections.defaultMeterMode = normalizedDefaultMode;
+    this.setTargetSelection(normalizedDefaultMode, {
       persist: false,
       syncBackend: true,
-      reason: storedTargetSelection ? "restore from storage" : "default selection",
+      reason: "default meter mode setting",
     });
     this.applyTheme(storedTheme || this.theme, { persist: false });
     if (storedLanguage) {
@@ -1766,6 +1776,16 @@ class DpsApp {
         this.showTotalDps = !!event.target?.checked;
         this.safeSetSetting(this.storageKeys.showTotalDps, String(this.showTotalDps));
         this.renderCurrentRows();
+      });
+    }
+    this.autoHideMeterCheckbox = document.querySelector(".autoHideMeterCheckbox");
+    if (this.autoHideMeterCheckbox) {
+      const storedAutoHide = this.safeGetSetting(this.storageKeys.autoHideMeter) !== "false";
+      this.autoHideMeterCheckbox.checked = storedAutoHide;
+      this.autoHideMeterCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.autoHideMeter, String(isChecked));
+        window.javaBridge?.setAutoHideMeter?.(isChecked);
       });
     }
     this.initPlayerLimitDropdown();
@@ -2185,6 +2205,13 @@ class DpsApp {
       { value: "300000", label: this.i18n?.t("settings.allTargetsWindow.options.5m", "5 minutes") },
     ];
 
+    const defaultMeterModeOptions = [
+      { value: "lastHitByMe", label: "TARGET" },
+      { value: "bossTargets", label: "BOSS" },
+      { value: "allTargets", label: "ALL" },
+      { value: "trainTargets", label: "TRAIN" },
+    ];
+
     const trainModeOptions = [
       { value: "all", label: this.i18n?.t("settings.trainingMode.options.all", "All") },
       {
@@ -2281,6 +2308,24 @@ class DpsApp {
         this.trainSelectionMode = value;
         this.safeSetSetting(this.storageKeys.trainSelectionMode, value);
         window.javaBridge?.setTrainSelectionMode?.(value);
+        if (!this.isCollapse) this.fetchDps();
+      }
+    );
+
+    setupDropdown(
+      this.defaultMeterModeDropdownBtn,
+      this.defaultMeterModeDropdownMenu,
+      defaultMeterModeOptions,
+      this.settingsSelections.defaultMeterMode,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.defaultMeterMode = value;
+        this.safeSetSetting(this.storageKeys.defaultMeterMode, value);
+        this.setTargetSelection(value, {
+          persist: true,
+          syncBackend: true,
+          reason: "default meter mode changed",
+        });
         if (!this.isCollapse) this.fetchDps();
       }
     );

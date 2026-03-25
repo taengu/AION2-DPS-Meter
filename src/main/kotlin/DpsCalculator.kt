@@ -101,6 +101,22 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 .toMap()
         }
 
+        /**
+         * Look up a skill name, with fallback for Theostone DOT codes.
+         * DOT packets divide the raw skill code by 100, so a Theostone like
+         * 30012161 ("Fregion's Strategy") becomes 3001216 in DOT context.
+         * We recover the original 8-digit ID by trying code * 10 + 1.
+         */
+        fun lookupSkillName(code: Int): String {
+            SKILL_MAP[code]?.let { return it }
+            // Theostone DOT codes: 7-digit codes in 3_000_000..3_099_999
+            // map back to 8-digit Theostone IDs (which all end in 1)
+            if (code in 3_000_000..3_099_999) {
+                SKILL_MAP[code * 10 + 1]?.let { return it }
+            }
+            return ""
+        }
+
         private fun loadNpcMapFromResource(language: String): Map<Int, NpcInfo> {
             val stream = DpsCalculator::class.java.classLoader
                 .getResourceAsStream("i18n/npcs/${language}.json") ?: return emptyMap()
@@ -589,7 +605,46 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         // (e.g. Divine Aegis) with their owner.
         val nicknameToCanonicalId = buildNicknameCanonicalMap(pdps, summonData, nicknameData)
 
+        // Orphan summon inference: unlinked actors (no summon link, no nickname)
+        // with a detectable job matching exactly one real player of that class.
+        // Run for ALL cases (not just filtered) so skill entries always carry
+        // the owner's canonical ID, consistent with DetailsContext.actorDamage.
+        val allPlayerJobs = mutableMapOf<Int, String>()
+        pdps.forEach { pdp ->
+            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (uid <= 0 || !nicknameData.containsKey(uid)) return@forEach
+            if (allPlayerJobs.containsKey(uid)) return@forEach
+            val code = inferOriginalSkillCode(
+                pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
+                pdp.getDamage(), pdp.getHexPayload()
+            ) ?: return@forEach
+            val job = JobClass.convertFromSkill(code)
+            if (job != null) allPlayerJobs[uid] = job.className
+        }
+        val orphanToOwner = mutableMapOf<Int, Int>()
+        val seenOrphans = mutableSetOf<Int>()
+        pdps.forEach { pdp ->
+            val uid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (uid <= 0) return@forEach
+            if (summonData.containsKey(uid)) return@forEach
+            if (nicknameData.containsKey(uid)) return@forEach
+            if (seenOrphans.contains(uid)) return@forEach
+            seenOrphans.add(uid)
+            val code = inferOriginalSkillCode(
+                pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
+                pdp.getDamage(), pdp.getHexPayload()
+            )
+            if (code == null) return@forEach
+            val job = JobClass.convertFromSkillLoose(code) ?: return@forEach
+            val matchingPlayers = allPlayerJobs.entries
+                .filter { it.value == job.className }
+            if (matchingPlayers.size == 1) {
+                orphanToOwner[uid] = matchingPlayers.first().key
+            }
+        }
+
         // Expand actorIds to include any IDs that share the same nickname
+        // or are summons/orphans belonging to the selected player(s).
         val expandedActorIds = if (actorIds != null) {
             val canonicalIds = actorIds.map { nicknameToCanonicalId[resolveNickname(it, nicknameData)] ?: it }.toSet()
             val expanded = actorIds.toMutableSet()
@@ -602,53 +657,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                     }
                 }
             }
-            // Orphan summon inference: unlinked actors (no summon link, no nickname)
-            // with a detectable job matching exactly one selected player get merged.
-            val selectedPlayerJobs = mutableMapOf<Int, String>()
-            expanded.forEach { uid ->
-                if (!nicknameData.containsKey(uid)) return@forEach
-                pdps.filter { resolveSummonerUid(it.getActorId(), summonData) == uid }
-                    .forEach { pdp ->
-                        if (selectedPlayerJobs.containsKey(uid)) return@forEach
-                        val code = inferOriginalSkillCode(
-                            pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
-                            pdp.getDamage(), pdp.getHexPayload()
-                        ) ?: return@forEach
-                        val job = JobClass.convertFromSkill(code)
-                        if (job != null) selectedPlayerJobs[uid] = job.className
-                    }
-            }
-            // Find unlinked actors and check if they match a selected player's job
-            val orphanActors = mutableSetOf<Int>()
-            pdps.forEach { pdp ->
-                val uid = resolveSummonerUid(pdp.getActorId(), summonData)
-                if (uid <= 0 || expanded.contains(uid)) return@forEach
-                if (summonData.containsKey(uid)) return@forEach
-                if (nicknameData.containsKey(uid)) return@forEach
-                if (orphanActors.contains(uid)) return@forEach
-                val code = inferOriginalSkillCode(
-                    pdp.getSkillCode1(), pdp.getTargetId(), pdp.getActorId(),
-                    pdp.getDamage(), pdp.getHexPayload()
-                ) ?: return@forEach
-                val job = JobClass.convertFromSkillLoose(code) ?: return@forEach
-                val matchingPlayers = selectedPlayerJobs.entries
-                    .filter { it.value == job.className }
-                if (matchingPlayers.size == 1) {
-                    orphanActors.add(uid)
+            // Include orphan summons whose owner is a selected player
+            for ((orphanId, ownerId) in orphanToOwner) {
+                val ownerCanonical = nicknameToCanonicalId[resolveNickname(ownerId, nicknameData)] ?: ownerId
+                if (canonicalIds.contains(ownerCanonical)) {
+                    expanded.add(orphanId)
                 }
             }
-            expanded.addAll(orphanActors)
             expanded
         } else null
 
+        // Compute overall target stats from ALL packets (unfiltered) so that
+        // battleTime, totalTargetDamage, and contribution % remain stable
+        // regardless of which player is selected.
         pdps.forEach { pdp ->
             val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
             if (rawUid <= 0) return@forEach
-            val uid = nicknameToCanonicalId[resolveNickname(rawUid, nicknameData)] ?: rawUid
             val damage = pdp.getDamage() + pdp.getMultiHitDamage()
-            if (expandedActorIds != null && !expandedActorIds.contains(rawUid)) {
-                return@forEach
-            }
             totalTargetDamage += damage
             val timestamp = pdp.getTimeStamp()
             val currentStart = startTime
@@ -659,6 +684,19 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             if (currentEnd == null || timestamp > currentEnd) {
                 endTime = timestamp
             }
+        }
+
+        pdps.forEach { pdp ->
+            val rawUid = resolveSummonerUid(pdp.getActorId(), summonData)
+            if (rawUid <= 0) return@forEach
+            // Remap orphan summons to their owner so skills carry the correct actor ID
+            val remappedUid = orphanToOwner[rawUid] ?: rawUid
+            val uid = nicknameToCanonicalId[resolveNickname(remappedUid, nicknameData)] ?: remappedUid
+            if (expandedActorIds != null && !expandedActorIds.contains(rawUid)) {
+                return@forEach
+            }
+            val damage = pdp.getDamage() + pdp.getMultiHitDamage()
+            val timestamp = pdp.getTimeStamp()
 
             val inferredCode = inferOriginalSkillCode(
                 pdp.getSkillCode1(),
@@ -683,7 +721,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 DetailSkillEntry(
                     actorId = uid,
                     code = inferredCode,
-                    name = SKILL_MAP[inferredCode] ?: "",
+                    name = lookupSkillName(inferredCode),
                     time = 0,
                     dmg = 0,
                     multiHitCount = 0,

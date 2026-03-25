@@ -143,6 +143,12 @@ const createI18n = ({
   const getSkillName = (code, fallback = "") => {
     const value = skillStrings?.[String(code)];
     if (typeof value === "string" && value.trim()) return value;
+    // Theostone DOT codes: 7-digit codes (3000000-3099999) map to 8-digit IDs (code*10+1)
+    const num = Number(code);
+    if (num >= 3000000 && num <= 3099999) {
+      const tsValue = skillStrings?.[String(num * 10 + 1)];
+      if (typeof tsValue === "string" && tsValue.trim()) return tsValue;
+    }
     return fallback;
   };
 

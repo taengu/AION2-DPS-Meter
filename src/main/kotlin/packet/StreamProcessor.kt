@@ -302,7 +302,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 }
                 if (lastAnchor != null && lastAnchor.actorId !in namedActors) {
                     val distance = i - lastAnchor.endIndex
-                    if (distance >= 0) {
+                    if (distance in 0..64) {
                         val canBind = registerUtf8Nickname(
                             packet,
                             lastAnchor.actorId,
@@ -514,7 +514,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val lengthIndex = anchorIndex + 1
         if (lengthIndex >= packet.size) return null
         val nameLength = packet[lengthIndex].toInt() and 0xff
-        if (nameLength !in 1..16) return null
+        if (nameLength !in 1..32) return null
         val nameStart = lengthIndex + 1
         val nameEnd = nameStart + nameLength
         if (nameEnd > packet.size) return null
@@ -535,13 +535,27 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // Never bind a nickname to a known summon — doing so would remove it from
         // summonStorage (appendNickname cleanup) and break summon ownership links.
         if (dataStorage.getSummonData().containsKey(actorId)) return false
-        if (nameLength <= 0 || nameLength > 16) return false
+        if (nameLength <= 0 || nameLength > 32) return false
         val nameEnd = nameStart + nameLength
         if (nameStart < 0 || nameEnd > packet.size) return false
         val possibleNameBytes = packet.copyOfRange(nameStart, nameEnd)
         val possibleName = decodeUtf8Strict(possibleNameBytes) ?: return false
         val sanitizedName = sanitizeNickname(possibleName) ?: return false
         if (!actorExists(actorId)) {
+            logger.debug(
+                "Actor name binding (new) {} -> {} (hex={})",
+                actorId,
+                sanitizedName,
+                toHex(possibleNameBytes)
+            )
+            UnifiedLogger.debugForActor(
+                logger,
+                actorId,
+                "Actor name binding (new) {} -> {} (hex={})",
+                actorId,
+                sanitizedName,
+                toHex(possibleNameBytes)
+            )
             dataStorage.appendNickname(actorId, sanitizedName)
             return true
         }
@@ -726,7 +740,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     /**
      * Parse 04 8D summon ownership packets.
-     * Format after opcode: summon_id (varint), 4 zero bytes, owner_id (varint),
+     * Format after opcode: summon_id (varint), 4-byte fixed field, owner_id (varint),
      * metadata varint, name_length + name string.
      * This is the most reliable way to link static summons (e.g. Divine Aegis) to their owner.
      */
@@ -743,11 +757,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val summonId = summonInfo.value
         pos += summonInfo.length
 
-        // Validate 4 zero bytes — real 04 8D packets always have 00 00 00 00 here.
-        // Non-zero bytes indicate a false match (random data containing 04 8D).
+        // Skip 4-byte fixed field after summon ID (often 00 00 00 00, but can be non-zero
+        // e.g. BC 86 01 00 — possibly an NPC type or flags field).
         if (pos + 4 > packet.size) return false
-        if (packet[pos] != 0x00.toByte() || packet[pos + 1] != 0x00.toByte() ||
-            packet[pos + 2] != 0x00.toByte() || packet[pos + 3] != 0x00.toByte()) return false
         pos += 4
 
         val ownerInfo = readVarInt(packet, pos)
@@ -770,7 +782,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pos += metaInfo.length
             if (pos < packet.size) {
                 val nameLen = packet[pos].toInt() and 0xFF
-                if (nameLen in 1..16 && pos + 1 + nameLen <= packet.size) {
+                if (nameLen in 1..32 && pos + 1 + nameLen <= packet.size) {
                     registerUtf8Nickname(packet, ownerId, pos + 1, nameLen)
                 }
             }
@@ -803,16 +815,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             if (summonInfo.length <= 0 || summonInfo.value !in 100..9_999_999) continue
             val summonId = summonInfo.value
 
-            // Validate 4 zero bytes after summon varint (same as parseSummonOwnershipPacket)
-            val zeroStart = searchOffset + summonInfo.length
-            if (zeroStart + 4 > data.size) continue
-            if (data[zeroStart] != 0x00.toByte() || data[zeroStart + 1] != 0x00.toByte() ||
-                data[zeroStart + 2] != 0x00.toByte() || data[zeroStart + 3] != 0x00.toByte()) continue
+            // Skip 4-byte fixed field after summon varint (same as parseSummonOwnershipPacket)
+            val fixedFieldStart = searchOffset + summonInfo.length
+            if (fixedFieldStart + 4 > data.size) continue
 
             // Scan forward (up to 128 bytes) for E0/E2 07 anchor to find owner
-            val scanEnd = minOf(data.size - 1, searchOffset + summonInfo.length + 128)
+            val afterFixed = fixedFieldStart + 4
+            val scanEnd = minOf(data.size - 1, afterFixed + 128)
             var anchorIdx = -1
-            for (i in (searchOffset + summonInfo.length) until scanEnd) {
+            for (i in afterFixed until scanEnd) {
                 if ((data[i] == 0xE0.toByte() || data[i] == 0xE2.toByte()) && data[i + 1] == 0x07.toByte()) {
                     anchorIdx = i
                     break
@@ -824,7 +835,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             var ownerId = -1
             for (vLen in 1..3) {
                 val vStart = anchorIdx - vLen
-                if (vStart < searchOffset + summonInfo.length && vStart >= 0) continue
+                if (vStart < afterFixed && vStart >= 0) continue
                 if (vStart < 0) continue
                 if (!canReadVarInt(data, vStart)) continue
                 val v = readVarInt(data, vStart)

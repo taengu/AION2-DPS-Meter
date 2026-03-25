@@ -131,6 +131,7 @@
     },
     "showPing": "Show ping",
     "showTotalDps": "Show total DPS/DMG",
+    "autoHideMeter": "Auto-hide meter",
     "playerLimit": {
       "label": "Max players shown"
     },
@@ -199,6 +200,9 @@
       "pressKeys": "Press keys...",
       "needModifiers": "Need 2+ modifiers"
     },
+    "defaultMeterMode": {
+      "label": "Default mode"
+    },
     "trainingMode": {
       "label": "Training Mode target",
       "options": {
@@ -249,7 +253,7 @@
     "notes": "Release Notes",
     "manual": "Manual Install",
     "later": "Update Later",
-    "text": "A new update is available!\n\nCurrent version: v{current}\nLatest version: v{latest}",
+    "text": "A new update is available!\n\nCurrent version: {current}\nLatest version: {latest}",
     "installing": "Installing update...",
     "downloadError": "Download failed. Please try again or install manually."
   },
