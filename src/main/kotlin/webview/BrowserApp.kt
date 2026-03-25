@@ -331,6 +331,17 @@ class BrowserApp(
         }
 
         @Suppress("unused")
+        fun setAutoHideMeter(enabled: Boolean) {
+            autoHideEnabled = enabled
+            PropertyHandler.setProperty("dpsMeter.autoHideMeter", enabled.toString())
+        }
+
+        @Suppress("unused")
+        fun clearAllSettings() {
+            PropertyHandler.clearAll()
+        }
+
+        @Suppress("unused")
         fun logDebug(message: String?) {
             if (message.isNullOrBlank()) return
             UnifiedLogger.debug(logger, "UI {}", message.trim())
@@ -578,7 +589,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.2"
+    private val version = "1.0.3"
 
     @Volatile
     private var cachedWindowTitle: String? = null
@@ -604,6 +615,10 @@ class BrowserApp(
     /** Tracks whether the meter was hidden by the game being minimized (vs. hidden by hotkey). */
     @Volatile
     private var hiddenByGameMinimize = false
+
+    /** Whether auto-hide is enabled (hides meter when game is not focused). */
+    @Volatile
+    private var autoHideEnabled = PropertyHandler.getProperty("dpsMeter.autoHideMeter") != "false"
 
     private fun startHistoryAutoSave() {
         historyAutoSaveScheduler.scheduleAtFixedRate({
@@ -653,6 +668,19 @@ class BrowserApp(
 
         gameVisibilityScheduler.scheduleAtFixedRate({
             try {
+                if (!autoHideEnabled) {
+                    // If auto-hide was just disabled while meter is hidden, restore it
+                    if (hiddenByGameMinimize) {
+                        Platform.runLater {
+                            hiddenByGameMinimize = false
+                            stage.opacity = 1.0
+                            stage.isAlwaysOnTop = true
+                            stage.scene?.root?.isMouseTransparent = false
+                        }
+                    }
+                    return@scheduleAtFixedRate
+                }
+
                 val gameWindow = WindowTitleDetector.findAion2Window()
                 val gameRunning = gameWindow != null
                 val gameMinimized = gameWindow != null && WindowTitleDetector.isMinimized(gameWindow.hwnd)
@@ -830,7 +858,7 @@ class BrowserApp(
             } catch (e: Exception) {
                 logger.warn("getDps() failed on background thread", e)
             }
-        }, 0L, 500L, TimeUnit.MILLISECONDS)
+        }, 0L, 100L, TimeUnit.MILLISECONDS)
     }
 
     @Suppress("unused")

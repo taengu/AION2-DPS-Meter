@@ -129,6 +129,7 @@
     },
     "showPing": "핑 표시",
     "showTotalDps": "총 DPS/DMG 표시",
+    "autoHideMeter": "미터 자동 숨기기",
     "playerLimit": {
       "label": "최대 표시 인원"
     },
@@ -197,6 +198,9 @@
       "pressKeys": "키를 누르세요...",
       "needModifiers": "수정자 2개 이상 필요"
     },
+    "defaultMeterMode": {
+      "label": "기본 미터 모드"
+    },
     "trainingMode": {
       "label": "훈련 모드",
       "options": {
@@ -247,7 +251,7 @@
     "notes": "릴리스 노트",
     "manual": "수동 설치",
     "later": "나중에 업데이트",
-    "text": "새 업데이트가 있습니다!\n\n현재 버전: v{current}\n최신 버전: v{latest}",
+    "text": "새 업데이트가 있습니다!\n\n현재 버전: {current}\n최신 버전: {latest}",
     "installing": "업데이트 설치 중...",
     "downloadError": "다운로드 실패. 다시 시도하거나 수동으로 설치하세요."
   },

@@ -159,7 +159,7 @@
         installBtn.style.display = "none";
       }
 
-      const fallback = `A new update is available!\n\nCurrent version: v${current}\nLatest version: v${latest}`;
+      const fallback = `A new update is available!\n\nCurrent version: ${current}\nLatest version: ${latest}`;
       textEl.textContent =
         window.i18n?.format?.("update.text", { current, latest }, fallback) || fallback;
       showActions();

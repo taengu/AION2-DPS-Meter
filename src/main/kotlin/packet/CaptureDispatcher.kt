@@ -58,6 +58,14 @@ class CaptureDispatcher(
                     PingTracker.onPacket(cap)
                 }
 
+                // Only parse server→client packets (srcPort == locked port).
+                // Client→server data uses a different wire format and would corrupt the
+                // StreamAssembler's accumulator if interleaved with partial server segments.
+                // PingTracker already received both directions above.
+                if (currentLockedPort != null && cap.srcPort != currentLockedPort) {
+                    continue
+                }
+
                 // 2. Run all the filters FIRST before creating any memory-heavy assemblers!
                 val unlocked = currentLockedPort == null
                 val tlsPayload = looksLikeTlsPayload(cap.data)
