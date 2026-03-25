@@ -368,33 +368,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             }
         }
 
-        // Skill-based summon inference: unlinked actors using class-specific skills
-        // (e.g. Divine Aura summon with no spawn/ownership packet) get merged into
-        // the unique player of that class.
-        val orphanSummons = mutableListOf<Pair<Int, Int>>()  // orphanId -> ownerId
-        for ((uid, data) in dpsData.map) {
-            if (summonData.containsKey(uid)) continue      // already linked
-            if (nicknameData.containsKey(uid)) continue     // is a player
-            // Use loose detection so spirit skills (e.g. sub-99) still match
-            val orphanJob = data.job.takeIf { it.isNotEmpty() }
-                ?: data.analyzedData.keys.firstNotNullOfOrNull { code ->
-                    JobClass.convertFromSkillLoose(code)
-                }?.className
-                ?: continue
-            // Find all other actors with the same job that ARE real players (have nickname)
-            val sameJobPlayers = dpsData.map.entries.filter { (otherId, otherData) ->
-                otherId != uid && otherData.job == orphanJob && nicknameData.containsKey(otherId)
-            }
-            if (sameJobPlayers.size == 1) {
-                orphanSummons.add(uid to sameJobPlayers.first().key)
-            }
-        }
-        for ((orphanId, ownerId) in orphanSummons) {
-            val orphanData = dpsData.map.remove(orphanId) ?: continue
-            val ownerData = dpsData.map[ownerId] ?: continue
-            ownerData.mergeFrom(orphanData)
-        }
-
         val localActorIds = resolveConfirmedLocalActorIds()
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {
