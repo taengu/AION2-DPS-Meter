@@ -147,6 +147,18 @@ object CombatPortDetector {
     fun currentDevice(): String? = lockedDevice
     fun lastParsedAtMs(): Long = lastParsedAtMs
 
+    @Volatile
+    var preferredDevice: String? = null
+        private set
+
+    @Volatile
+    var onPreferredDeviceChanged: ((String?) -> Unit)? = null
+
+    fun setPreferredDevice(device: String?) {
+        preferredDevice = device?.trim()?.takeIf { it.isNotBlank() }
+        onPreferredDeviceChanged?.invoke(preferredDevice)
+    }
+
     fun markPacketParsed() {
         lastParsedAtMs = System.currentTimeMillis()
     }

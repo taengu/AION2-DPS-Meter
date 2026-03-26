@@ -49,29 +49,33 @@ object UnifiedLogger {
     /** Non-actor-specific log — suppressed when a debugActorId filter is active. */
     fun debug(logger: Logger, message: String, vararg args: Any?) {
         if (getDebugActorFilter() != null) return
-        writeDebug("DEBUG", logger.name, message, args)
+        writeDebug(logger.name, message, args)
     }
 
     /** Only written when actorId matches the debugActorId filter (or no filter is set). */
     fun debugForActor(logger: Logger, actorId: Int, message: String, vararg args: Any?) {
         val filter = getDebugActorFilter()
         if (filter != null && actorId != filter) return
-        writeDebug("DEBUG", logger.name, message, args)
+        writeDebug(logger.name, message, args)
     }
 
     /** Only written when at least one of the given actor IDs matches the filter (or no filter is set). */
     fun debugForActors(logger: Logger, actor1: Int, actor2: Int, message: String, vararg args: Any?) {
         val filter = getDebugActorFilter()
         if (filter != null && actor1 != filter && actor2 != filter) return
-        writeDebug("DEBUG", logger.name, message, args)
+        writeDebug(logger.name, message, args)
     }
 
     fun info(logger: Logger, message: String, vararg args: Any?) {
-        writeDebug("INFO", logger.name, message, args)
+        writeLog("INFO", logger.name, message, args)
     }
 
-    private fun writeDebug(level: String, loggerName: String, message: String, args: Array<out Any?>) {
+    private fun writeDebug(loggerName: String, message: String, args: Array<out Any?>) {
         if (!debugEnabled) return
+        writeLog("DEBUG", loggerName, message, args)
+    }
+
+    private fun writeLog(level: String, loggerName: String, message: String, args: Array<out Any?>) {
         val result = MessageFormatter.arrayFormat(message, args)
         val formattedMessage = truncate(result.message ?: "")
         val timestamp = LocalTime.now().format(debugTimestampFormatter)

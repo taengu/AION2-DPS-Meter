@@ -58,6 +58,16 @@ class AionMeterApp : Application() {
         val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
         val config = PcapCapturerConfig.loadFromProperties()
         val dataStorage = DataStorage()
+
+        // Pre-register replay nick/ID so the meter recognises the local player
+        // from the very first damage packet (before nickname parsing finds it).
+        // Uses setPermanentNickname so it survives resetNicknameStorage() calls
+        // triggered by the UI identity setup during startup.
+        if (isReplayMode && replayNick != null && replayId != null && replayId > 0) {
+            dataStorage.setPermanentNickname(replayId.toInt(), replayNick)
+            logger.info("Replay: pre-registered nickname {} -> {}", replayId, replayNick)
+        }
+
         val calculator = DpsCalculator(dataStorage)
         val capturer = PcapCapturer(config, channel)
         CombatPortDetector.onDeviceLocked = { lockedDevice ->
@@ -65,6 +75,14 @@ class AionMeterApp : Application() {
         }
         CombatPortDetector.onReset = {
             capturer.restartStoppedDevices()
+        }
+        CombatPortDetector.onPreferredDeviceChanged = { deviceLabel ->
+            if (deviceLabel != null) {
+                capturer.ensureDeviceCapturing(deviceLabel)
+            } else {
+                // Switched back to auto-detect: full restart with loopback priority
+                capturer.restart()
+            }
         }
         val dispatcher = CaptureDispatcher(channel, dataStorage, isReplayMode)
         val uiReady = CompletableDeferred<Unit>()

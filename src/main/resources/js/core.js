@@ -3,7 +3,7 @@ class DpsApp {
     if (DpsApp.instance) return DpsApp.instance;
 
     this.POLL_MS = 100;
-    this.WINDOW_TITLE_POLL_MS = 30000;
+    this.WINDOW_TITLE_POLL_MS = 3000;
     this.USER_NAME = "";
     this.onlyShowUser = false;
     this.debugLoggingEnabled = false;
@@ -50,6 +50,7 @@ class DpsApp {
     this.dpsFormatter = new Intl.NumberFormat("en-US");
     this.lastJson = null;
     this.isCollapse = false;
+    this._windowHidden = false;
     this.displayMode = "dps";
     this.theme = "aion2";
     this.availableThemes = [
@@ -531,7 +532,9 @@ class DpsApp {
     if (!detectedName || detectedName === this.USER_NAME) return;
     const hadPreviousName = !!this.USER_NAME;
     if (hadPreviousName) {
-      this.resetAll({ callBackend: false });
+      // Character switch means new TCP connection — full refresh resets
+      // port detection, backend data, and UI so new damage displays immediately.
+      this.refreshDamageData({ reason: "character switch" });
     }
     this.setUserName(detectedName, { persist: true, syncBackend: true });
     if (this.characterNameInput && document.activeElement !== this.characterNameInput) {
@@ -543,6 +546,16 @@ class DpsApp {
     if (!this._pollTimer) return;
     clearInterval(this._pollTimer);
     this._pollTimer = null;
+  }
+
+  /** Called from Kotlin when the window is hidden/shown (hotkey or auto-hide). */
+  _setWindowHidden(hidden) {
+    this._windowHidden = !!hidden;
+    if (hidden) {
+      this.stopPolling();
+    } else {
+      this.startPolling();
+    }
   }
 
   resetAll({ callBackend = true } = {}) {
@@ -723,7 +736,7 @@ class DpsApp {
 
 
   fetchDps() {
-    if (this.isCollapse) return;
+    if (this.isCollapse || this._windowHidden) return;
     if (this.isWindowDragging) {
       this.deferFetchUntilDragEnd = true;
       return;
@@ -748,6 +761,22 @@ class DpsApp {
     }
 
     if (raw === this.lastJson && !this.refreshPending) {
+      // Staleness watchdog: if the backend JSON hasn't changed for 10+ seconds
+      // but the backend IS still parsing packets, something may be stuck.
+      // Force a re-process to recover from invisible backend exceptions.
+      if (!this._rawLastChangedAt) this._rawLastChangedAt = now;
+      const staleMs = now - this._rawLastChangedAt;
+      if (staleMs > 5_000) {
+        const lastParsed = Number(window.javaBridge?.getLastParsedAtMs?.());
+        const parsingRecently = Number.isFinite(lastParsed) && lastParsed > 0 && (Date.now() - lastParsed) < 15_000;
+        if (parsingRecently) {
+          this.logDebug(`Staleness watchdog: data unchanged for ${Math.round(staleMs/1000)}s while backend parsing active — forcing re-render`);
+          this.lastJson = null;
+          this._rawLastChangedAt = now;
+          return;
+        }
+      }
+
       const shouldBeVisible = this._battleTimeVisible && !this.isCollapse;
 
       this.battleTime.setVisible(shouldBeVisible);
@@ -758,6 +787,7 @@ class DpsApp {
       this.updateConnectionStatusUi();
       return;
     }
+    this._rawLastChangedAt = now;
 
     const previousTargetName = this.lastTargetName;
     const previousTargetMode = this.lastTargetMode;
@@ -1603,6 +1633,9 @@ class DpsApp {
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
+    this.autoDetectDeviceCheckbox = document.querySelector(".autoDetectDeviceCheckbox");
+    this.deviceDropdownBtn = document.querySelector(".deviceDropdownBtn");
+    this.deviceDropdownMenu = document.querySelector(".deviceDropdownMenu");
     this.characterNameInput = document.querySelector(".characterNameInput");
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
@@ -1894,6 +1927,21 @@ class DpsApp {
       window.javaBridge?.resetAutoDetection?.();
       this.refreshConnectionInfo();
     });
+
+    // Device selection: auto-detect checkbox + manual device dropdown
+    this._autoDetectDevice = !this.safeGetSetting("dpsMeter.manualDevice");
+    if (this.autoDetectDeviceCheckbox) {
+      this.autoDetectDeviceCheckbox.checked = this._autoDetectDevice;
+      this._updateDeviceDropdownState();
+      this.autoDetectDeviceCheckbox.addEventListener("change", () => {
+        this._autoDetectDevice = this.autoDetectDeviceCheckbox.checked;
+        this._updateDeviceDropdownState();
+        if (this._autoDetectDevice) {
+          window.javaBridge?.setManualDevice?.("");
+          this.refreshConnectionInfo();
+        }
+      });
+    }
 
     document.querySelector(".resetAllSettingsBtn")?.addEventListener("click", () => {
       this.resetAllSettings();
@@ -2795,9 +2843,9 @@ class DpsApp {
         ((mods & MOD_SHIFT) ? 1 : 0) +
         ((mods & MOD_WIN) ? 1 : 0);
 
-      if (modCount < 2) {
+      if (modCount < 1) {
         activeRecording.btn.querySelector(".keybindText").textContent =
-          this.i18n?.t?.("settings.keybind.needModifiers", "Need 2+ modifiers") ?? "Need 2+ modifiers";
+          this.i18n?.t?.("settings.keybind.needModifiers", "Need 1+ modifier") ?? "Need 1+ modifier";
         setTimeout(() => {
           if (activeRecording) {
             activeRecording.btn.querySelector(".keybindText").textContent =
@@ -2839,6 +2887,9 @@ class DpsApp {
       this.detailsUI?.close?.({ keepPinned: false });
       this.refreshConnectionInfo();
       this.refreshKeybindLabels?.();
+      // Populate device dropdown with current list of available devices
+      const savedDevice = this.safeGetSetting("dpsMeter.manualDevice");
+      this._populateDeviceDropdown(savedDevice || null);
     }
   }
 
@@ -3226,6 +3277,11 @@ class DpsApp {
         : this.i18n?.t("connection.auto", "Auto");
     this.lockedIp.textContent = ip;
     this.lockedPort.textContent = port;
+    // Keep the device dropdown text in sync with the currently locked device
+    if (this._autoDetectDevice && deviceName && this.deviceDropdownBtn) {
+      const textEl = this.deviceDropdownBtn.querySelector(".settingsDropdownText");
+      if (textEl) textEl.textContent = deviceName;
+    }
     const localPlayerId = Number(info?.localPlayerId);
     this.localPlayerId = Number.isFinite(localPlayerId) && localPlayerId > 0
       ? Math.trunc(localPlayerId)
@@ -3250,6 +3306,56 @@ class DpsApp {
     if (!this.settingsPanel?.classList.contains("isOpen")) return;
     this.refreshConnectionInfo({ skipSettingsRefresh: true });
     this.updateSettingsVersion();
+  }
+
+  _updateDeviceDropdownState() {
+    const disabled = this._autoDetectDevice;
+    if (this.deviceDropdownBtn) this.deviceDropdownBtn.disabled = disabled;
+    if (disabled && this.deviceDropdownMenu) this.deviceDropdownMenu.classList.remove("isOpen");
+  }
+
+  _populateDeviceDropdown(currentDevice) {
+    if (!this.deviceDropdownBtn || !this.deviceDropdownMenu) return;
+    const raw = window.javaBridge?.getAvailableDevices?.();
+    const devices = typeof raw === "string" ? this.safeParseJSON(raw, []) : [];
+    if (!Array.isArray(devices) || devices.length === 0) return;
+    const options = devices.map((d) => ({ value: d, label: d }));
+    // When auto-detect is on, show the currently locked device; otherwise show the manual selection
+    const connRaw = window.javaBridge?.getConnectionInfo?.();
+    const connInfo = typeof connRaw === "string" ? this.safeParseJSON(connRaw, {}) : {};
+    const lockedDevice = typeof connInfo?.device === "string" && connInfo.device.trim() ? connInfo.device : "";
+    const selected = this._autoDetectDevice ? (lockedDevice || currentDevice || devices[0]) : (currentDevice || devices[0]);
+    this.deviceDropdownMenu.innerHTML = "";
+    options.forEach((opt) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "settingsDropdownItem";
+      item.dataset.value = opt.value;
+      item.textContent = opt.label;
+      if (opt.value === selected) item.classList.add("isActive");
+      item.addEventListener("click", () => {
+        window.javaBridge?.setManualDevice?.(opt.value);
+        this.deviceDropdownMenu.classList.remove("isOpen");
+        const textEl = this.deviceDropdownBtn.querySelector(".settingsDropdownText");
+        if (textEl) textEl.textContent = opt.label;
+        this.deviceDropdownMenu.querySelectorAll(".settingsDropdownItem").forEach((el) =>
+          el.classList.toggle("isActive", el.dataset.value === opt.value)
+        );
+        this.refreshConnectionInfo();
+      });
+      this.deviceDropdownMenu.appendChild(item);
+    });
+    const textEl = this.deviceDropdownBtn.querySelector(".settingsDropdownText");
+    if (textEl) textEl.textContent = selected;
+    this.deviceDropdownBtn.onclick = (event) => {
+      if (this.deviceDropdownBtn.disabled) return;
+      event.stopPropagation();
+      // Close other dropdowns
+      document.querySelectorAll(".settingsDropdownMenu.isOpen").forEach((menu) => {
+        if (menu !== this.deviceDropdownMenu) menu.classList.remove("isOpen");
+      });
+      this.deviceDropdownMenu.classList.toggle("isOpen");
+    };
   }
 
   updateSettingsVersion() {

@@ -16,10 +16,13 @@ class DataStorage {
     private val byActorStorage = HashMap<Int, ArrayList<ParsedDamagePacket>>()
     private val nicknameStorage = ConcurrentHashMap<Int, String>()
     private val pendingNicknameStorage = ConcurrentHashMap<Int, String>()
+    private val permanentNicknames = ConcurrentHashMap<Int, String>()
     private val summonStorage = ConcurrentHashMap<Int, Int>()
     private val mobCodeData = ConcurrentHashMap<Int, String>()
     private val mobStorage = ConcurrentHashMap<Int, Int>()
     private val knownPlayerIds = ConcurrentHashMap.newKeySet<Int>()
+    private val confirmedSummonIds = ConcurrentHashMap.newKeySet<Int>()
+    private val pendingSummonByOwnerName = ConcurrentHashMap<String, MutableSet<Int>>()
     private val currentTarget = AtomicInteger(0)
     private val packetOrder = ArrayDeque<ParsedDamagePacket>()
     private val mobHpData = ConcurrentHashMap<Int, Int>()
@@ -58,10 +61,17 @@ class DataStorage {
             return
         }
 
-        // Track actors using player-class skills as known players
-        if (isPlayerSkill(skillCode)) {
+        // Track actors using player-class skills as known players.
+        // Confirmed summons (identified by 5F 00 spawn marker) are excluded — their
+        // skills overlap with their owner's class but they are NOT players.
+        if (isPlayerSkill(skillCode) && !confirmedSummonIds.contains(pdp.getActorId())) {
             val isNew = knownPlayerIds.add(pdp.getActorId())
             if (isNew) {
+                // If this actor was falsely registered as a summon, remove the link
+                if (summonStorage.remove(pdp.getActorId()) != null) {
+                    UnifiedLogger.info(logger, "Removed false summon mapping for player {} (uses player skill {})",
+                        pdp.getActorId(), skillCode)
+                }
                 purgeFriendlyPackets(pdp.getActorId())
             }
         }
@@ -123,6 +133,18 @@ class DataStorage {
         return knownPlayerIds.contains(resolvedActor) && knownPlayerIds.contains(resolvedTarget)
     }
 
+    /**
+     * Check if an entity is an active damage target of known players.
+     * If players have been dealing damage to it, it's a hostile mob — not a player's pet.
+     */
+    private fun isHostileDamageTarget(entityId: Int): Boolean {
+        val packets = byTargetStorage[entityId] ?: return false
+        return packets.any { pdp ->
+            val resolvedAttacker = SummonResolver.resolve(pdp.getActorId(), summonStorage)
+            knownPlayerIds.contains(resolvedAttacker)
+        }
+    }
+
     private fun purgeFriendlyPackets(uid: Int) {
         val toRemove = mutableListOf<ParsedDamagePacket>()
 
@@ -159,28 +181,53 @@ class DataStorage {
     }
 
 
-    fun appendMob(mid: Int, code: Int) {
-        mobStorage[mid] = code
+    /**
+     * Register a confirmed summon by owner ID (extracted directly from spawn packet).
+     * This bypasses heuristic checks since the ownership is determined from packet structure.
+     */
+    @Synchronized
+    fun registerConfirmedSummonById(summonId: Int, ownerId: Int) {
+        confirmedSummonIds.add(summonId)
+        if (knownPlayerIds.remove(summonId)) {
+            UnifiedLogger.info(logger, "Reclassified {} as confirmed summon (was in knownPlayerIds)", summonId)
+        }
+        summonStorage[summonId] = ownerId
+        UnifiedLogger.info(logger, "Summon linked (spawn packet): owner {} -> summon {}", ownerId, summonId)
+        purgeFriendlyPackets(summonId)
     }
 
+    fun isConfirmedSummon(entityId: Int): Boolean = confirmedSummonIds.contains(entityId)
+
+    fun appendMob(mid: Int, code: Int) {
+        mobStorage[mid] = code
+        UnifiedLogger.info(logger, "Mob registered: id {} -> code {}", mid, code)
+    }
+
+    @Synchronized
     fun appendSummon(summoner: Int, summon: Int) {
         // Never register a known player (has nickname) as a summon
         if (nicknameStorage.containsKey(summon)) {
-            logger.debug("Summon registration blocked: {} is a known player (has nickname), not registering as summon of {}", summon, summoner)
+            UnifiedLogger.info(logger, "Summon blocked (known player): {} has nickname, not summon of {}", summon, summoner)
             return
         }
         // Never register an actor that has used player-class skills as a summon
         if (knownPlayerIds.contains(summon)) {
-            logger.debug("Summon registration blocked: {} uses player-class skills, not registering as summon of {}", summon, summoner)
+            UnifiedLogger.info(logger, "Summon blocked (player skills): {} uses player skills, not summon of {}", summon, summoner)
+            return
+        }
+        // Never register an entity that known players have been attacking as a summon.
+        // If it's in byTargetStorage it's a hostile mob, not a player's pet.
+        if (isHostileDamageTarget(summon)) {
+            UnifiedLogger.info(logger, "Summon blocked (hostile target): {} is being attacked by players, not summon of {}", summon, summoner)
             return
         }
         // Don't allow a summon or mob to be registered as an owner
         if (summonStorage.containsKey(summoner)) {
-            logger.debug("Summon registration blocked: summoner {} is itself a summon, not registering {} as its summon", summoner, summon)
+            UnifiedLogger.info(logger, "Summon blocked (chain): summoner {} is itself a summon, not registering {} as its summon", summoner, summon)
             return
         }
         if (mobStorage.containsKey(summoner) && !summonStorage.containsKey(summoner)) {
-            logger.debug("Summon registration blocked: summoner {} is a known mob, not registering {} as its summon", summoner, summon)
+            UnifiedLogger.info(logger, "Summon blocked (mob owner): summoner {} is a known mob, not registering {} as its summon", summoner, summon)
             return
         }
         // Job compatibility check: if the summon has used class-specific skills,
@@ -189,11 +236,12 @@ class DataStorage {
         val summonJob = inferJobFromSkills(summon)
         val ownerJob = inferJobFromSkills(summoner)
         if (summonJob != null && ownerJob != null && summonJob != ownerJob) {
-            logger.debug("Summon registration blocked: summon {} job {} != owner {} job {}",
+            UnifiedLogger.info(logger, "Summon blocked (job mismatch): summon {} job {} != owner {} job {}",
                 summon, summonJob.className, summoner, ownerJob.className)
             return
         }
         summonStorage[summon] = summoner
+        UnifiedLogger.info(logger, "Summon registered: owner {} -> summon {}", summoner, summon)
     }
 
     /**
@@ -234,19 +282,32 @@ class DataStorage {
             )
             return
         }
-        logger.debug("Nickname registered {} -> {}", nicknameStorage[uid], nickname)
+        UnifiedLogger.info(logger, "Nickname registered: {} -> {} (was: {})", uid, nickname, nicknameStorage[uid])
         UnifiedLogger.debug(logger, "Nickname registered {} -> {}", nicknameStorage[uid], nickname)
         nicknameStorage[uid] = nickname
 
-        // If this ID was previously registered as a summon, remove it — it's a player
-        if (summonStorage.remove(uid) != null) {
-            logger.debug("Removed false summon mapping for player {} (nickname: {})", uid, nickname)
+        // If this ID was previously registered as a summon (but is NOT a confirmed
+        // 5F 00 summon), remove it — it's a player, not a pet.
+        if (!confirmedSummonIds.contains(uid) && summonStorage.remove(uid) != null) {
+            UnifiedLogger.info(logger, "Removed false summon mapping for player {} (nickname: {})", uid, nickname)
         }
 
         // Register as known player and retroactively purge friendly-action packets
-        val isNew = knownPlayerIds.add(uid)
-        if (isNew) {
-            purgeFriendlyPackets(uid)
+        // (but not if this is a confirmed summon — summons can have display names too)
+        if (!confirmedSummonIds.contains(uid)) {
+            val isNew = knownPlayerIds.add(uid)
+            if (isNew) {
+                purgeFriendlyPackets(uid)
+            }
+        }
+
+        // Resolve any pending summon links waiting for this owner name
+        val pendingSummons = pendingSummonByOwnerName.remove(nickname)
+        if (pendingSummons != null) {
+            for (summonId in pendingSummons) {
+                summonStorage[summonId] = uid
+                UnifiedLogger.info(logger, "Summon linked (deferred): owner {} ({}) -> summon {}", uid, nickname, summonId)
+            }
         }
 
         val localName = LocalPlayer.characterName?.trim().orEmpty()
@@ -268,10 +329,20 @@ class DataStorage {
         pendingNicknameStorage[uid] = nickname
     }
 
+    /**
+     * Register a nickname that survives resets (e.g. replay override).
+     */
+    fun setPermanentNickname(uid: Int, nickname: String) {
+        permanentNicknames[uid] = nickname
+        appendNickname(uid, nickname)
+    }
+
     @Synchronized
     fun resetNicknameStorage() {
         nicknameStorage.clear()
         pendingNicknameStorage.clear()
+        // Re-apply permanent nicknames (replay overrides)
+        permanentNicknames.forEach { (uid, nick) -> nicknameStorage[uid] = nick }
     }
 
     @Synchronized
@@ -288,6 +359,8 @@ class DataStorage {
         packetOrder.clear()
         summonStorage.clear()
         knownPlayerIds.clear()
+        confirmedSummonIds.clear()
+        pendingSummonByOwnerName.clear()
         mobHpData.clear()
         currentTarget.set(0)
         snapshotDirty = true
