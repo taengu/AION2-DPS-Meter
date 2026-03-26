@@ -47,6 +47,13 @@ class CaptureDispatcher(
                     continue
                 }
 
+                // When a manual device preference is set, only consider packets from that device
+                val preferredDevice = CombatPortDetector.preferredDevice
+                if (!isOfflineReplay && preferredDevice != null && currentLockedPort == null &&
+                    !deviceMatches(preferredDevice, cap.deviceName)) {
+                    continue
+                }
+
                 // 1. If we are securely locked to AION, completely ignore all other background ports
                 if (currentLockedPort != null && cap.srcPort != currentLockedPort && cap.dstPort != currentLockedPort) {
                     continue
@@ -178,6 +185,19 @@ class CaptureDispatcher(
     private fun ensureAionRunning(): Boolean {
         if (isOfflineReplay) return true
         val now = System.currentTimeMillis()
+
+        // Staleness check: if port is locked but no packets parsed for a while,
+        // the game likely crashed/reconnected on a new port. Reset so we can re-lock.
+        if (isAionRunning && CombatPortDetector.currentPort() != null) {
+            val lastParsed = CombatPortDetector.lastParsedAtMs()
+            if (lastParsed > 0 && now - lastParsed > STALE_CONNECTION_TIMEOUT_MS) {
+                logger.info("No packets parsed for {}ms while AION running, resetting combat port lock", now - lastParsed)
+                CombatPortDetector.reset()
+                PingTracker.reset()
+                assemblers.clear()
+            }
+        }
+
         val intervalMs = if (isAionRunning) WINDOW_CHECK_RUNNING_INTERVAL_MS else WINDOW_CHECK_STOPPED_INTERVAL_MS
         if (now - lastWindowCheckMs >= intervalMs) {
             lastWindowCheckMs = now
@@ -226,6 +246,7 @@ class CaptureDispatcher(
     companion object {
         private const val WINDOW_CHECK_STOPPED_INTERVAL_MS = 10_000L
         private const val WINDOW_CHECK_RUNNING_INTERVAL_MS = 60_000L
+        private const val STALE_CONNECTION_TIMEOUT_MS = 30_000L
         private const val SKIP_LOG_WINDOW_MS = 30_000L
         private const val SKIP_LOG_LIMIT_PER_WINDOW = 5
     }

@@ -1440,7 +1440,7 @@ const createDetailsUI = ({
   const resolveActorLabel = (actorId) => {
     const actor = detailsActors.get(Number(actorId));
     if (actor?.nickname && actor.nickname !== String(actorId)) return actor.nickname;
-    return `Player #${actorId}`;
+    return `#${actorId}`;
   };
 
   const getActorIdsByLabel = (label) => {
@@ -1468,7 +1468,7 @@ const createDetailsUI = ({
   const resolveRowLabel = (row) => {
     if (!row) return "-";
     if (row.isIdentifying) {
-      return `Player #${row.id ?? row.name ?? ""}`.trim();
+      return `#${row.id ?? row.name ?? ""}`.trim();
     }
     return String(row.name ?? "-");
   };

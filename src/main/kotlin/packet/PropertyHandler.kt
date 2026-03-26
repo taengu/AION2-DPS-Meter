@@ -67,6 +67,11 @@ object PropertyHandler {
         save()
     }
 
+    fun removeProperty(key: String) {
+        props.remove(key)
+        save()
+    }
+
     fun clearAll() {
         props.clear()
         save()

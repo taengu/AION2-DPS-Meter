@@ -27,6 +27,12 @@ class PcapCapturer(
         var pcapError: String? = null
             private set
 
+        /** Returns human-readable labels for all available capture devices. */
+        fun getDeviceLabels(): List<String> =
+            getAllDevices()
+                .filter { it.addresses.isNotEmpty() }
+                .map { it.description ?: it.name }
+
         private fun getAllDevices(): List<PcapNetworkInterface> =
             try { Pcaps.findAllDevs() ?: emptyList() }
             catch (e: PcapNativeException) {
@@ -304,8 +310,47 @@ class PcapCapturer(
         }
     }
 
+    /**
+     * Ensure capture is running on the device matching [deviceLabel].
+     * Starts it if it was never started (e.g. physical adapter skipped by fallback).
+     */
+    fun ensureDeviceCapturing(deviceLabel: String) {
+        if (!running.get()) return
+        // Already capturing on this device?
+        for ((name, _) in activeHandles) {
+            val label = deviceLabels[name] ?: name
+            if (label.equals(deviceLabel, ignoreCase = true)) return
+        }
+        // Find and start it
+        val devices = getAllDevices()
+        val nif = devices.firstOrNull { (it.description ?: it.name).equals(deviceLabel, ignoreCase = true) }
+        if (nif != null) {
+            logger.info("Starting capture on device: {} (manual selection)", nif.description ?: nif.name)
+            captureOnDevice(nif)
+        } else {
+            logger.warn("Device not found for manual selection: {}", deviceLabel)
+        }
+    }
+
     fun stop() {
         if (!running.compareAndSet(true, false)) return
+        stopAllHandles()
+    }
+
+    /**
+     * Full restart: stop all captures and re-run the startup sequence
+     * (loopback priority → fallback delay for physical adapters).
+     */
+    fun restart() {
+        if (!running.get()) return
+        logger.info("Restarting all capture devices (fresh auto-detect)")
+        stopAllHandles()
+        stoppedDeviceNames.clear()
+        running.set(false)
+        start()
+    }
+
+    private fun stopAllHandles() {
         activeHandles.values.forEach { handle ->
             try {
                 handle.breakLoop()

@@ -2156,6 +2156,32 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   opacity: 0.6;
   margin: 0 6px;
 }
+.settingsPanel .settingsDeviceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settingsPanel .autoDetectDeviceLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.settingsPanel .autoDetectDeviceLabel input[type="checkbox"] {
+  accent-color: var(--isUser-fill, #4fc3f7);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.settingsPanel .deviceDropdownWrapper {
+  min-width: 220px;
+}
+.settingsPanel .deviceDropdownBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .settingsPanel .characterNameInput {
   flex: 0 1 160px;
   max-width: 160px;

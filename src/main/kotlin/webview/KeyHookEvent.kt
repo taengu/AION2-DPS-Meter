@@ -133,6 +133,18 @@ class KeyHookEvent(
         stopHotkeyThread()
     }
 
+    fun resetToDefaults() {
+        lastHotkeyMods = DEFAULT_MODS
+        lastHotkeyKey = DEFAULT_KEY_CODE
+        lastToggleMods = DEFAULT_TOGGLE_MODS
+        lastToggleKey = DEFAULT_TOGGLE_KEY_CODE
+        PropertyHandler.setProperty(HOTKEY_MODS_KEY, lastHotkeyMods.toString())
+        PropertyHandler.setProperty(HOTKEY_KEY_KEY, lastHotkeyKey.toString())
+        PropertyHandler.setProperty(TOGGLE_MODS_KEY, lastToggleMods.toString())
+        PropertyHandler.setProperty(TOGGLE_KEY_KEY, lastToggleKey.toString())
+        updateHotkeyRegistration()
+    }
+
     private fun startHotkeyThread(modifiers: Int, keyCode: Int) {
         stopHotkeyThread()
         hotkeyRunning = true
@@ -336,7 +348,7 @@ class KeyHookEvent(
         val normalizedMods = modifiers and HOTKEY_MODIFIER_MASK
         val normalizedKey = if (isModifierVirtualKey(keyCode) || keyCode <= 0) DEFAULT_KEY_CODE else keyCode
         val modifierCount = Integer.bitCount(normalizedMods)
-        val finalMods = if (modifierCount < 2) DEFAULT_MODS else normalizedMods
+        val finalMods = if (modifierCount < 1) DEFAULT_MODS else normalizedMods
         return finalMods to normalizedKey
     }
 

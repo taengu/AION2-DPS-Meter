@@ -241,8 +241,8 @@ const createMeterUI = ({
 
       const rowId = row.id ?? row.name ?? "";
       const nameText = row.isIdentifying
-        ? window.i18n?.format?.("meter.identifyingPlayer", { id: rowId }, `Player #${rowId}`) ??
-          `Player #${rowId}`
+        ? window.i18n?.format?.("meter.identifyingPlayer", { id: rowId }, `#${rowId}`) ??
+          `#${rowId}`
         : row.name ?? "";
       if (view.lastNameText !== nameText) {
         view.nameEl.textContent = nameText;

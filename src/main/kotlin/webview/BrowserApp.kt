@@ -101,6 +101,7 @@ class BrowserApp(
                 stage.opacity = 0.0
                 stage.isAlwaysOnTop = false
                 stage.scene?.root?.isMouseTransparent = true
+                notifyJsWindowHidden(true)
                 return
             }
             windowHiddenByHotkey = false
@@ -115,6 +116,13 @@ class BrowserApp(
             }
             stage.toFront()
             stage.requestFocus()
+            notifyJsWindowHidden(false)
+        }
+
+        private fun notifyJsWindowHidden(hidden: Boolean) {
+            runCatching {
+                webEngine.executeScript("window._dpsApp?._setWindowHidden?.($hidden)")
+            }
         }
 
         @Suppress("unused")
@@ -171,6 +179,28 @@ class BrowserApp(
         @Suppress("unused")
         fun resetAutoDetection() {
             CombatPortDetector.reset()
+        }
+
+        @Suppress("unused")
+        fun getAvailableDevices(): String {
+            return Json.encodeToString(PcapCapturer.getDeviceLabels())
+        }
+
+        @Suppress("unused")
+        fun setManualDevice(deviceLabel: String?) {
+            val trimmed = deviceLabel?.trim()?.takeIf { it.isNotBlank() }
+            if (trimmed != null) {
+                PropertyHandler.setProperty("dpsMeter.manualDevice", trimmed)
+                // Force lock to the selected device by resetting and letting the
+                // dispatcher filter by device. We store the preference and reset
+                // so the next magic-byte detection prefers this device.
+                CombatPortDetector.setPreferredDevice(trimmed)
+                CombatPortDetector.reset()
+            } else {
+                PropertyHandler.removeProperty("dpsMeter.manualDevice")
+                CombatPortDetector.setPreferredDevice(null)
+                CombatPortDetector.reset()
+            }
         }
 
         @Suppress("unused")
@@ -339,6 +369,7 @@ class BrowserApp(
         @Suppress("unused")
         fun clearAllSettings() {
             PropertyHandler.clearAll()
+            keyHookEvent.resetToDefaults()
         }
 
         @Suppress("unused")
@@ -424,9 +455,15 @@ class BrowserApp(
                         "Start-Process '${currentExe.replace("'", "''")}'"
                     else ""
 
+                    // Pass current install directory so MSI upgrades in-place
+                    val installDirArg = if (currentExe != null) {
+                        val installDir = File(currentExe).parentFile?.absolutePath
+                        if (installDir != null) ",'INSTALLDIR=${installDir.replace("'", "''")}'" else ""
+                    } else ""
+
                     val psFile = File(tempDir, "aion2meter_tw_updater.ps1")
                     psFile.writeText("""
-                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn','/norestart' -Wait
+                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn','/norestart'$installDirArg -Wait
                         $relaunchLine
                     """.trimIndent())
 
@@ -605,7 +642,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.5"
+    private val version = "1.0.6"
 
     @Volatile
     private var cachedWindowTitle: String? = null
@@ -687,7 +724,6 @@ class BrowserApp(
             val t = Timeline(KeyFrame(saveDelay, { saveWindowPosition(stage) }))
             saveTimer = t
             t.play()
-            Unit
         }
         stage.xProperty().addListener { _, _, _ -> handler(Unit) }
         stage.yProperty().addListener { _, _, _ -> handler(Unit) }
@@ -757,11 +793,13 @@ class BrowserApp(
                         stage.opacity = 0.0
                         stage.isAlwaysOnTop = false
                         stage.scene?.root?.isMouseTransparent = true
+                        runCatching { webEngine?.executeScript("window._dpsApp?._setWindowHidden?.(true)") }
                     } else if (!shouldHide && hiddenByGameMinimize) {
                         hiddenByGameMinimize = false
                         stage.opacity = 1.0
                         stage.isAlwaysOnTop = true
                         stage.scene?.root?.isMouseTransparent = false
+                        runCatching { webEngine?.executeScript("window._dpsApp?._setWindowHidden?.(false)") }
                     }
                 }
             } catch (e: Exception) {
@@ -801,6 +839,11 @@ class BrowserApp(
 
     override fun start(stage: Stage) {
         UnifiedLogger.loadDebugFromSettings()
+        // Restore manual device preference from settings
+        val savedDevice = PropertyHandler.getProperty("dpsMeter.manualDevice")
+        if (!savedDevice.isNullOrBlank()) {
+            CombatPortDetector.setPreferredDevice(savedDevice)
+        }
         if (replayNick != null) {
             // Provide a synthetic window title so the JS polling detects the replay nickname
             cachedWindowTitle = "AION2 | $replayNick"
@@ -820,6 +863,25 @@ class BrowserApp(
 
         val bridge = JSBridge(stage, dpsCalculator, hostServices, { cachedWindowTitle }, uiReadyNotifier, engine)
         jsBridge = bridge
+
+        // Push connection info updates to the webview when port detection changes
+        val pushConnectionInfo = {
+            Platform.runLater {
+                runCatching {
+                    engine.executeScript("window._dpsApp?.refreshConnectionInfo?.()")
+                }
+            }
+        }
+        val previousOnDeviceLocked = CombatPortDetector.onDeviceLocked
+        CombatPortDetector.onDeviceLocked = { lockedDevice ->
+            previousOnDeviceLocked?.invoke(lockedDevice)
+            pushConnectionInfo()
+        }
+        val previousOnReset = CombatPortDetector.onReset
+        CombatPortDetector.onReset = {
+            previousOnReset?.invoke()
+            pushConnectionInfo()
+        }
 
         // Push ping updates to the webview immediately when parsed
         PingTracker.onPingUpdate = { pingMs ->
@@ -916,11 +978,18 @@ class BrowserApp(
         // The volatile write to dpsData is safe to read from any thread.
         dpsUpdateScheduler.scheduleAtFixedRate({
             try {
+                // Skip expensive DPS calculation when window is not visible
+                if (jsBridge?.isWindowHiddenByHotkey() == true || hiddenByGameMinimize) return@scheduleAtFixedRate
                 val data = dpsCalculator.getDps()
                 dpsData = data
                 cachedDpsJson = Json.encodeToString(data)
             } catch (e: Exception) {
                 logger.warn("getDps() failed on background thread", e)
+                UnifiedLogger.info(logger, "getDps() crashed: {}", e.message)
+                // Reset to empty so the JS sees a change and doesn't stay frozen on stale data
+                val empty = DpsData()
+                dpsData = empty
+                cachedDpsJson = Json.encodeToString(empty)
             }
         }, 0L, 100L, TimeUnit.MILLISECONDS)
     }
