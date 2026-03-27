@@ -130,6 +130,7 @@
     "showPing": "显示延迟",
     "showTotalDps": "显示总DPS/DMG",
     "autoHideMeter": "自动隐藏面板",
+    "showSuspendBtn": "显示暂停按钮",
     "playerLimit": {
       "label": "最大显示人数"
     },
@@ -235,7 +236,8 @@
   "battleTime": {
     "analysing": "正在监控数据...",
     "idle": "空闲",
-    "notRunning": "AION2 not running"
+    "notRunning": "AION2 not running",
+    "suspended": "应用已暂停"
   },
   "meter": {
     "identifyingPlayer": "#{id}",

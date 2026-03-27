@@ -231,6 +231,16 @@ class BrowserApp(
         }
 
         @Suppress("unused")
+        fun suspendCapture(suspended: Boolean) {
+            captureDispatcher.setUserSuspended(suspended)
+        }
+
+        @Suppress("unused")
+        fun isCaptureSuspended(): Boolean {
+            return captureDispatcher.userSuspended
+        }
+
+        @Suppress("unused")
         fun setAllTargetsWindowMs(value: String?) {
             val parsed = value?.trim()?.toLongOrNull() ?: return
             dpsCalculator.setAllTargetsWindowMs(parsed)
@@ -642,7 +652,7 @@ class BrowserApp(
 
     private val debugMode = false
 
-    private val version = "1.0.6"
+    private val version = "1.0.7"
 
     @Volatile
     private var cachedWindowTitle: String? = null
@@ -673,9 +683,15 @@ class BrowserApp(
     @Volatile
     private var autoHideEnabled = PropertyHandler.getProperty("dpsMeter.autoHideMeter") != "false"
 
+    private var lastAutoSaveGeneration = -1L
+
     private fun startHistoryAutoSave() {
         historyAutoSaveScheduler.scheduleAtFixedRate({
             try {
+                // Skip if no new damage data since last save
+                val gen = dpsCalculator.dataStorage.damageGeneration
+                if (gen == lastAutoSaveGeneration) return@scheduleAtFixedRate
+                lastAutoSaveGeneration = gen
                 val records = dpsCalculator.snapshotBossFights()
                 records.forEach { FightHistoryManager.save(it) }
             } catch (e: Exception) {
@@ -985,7 +1001,7 @@ class BrowserApp(
                 cachedDpsJson = Json.encodeToString(data)
             } catch (e: Exception) {
                 logger.warn("getDps() failed on background thread", e)
-                UnifiedLogger.info(logger, "getDps() crashed: {}", e.message)
+                UnifiedLogger.debug(logger, "getDps() crashed: {}", e.message)
                 // Reset to empty so the JS sees a change and doesn't stay frozen on stale data
                 val empty = DpsData()
                 dpsData = empty

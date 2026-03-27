@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 
-class DpsCalculator(private val dataStorage: DataStorage) {
+class DpsCalculator(val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
 
     private data class ActorMetaBuilder(

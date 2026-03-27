@@ -441,6 +441,21 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       width: 20px;
       height: 20px;
     }
+    /* When suspend button is visible, shrink all header buttons */
+    &.hasSuspendBtn .headerBtn {
+      width: 16px;
+      height: 16px;
+    }
+    &.hasSuspendBtn {
+      gap: 6px;
+    }
+    .suspendBtn {
+      color: rgba(255, 255, 255, 0.85);
+      transition: color 150ms ease;
+    }
+    .suspendBtn.isSuspended {
+      color: #ff6b6b;
+    }
     .metricToggleBtn {
       width: auto;
       height: auto;
@@ -3426,6 +3441,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   padding: 2px 0 4px;
   font-size: 0.75em;
   color: rgba(255, 255, 255, 0.5);
+  margin: 0;
 }
 .detailsPanel .dpsChartXAxis span {
   flex-shrink: 0;

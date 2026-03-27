@@ -453,7 +453,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             actorId,
             localName
         )
-        UnifiedLogger.info(
+        UnifiedLogger.debug(
             logger,
             "Loot attribution local player binding {} -> {}",
             actorId,
@@ -799,10 +799,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // Only link summons that were confirmed via 5F 00 spawn marker.
         // Unconfirmed 04 8D packets produce many false positives (mobs linked as summons).
         if (dataStorage.isConfirmedSummon(summonId)) {
-            UnifiedLogger.info(logger, "Summon ownership packet (04 8D): Owner {} -> Summon {} (confirmed)", ownerId, summonId)
+            UnifiedLogger.debug(logger, "Summon ownership packet (04 8D): Owner {} -> Summon {} (confirmed)", ownerId, summonId)
             dataStorage.appendSummon(ownerId, summonId)
         } else {
-            UnifiedLogger.info(logger, "Summon ownership packet (04 8D): Owner {} -> Summon {} (ignored, not confirmed)", ownerId, summonId)
+            UnifiedLogger.debug(logger, "Summon ownership packet (04 8D): Owner {} -> Summon {} (ignored, not confirmed)", ownerId, summonId)
         }
 
         // The name field after the owner ID is the OWNER's nickname — always useful.
@@ -888,7 +888,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
             // Only link confirmed summons (5F 00 spawn); always register owner nickname
             if (dataStorage.isConfirmedSummon(summonId)) {
-                UnifiedLogger.info(logger, "Embedded 04 8D: Owner {} ({}) -> Summon {} (confirmed)", ownerId, sanitizedName, summonId)
+                UnifiedLogger.debug(logger, "Embedded 04 8D: Owner {} ({}) -> Summon {} (confirmed)", ownerId, sanitizedName, summonId)
                 dataStorage.appendSummon(ownerId, summonId)
             }
             dataStorage.appendNickname(ownerId, sanitizedName)
@@ -941,20 +941,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         if (offset + 1 >= packet.size) return false
 
+        // Embedded 40 36 scanning for non-spawn packets is handled by scanForEmbedded4036
+        // on the decompressed FF-FF bundle data — no need to re-scan here.
         if (packet[offset] != 0x40.toByte() || packet[offset + 1] != 0x36.toByte()) {
-            // Spawn not at packet start — scan for embedded 40 36 anywhere in the packet.
-            // This catches spawns buried inside replication/batch packets.
-            for (i in offset until packet.size - 4) {
-                if (packet[i] == 0x40.toByte() && packet[i + 1] == 0x36.toByte()) {
-                    if (i > 0 && packet[i - 1] == 0x00.toByte()) continue
-                    if (UnifiedLogger.isDebugEnabled()) {
-                        UnifiedLogger.debug(logger,
-                            "Embedded spawn (40 36) found at offset {} in packet starting with {:02X} {:02X}, packetSize={}",
-                            i, packet[offset], packet[offset + 1], packet.size)
-                    }
-                    parseSummonSpawnAt(packet, i + 2)
-                }
-            }
             return false
         }
 
@@ -1044,7 +1033,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     val b2 = packet[scanOffset - 2].toInt() and 0xFF
                     val b3 = packet[scanOffset - 1].toInt() and 0xFF
                     val mobTypeId = b1 or (b2 shl 8) or (b3 shl 16)
-                    UnifiedLogger.info(logger, "Mob spawn (40 36): Target {} -> NPC Type {}", realActorId, mobTypeId)
+                    UnifiedLogger.debug(logger, "Mob spawn (40 36): Target {} -> NPC Type {}", realActorId, mobTypeId)
                     UnifiedLogger.debugForActor(logger, realActorId, "Mob spawn (40 36): Target {} -> NPC Type {}", realActorId, mobTypeId)
                     dataStorage.appendMob(realActorId, mobTypeId)
 

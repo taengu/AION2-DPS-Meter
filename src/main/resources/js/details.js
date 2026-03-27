@@ -757,6 +757,7 @@ const createDetailsUI = ({
         updateSkillHeaderSortState();
         if (lastDetails) {
           renderSkills(lastDetails, { compact: activeCompactMode });
+          renderTimeline(lastDetails);
         }
       });
     });
@@ -1061,13 +1062,18 @@ const createDetailsUI = ({
     const CHART_HEIGHT = 120;
     const PAD_TOP = 8;
     const PAD_BOTTOM = 4;
-    const PAD_LEFT = 0;
-    const PAD_RIGHT = 0;
+    const PAD_LEFT = 40;
+    const PAD_RIGHT = 40;
     const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
     const dpr = window.devicePixelRatio || 1;
     const chartWidth = dpsChartCanvas.parentElement
       ? dpsChartCanvas.parentElement.clientWidth
       : 300;
+
+    // Ping data (needed early to decide whether to show right axis)
+    const pingHistory = Array.isArray(details?.pingHistory) ? details.pingHistory : [];
+    const hasPing = pingHistory.length >= 1;
+    const maxPing = hasPing ? pingHistory.reduce((mx, p) => Math.max(mx, p.pingMs), 0) || 1 : 1;
 
     dpsChartCanvas.width = Math.ceil(chartWidth * dpr);
     dpsChartCanvas.height = Math.ceil(CHART_HEIGHT * dpr);
@@ -1115,6 +1121,33 @@ const createDetailsUI = ({
       ctx.moveTo(x, PAD_TOP);
       ctx.lineTo(x, PAD_TOP + plotHeight);
       ctx.stroke();
+    }
+
+    // ── Y-axis labels ──
+    const fmtDps = (v) => {
+      if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+      if (v >= 1_000) return (v / 1_000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, "") + "K";
+      return String(Math.round(v));
+    };
+    ctx.font = "10px sans-serif";
+    ctx.textBaseline = "middle";
+    // Left axis — DPS
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.textAlign = "right";
+    for (let g = 0; g <= gridCount; g++) {
+      const y = PAD_TOP + (g / gridCount) * plotHeight;
+      const val = globalMax * (1 - g / gridCount);
+      ctx.fillText(fmtDps(val), PAD_LEFT - 4, y);
+    }
+    // Right axis — Ping (ms)
+    if (hasPing) {
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.textAlign = "left";
+      for (let g = 0; g <= gridCount; g++) {
+        const y = PAD_TOP + (g / gridCount) * plotHeight;
+        const val = maxPing * (1 - g / gridCount);
+        ctx.fillText(Math.round(val) + "ms", chartWidth - PAD_RIGHT + 4, y);
+      }
     }
 
     // ── Boss cumulative damage (grey, dashed) ──
@@ -1166,13 +1199,11 @@ const createDetailsUI = ({
     allSamples.forEach((s) => { if (!isSelectedActor(s.actor.actorId)) drawActor(s, false); });
     allSamples.forEach((s) => { if (isSelectedActor(s.actor.actorId)) drawActor(s, true); });
 
-    // ── Ping line (white dotted, Catmull-Rom smoothed) ──
-    const pingHistory = Array.isArray(details?.pingHistory) ? details.pingHistory : [];
-    if (pingHistory.length >= 1) {
-      const maxPing = pingHistory.reduce((mx, p) => Math.max(mx, p.pingMs), 0) || 1;
+    // ── Ping line (white dotted, Catmull-Rom smoothed, independent Y scale) ──
+    if (hasPing) {
       const pingPts = pingHistory.map((p) => ({
         x: xAt(Number(p.tsMs)),
-        y: PAD_TOP + (Number(p.pingMs) / maxPing) * plotHeight,
+        y: PAD_TOP + (1 - Number(p.pingMs) / maxPing) * plotHeight,
       }));
       ctx.beginPath();
       ctx.strokeStyle = "rgba(255,255,255,0.9)";
@@ -1205,7 +1236,7 @@ const createDetailsUI = ({
       { dash: "none",    color: "rgba(255,255,255,0.9)",  label: "DPS" },
       { dash: "3,4",     color: "rgba(220,60,60,0.9)",    label: "Boss HP" },
     ];
-    if (pingHistory.length >= 1) {
+    if (hasPing) {
       legendItems.push({ dash: "2,4", color: "rgba(255,255,255,0.9)", label: "Ping" });
     }
     dpsChartLegend.innerHTML = legendItems.map(({ dash, color, label }) => {
@@ -1218,11 +1249,17 @@ const createDetailsUI = ({
       </span>`;
     }).join("");
 
-    // X axis labels
+    // X axis labels — aligned to plot area via matching padding
     dpsChartXAxis.innerHTML = "";
-    const tickCount = Math.min(12, Math.ceil(durationSec / gridIntervalSec) + 1);
-    for (let i = 0; i <= tickCount; i++) {
-      const sec = Math.round((i / tickCount) * durationSec);
+    dpsChartXAxis.style.paddingLeft = PAD_LEFT + "px";
+    dpsChartXAxis.style.paddingRight = PAD_RIGHT + "px";
+    // Build tick list aligned to grid intervals, always ending at durationSec
+    const ticks = [];
+    for (let sec = 0; sec < durationSec; sec += gridIntervalSec) {
+      ticks.push(Math.round(sec));
+    }
+    ticks.push(Math.round(durationSec));
+    for (const sec of ticks) {
       const minutes = Math.floor(sec / 60);
       const seconds = sec % 60;
       const span = document.createElement("span");
@@ -1269,9 +1306,9 @@ const createDetailsUI = ({
       }
     });
 
-    // Sort lanes by total damage (highest at top)
+    // Sort lanes to match the current skill list sort order
     const lanes = [...laneMap.values()]
-      .sort((a, b) => b.totalDmg - a.totalDmg)
+      .sort((a, b) => compareSkillSort(a.skill, b.skill))
       .slice(0, 15); // max 15 lanes
 
     if (lanes.length === 0) {

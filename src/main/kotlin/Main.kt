@@ -85,6 +85,15 @@ class AionMeterApp : Application() {
             }
         }
         val dispatcher = CaptureDispatcher(channel, dataStorage, isReplayMode)
+        dispatcher.onUserSuspendChanged = { suspended ->
+            if (suspended) {
+                capturer.stop()
+                CombatPortDetector.reset()
+                PingTracker.reset()
+            } else {
+                capturer.start()
+            }
+        }
         val uiReady = CompletableDeferred<Unit>()
         val markUiReady = {
             if (!uiReady.isCompleted) {
@@ -133,9 +142,9 @@ class AionMeterApp : Application() {
                     val detected = WindowTitleDetector.findAion2WindowTitle() != null
                     if (detected != running) {
                         running = detected
-                        if (running) {
+                        if (running && !dispatcher.userSuspended) {
                             capturer.start()
-                        } else {
+                        } else if (!running) {
                             capturer.stop()
                         }
                     }

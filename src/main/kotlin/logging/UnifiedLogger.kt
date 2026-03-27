@@ -3,6 +3,7 @@ package com.tbread.logging
 import com.tbread.packet.PropertyHandler
 import org.slf4j.Logger
 import org.slf4j.helpers.MessageFormatter
+import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 import java.time.LocalDateTime
@@ -13,6 +14,8 @@ object UnifiedLogger {
     const val DEBUG_SETTING_KEY = "dpsMeter.debugLoggingEnabled"
     private const val DEBUG_ACTOR_KEY = "dpsMeter.debugActorId"
     private const val MAX_MESSAGE_LENGTH = 240
+    private const val MAX_LOG_SIZE_BYTES = 5L * 1024 * 1024  // 5 MB
+    private const val FLUSH_INTERVAL_MS = 2000L
 
     private val lock = Any()
     private val crashTimestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
@@ -22,6 +25,11 @@ object UnifiedLogger {
 
     @Volatile
     private var debugEnabled = false
+
+    // Buffered writer for debug.log — kept open to avoid per-line open/close overhead
+    private var debugWriter: BufferedWriter? = null
+    private var debugFileByteEstimate = 0L
+    private var lastFlushMs = System.currentTimeMillis()
 
     fun setDebugEnabled(enabled: Boolean) {
         debugEnabled = enabled
@@ -40,7 +48,7 @@ object UnifiedLogger {
         val timestamp = LocalDateTime.now().format(crashTimestampFormatter)
         val threadName = Thread.currentThread().name
         val line = "$timestamp [$threadName] $message"
-        appendLine(crashLogFile, line, throwable)
+        appendCrashLine(line, throwable)
     }
 
     private fun getDebugActorFilter(): Int? =
@@ -67,6 +75,7 @@ object UnifiedLogger {
     }
 
     fun info(logger: Logger, message: String, vararg args: Any?) {
+        if (!debugEnabled) return
         writeLog("INFO", logger.name, message, args)
     }
 
@@ -81,16 +90,70 @@ object UnifiedLogger {
         val timestamp = LocalTime.now().format(debugTimestampFormatter)
         val shortLoggerName = loggerName.substringAfterLast('.')
         val line = "$timestamp $level $shortLoggerName - $formattedMessage"
-        appendLine(debugLogFile, line, result.throwable)
+        appendDebugLine(line, result.throwable)
     }
 
-    private fun appendLine(file: File, line: String, throwable: Throwable?) {
+    private fun appendCrashLine(line: String, throwable: Throwable?) {
         synchronized(lock) {
-            file.parentFile?.mkdirs()
-            FileWriter(file, true).use { writer ->
+            crashLogFile.parentFile?.mkdirs()
+            FileWriter(crashLogFile, true).use { writer ->
                 writer.append(line).append('\n')
                 throwable?.let { writer.append(it.stackTraceToString()).append('\n') }
             }
+        }
+    }
+
+    private fun appendDebugLine(line: String, throwable: Throwable?) {
+        synchronized(lock) {
+            rotateIfNeeded()
+            val writer = getOrCreateDebugWriter()
+            writer.append(line).append('\n')
+            debugFileByteEstimate += line.length + 1
+            if (throwable != null) {
+                val trace = throwable.stackTraceToString()
+                writer.append(trace).append('\n')
+                debugFileByteEstimate += trace.length + 1
+            }
+            // Periodic flush instead of per-line close
+            val now = System.currentTimeMillis()
+            if (now - lastFlushMs >= FLUSH_INTERVAL_MS) {
+                writer.flush()
+                lastFlushMs = now
+            }
+        }
+    }
+
+    private fun getOrCreateDebugWriter(): BufferedWriter {
+        var w = debugWriter
+        if (w != null) return w
+        debugLogFile.parentFile?.mkdirs()
+        debugFileByteEstimate = if (debugLogFile.exists()) debugLogFile.length() else 0L
+        w = BufferedWriter(FileWriter(debugLogFile, true), 8192)
+        debugWriter = w
+        return w
+    }
+
+    private fun rotateIfNeeded() {
+        if (debugFileByteEstimate < MAX_LOG_SIZE_BYTES) return
+        try {
+            debugWriter?.flush()
+            debugWriter?.close()
+        } catch (_: Exception) {}
+        debugWriter = null
+        val backup = File(debugLogFile.path + ".old")
+        backup.delete()
+        debugLogFile.renameTo(backup)
+        debugFileByteEstimate = 0L
+    }
+
+    /** Flush and close the buffered writer (e.g. on shutdown). */
+    fun close() {
+        synchronized(lock) {
+            try {
+                debugWriter?.flush()
+                debugWriter?.close()
+            } catch (_: Exception) {}
+            debugWriter = null
         }
     }
 

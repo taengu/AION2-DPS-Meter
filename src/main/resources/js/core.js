@@ -45,6 +45,7 @@ class DpsApp {
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
       windowOpacity: "dpsMeter.windowOpacity",
+      showSuspendBtn: "dpsMeter.showSuspendBtn",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -202,6 +203,8 @@ class DpsApp {
     this._connectionStatusOverride = false;
 
     this.resetBtn = document.querySelector(".resetBtn");
+    this.suspendBtn = document.querySelector(".suspendBtn");
+    this.headerBtns = document.querySelector(".headerBtns");
     this.targetModeBtn = document.querySelector(".footerBtns .targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
     this.metricToggleBtn = document.querySelector(".metricToggleBtn");
@@ -254,6 +257,9 @@ class DpsApp {
     };
 
     const getBattleTimeStatusText = () => {
+      if (this._captureSuspended) {
+        return this.i18n?.t?.("battleTime.suspended", "App suspended") ?? "App suspended";
+      }
       if (!this.aionRunning) {
         const text = this.i18n?.t("battleTime.notRunning", "AION2 not running") ?? "AION2 not running";
         return withBacklog(text);
@@ -591,8 +597,13 @@ class DpsApp {
       this.battleTimeRoot.classList.add("isVisible");
     }
     if (this.analysisStatusEl) {
-      this.analysisStatusEl.textContent =
-        this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
+      if (this._captureSuspended) {
+        this.analysisStatusEl.textContent =
+          this.i18n?.t?.("battleTime.suspended", "App suspended") ?? "App suspended";
+      } else {
+        this.analysisStatusEl.textContent =
+          this.i18n?.t("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
+      }
       this.analysisStatusEl.style.display = "";
     }
     this.updateConnectionStatusUi();
@@ -1567,6 +1578,9 @@ class DpsApp {
     this.resetBtn?.addEventListener("click", () => {
       this.refreshDamageData({ reason: "manual refresh" });
     });
+    this.suspendBtn?.addEventListener("click", () => {
+      this._setCaptureSuspended(!this._captureSuspended);
+    });
     this.targetModeBtn?.addEventListener("click", () => {
       const modes = ["lastHitByMe", "bossTargets", "trainTargets", "allTargets"];
       const currentIndex = modes.indexOf(this.targetSelection);
@@ -1637,6 +1651,7 @@ class DpsApp {
     this.deviceDropdownBtn = document.querySelector(".deviceDropdownBtn");
     this.deviceDropdownMenu = document.querySelector(".deviceDropdownMenu");
     this.characterNameInput = document.querySelector(".characterNameInput");
+    this.showSuspendBtnCheckbox = document.querySelector(".showSuspendBtnCheckbox");
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.showPingCheckbox = document.querySelector(".showPingCheckbox");
@@ -1821,6 +1836,26 @@ class DpsApp {
         window.javaBridge?.setAutoHideMeter?.(isChecked);
       });
     }
+    // Suspend button setting
+    if (this.showSuspendBtnCheckbox) {
+      const storedShow = this.safeGetSetting(this.storageKeys.showSuspendBtn) === "true";
+      this.showSuspendBtnCheckbox.checked = storedShow;
+      this._applySuspendBtnVisibility(storedShow);
+      this.showSuspendBtnCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.showSuspendBtn, String(isChecked));
+        this._applySuspendBtnVisibility(isChecked);
+        if (!isChecked) {
+          // When hiding the button, also resume if suspended
+          this._setCaptureSuspended(false);
+        }
+      });
+    }
+    // Restore suspend state from backend on load
+    this._captureSuspended = !!window.javaBridge?.isCaptureSuspended?.();
+    this._updateSuspendBtnIcon();
+    this._updateSuspendStatusMessage();
+
     this.initPlayerLimitDropdown();
     if (this.saveRawPacketsCheckbox) {
       const storedSaveRaw = this.safeGetSetting(this.storageKeys.saveRawPackets) === "true";
@@ -3432,9 +3467,14 @@ class DpsApp {
     if (!this._battleTimeVisible) {
       this.battleTimeRoot.classList.remove("isVisible");
     }
-    this.analysisStatusEl.textContent =
-      this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
-      "Ready - monitoring combat...";
+    if (this._captureSuspended) {
+      this.analysisStatusEl.textContent =
+        this.i18n?.t?.("battleTime.suspended", "App suspended") ?? "App suspended";
+    } else {
+      this.analysisStatusEl.textContent =
+        this.i18n?.t("battleTime.analysing", "Ready - monitoring combat...") ??
+        "Ready - monitoring combat...";
+    }
     this.analysisStatusEl.style.removeProperty("display");
   }
 
@@ -3685,6 +3725,13 @@ class DpsApp {
     const onMouseUp = () => {
       if (!isResizing) return;
       isResizing = false;
+      // Convert fixed height to min-height so the meter can still grow
+      // when new rows are added, while preserving the user's minimum.
+      const currentHeight = this.meterEl.style.height;
+      if (currentHeight) {
+        this.meterEl.style.minHeight = currentHeight;
+        this.meterEl.style.height = "";
+      }
     };
 
     this.resizeHandle.addEventListener("mousedown", (event) => {
@@ -3700,6 +3747,52 @@ class DpsApp {
 
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
+  }
+
+  _applySuspendBtnVisibility(show) {
+    if (this.suspendBtn) {
+      this.suspendBtn.style.display = show ? "" : "none";
+    }
+    if (this.headerBtns) {
+      this.headerBtns.classList.toggle("hasSuspendBtn", !!show);
+    }
+  }
+
+  _setCaptureSuspended(suspended) {
+    this._captureSuspended = !!suspended;
+    window.javaBridge?.suspendCapture?.(this._captureSuspended);
+    this._updateSuspendBtnIcon();
+    this._updateSuspendStatusMessage();
+  }
+
+  _updateSuspendBtnIcon() {
+    if (!this.suspendBtn) return;
+    const iconEl = this.suspendBtn.querySelector("i, svg");
+    if (!iconEl) return;
+    const iconName = this._captureSuspended ? "power-off" : "power";
+    this.suspendBtn.classList.toggle("isSuspended", !!this._captureSuspended);
+    if (iconEl.tagName === "I") {
+      iconEl.setAttribute("data-lucide", iconName);
+    } else {
+      // SVG already rendered — replace with a new <i> tag and re-render
+      const newIcon = document.createElement("i");
+      newIcon.setAttribute("data-lucide", iconName);
+      this.suspendBtn.replaceChildren(newIcon);
+    }
+    window.lucide?.createIcons?.({ root: this.suspendBtn });
+  }
+
+  _updateSuspendStatusMessage() {
+    const el = this.analysisStatusEl || document.querySelector(".battleTime .analysisStatus");
+    if (!el) return;
+    if (this._captureSuspended) {
+      el.textContent = this.i18n?.t?.("battleTime.suspended", "App suspended") ?? "App suspended";
+      el.style.display = "";
+      // Ensure the battle time bar is visible so the message shows
+      if (this.battleTimeRoot) this.battleTimeRoot.classList.add("isVisible");
+    } else {
+      el.textContent = this.i18n?.t?.("battleTime.analysing", "Monitoring data...") ?? "Monitoring data...";
+    }
   }
 
 }

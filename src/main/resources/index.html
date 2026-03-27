@@ -40,6 +40,7 @@
           </div>
 
           <div class="headerBtns">
+            <div class="headerBtn suspendBtn" style="display:none"><i data-lucide="power"></i></div>
             <div class="headerBtn resetBtn"><i data-lucide="rotate-ccw"></i></div>
             <div class="headerBtn settingsBtn"><i data-lucide="settings"></i></div>
           </div>
@@ -507,6 +508,13 @@
                   <span class="settingsToggleLabel settingsLabel" data-i18n="settings.autoHideMeter">Auto-hide meter</span>
                   <span class="settingsToggleControl">
                     <input type="checkbox" class="autoHideMeterCheckbox" checked />
+                    <span class="settingsToggleTrack" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="settingsToggle">
+                  <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showSuspendBtn">Show suspend button</span>
+                  <span class="settingsToggleControl">
+                    <input type="checkbox" class="showSuspendBtnCheckbox" />
                     <span class="settingsToggleTrack" aria-hidden="true"></span>
                   </span>
                 </label>

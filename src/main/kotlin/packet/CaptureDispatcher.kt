@@ -16,6 +16,19 @@ class CaptureDispatcher(
     private var lastWindowCheckMs = 0L
     private var isAionRunning = false
 
+    /** When true, all packet processing is suspended (user-initiated via UI). */
+    @Volatile
+    var userSuspended = false
+        private set
+
+    /** Called when suspend state changes — Main.kt hooks this to stop/start pcap. */
+    var onUserSuspendChanged: ((suspended: Boolean) -> Unit)? = null
+
+    fun setUserSuspended(suspended: Boolean) {
+        userSuspended = suspended
+        onUserSuspendChanged?.invoke(suspended)
+    }
+
     // One assembler per (portA, portB) pair so streams don't mix
     private val assemblers = mutableMapOf<Pair<Int, Int>, StreamAssembler>()
 
@@ -36,6 +49,8 @@ class CaptureDispatcher(
     suspend fun run() {
         for (cap in channel) {
             try {
+                if (userSuspended) continue
+
                 if (!ensureAionRunning()) {
                     logUnlockedPacketSkip(cap, "AION window not detected")
                     continue

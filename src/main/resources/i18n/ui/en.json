@@ -132,6 +132,7 @@
     "showPing": "Show ping",
     "showTotalDps": "Show total DPS/DMG",
     "autoHideMeter": "Auto-hide meter",
+    "showSuspendBtn": "Show suspend button",
     "playerLimit": {
       "label": "Max players shown"
     },
@@ -237,7 +238,8 @@
   "battleTime": {
     "analysing": "Monitoring data...",
     "idle": "Idle",
-    "notRunning": "AION2 not running"
+    "notRunning": "AION2 not running",
+    "suspended": "App suspended"
   },
   "meter": {
     "identifyingPlayer": "#{id}",
