@@ -468,13 +468,19 @@ class BrowserApp(
                     // Pass current install directory so MSI upgrades in-place
                     val installDirArg = if (currentExe != null) {
                         val installDir = File(currentExe).parentFile?.absolutePath
-                        if (installDir != null) ",'INSTALLDIR=${installDir.replace("'", "''")}'" else ""
+                        if (installDir != null) " INSTALLDIR=`\"${installDir.replace("`", "``").replace("\"", "`\"")}`\"" else ""
                     } else ""
 
+                    val msiPath = msiFile.absolutePath.replace("`", "``").replace("\"", "`\"")
+                    val releasesUrl = "https://github.com/taengu/AION2-DPS-Meter/releases"
                     val psFile = File(tempDir, "aion2meter_tw_updater.ps1")
                     psFile.writeText("""
-                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn','/norestart'$installDirArg -Wait
-                        $relaunchLine
+                        ${'$'}p = Start-Process -FilePath 'msiexec.exe' -ArgumentList "/i `"$msiPath`" /qn /norestart$installDirArg" -Wait -PassThru
+                        if (${'$'}p.ExitCode -ne 0) {
+                            Start-Process '$releasesUrl'
+                        } else {
+                            $relaunchLine
+                        }
                     """.trimIndent())
 
                     ProcessBuilder(

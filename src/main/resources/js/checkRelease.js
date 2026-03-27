@@ -126,7 +126,8 @@
       if (!(window.dpsData?.getVersion && window.javaBridge?.openBrowser)) return;
       if (window.javaBridge?.isRunningViaGradle?.()) return;
 
-      const current = String(window.dpsData.getVersion() || "").trim();
+      const rawCurrent = String(window.dpsData.getVersion() || "").trim();
+      const current = rawCurrent.startsWith("v") ? rawCurrent : "v" + rawCurrent;
 
       let res;
       try {
