@@ -520,8 +520,13 @@ class DpsCalculator(val dataStorage: DataStorage) {
             // Orphan summon inference: unlinked actors with a detected job
             // that match exactly one real player of the same class get merged.
             // Use loose detection so spirit skills (e.g. sub-99) still match.
+            // Scope to actors present in THIS target's actorDamage so that
+            // players from other targets don't prevent unique-class matching
+            // (matches getTargetDetails() per-target scoping).
+            val targetActorIds = actorDamage.keys
             val orphanSummons = mutableListOf<Pair<Int, Int>>()
             for ((uid, meta) in actorMeta) {
+                if (!targetActorIds.contains(uid)) continue
                 if (summonData.containsKey(uid)) continue
                 if (nicknameData.containsKey(uid)) continue
                 val orphanJob = meta.job.takeIf { it.isNotEmpty() }
@@ -537,6 +542,7 @@ class DpsCalculator(val dataStorage: DataStorage) {
                     ?: continue
                 val sameJobPlayers = actorMeta.entries.filter { (otherId, otherMeta) ->
                     otherId != uid && otherMeta.job == orphanJob && nicknameData.containsKey(otherId)
+                            && targetActorIds.contains(otherId)
                 }
                 if (sameJobPlayers.size == 1) {
                     orphanSummons.add(uid to sameJobPlayers.first().key)
@@ -547,9 +553,9 @@ class DpsCalculator(val dataStorage: DataStorage) {
                 actorMeta.remove(orphanId)
             }
             // Remove actors with no job and no nickname (unresolvable summons/NPCs)
-            val removeIds = actorMeta.entries
-                .filter { (id, meta) -> meta.job.isEmpty() && !nicknameData.containsKey(id) }
-                .map { it.key }
+            // Scoped to this target's actors to avoid removing entries needed by other targets.
+            val removeIds = actorDamage.keys
+                .filter { id -> val meta = actorMeta[id]; meta != null && meta.job.isEmpty() && !nicknameData.containsKey(id) }
             for (id in removeIds) {
                 actorDamage.remove(id)
                 actorMeta.remove(id)

@@ -475,6 +475,16 @@ class BrowserApp(
                     val releasesUrl = "https://github.com/taengu/AION2-DPS-Meter/releases"
                     val psFile = File(tempDir, "aion2meter_tw_updater.ps1")
                     psFile.writeText("""
+                        ${'$'}regPaths = @(
+                            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                        )
+                        ${'$'}old = Get-ItemProperty -Path ${'$'}regPaths -ErrorAction SilentlyContinue |
+                            Where-Object { ${'$'}_.DisplayName -like 'AION2 DPS Meter*' } |
+                            Select-Object -First 1
+                        if (${'$'}old -and ${'$'}old.PSChildName -match '^\{.*\}${'$'}') {
+                            Start-Process -FilePath 'msiexec.exe' -ArgumentList "/x ${'$'}(${'$'}old.PSChildName) /qn /norestart" -Wait
+                        }
                         ${'$'}p = Start-Process -FilePath 'msiexec.exe' -ArgumentList "/i `"$msiPath`" /qn /norestart$installDirArg" -Wait -PassThru
                         if (${'$'}p.ExitCode -ne 0) {
                             Start-Process '$releasesUrl'

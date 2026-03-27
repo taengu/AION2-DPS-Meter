@@ -69,18 +69,19 @@ const createBattleTimeUI = ({
     setState("");
   };
 
+  const VISUAL_TICK_MS = 5000;
+
   const update = (now, battleTimeMs) => {
     lastSeenAt = now;
 
     const bt = Number(battleTimeMs);
     if (!Number.isFinite(bt)) return;
 
-    const formatted = formatMMSS(bt);
-    if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
-
     if (lastBattleTimeMs === null) {
       lastBattleTimeMs = bt;
       lastChangedAt = now;
+      const formatted = formatMMSS(bt);
+      if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
       setState("state-fighting");
       return;
     }
@@ -88,6 +89,8 @@ const createBattleTimeUI = ({
     if (bt !== lastBattleTimeMs) {
       lastBattleTimeMs = bt;
       lastChangedAt = now;
+      const formatted = formatMMSS(bt);
+      if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
       setState("state-fighting");
       return;
     }
@@ -97,7 +100,16 @@ const createBattleTimeUI = ({
     if (frozenMs >= idleMs) setState("state-idle");
     else if (frozenMs >= graceMs) setState("state-ended");
     else if (frozenMs >= graceArmMs) setState("state-grace");
-    else setState("state-fighting");
+    else {
+      // Keep the timer visually ticking for at least VISUAL_TICK_MS
+      // so the display doesn't appear frozen between damage hits
+      if (frozenMs < VISUAL_TICK_MS) {
+        const visualMs = bt + frozenMs;
+        const formatted = formatMMSS(visualMs);
+        if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
+      }
+      setState("state-fighting");
+    }
   };
 
   const render = (now) => {
@@ -107,7 +119,14 @@ const createBattleTimeUI = ({
     if (frozenMs >= idleMs) setState("state-idle");
     else if (frozenMs >= graceMs) setState("state-ended");
     else if (frozenMs >= graceArmMs) setState("state-grace");
-    else setState("state-fighting");
+    else {
+      if (frozenMs < VISUAL_TICK_MS) {
+        const visualMs = lastBattleTimeMs + frozenMs;
+        const formatted = formatMMSS(visualMs);
+        if (tickEl && tickEl.textContent !== formatted) tickEl.textContent = formatted;
+      }
+      setState("state-fighting");
+    }
   };
 
   const getCombatTimeText = () => formatMMSS(lastBattleTimeMs ?? 0);
