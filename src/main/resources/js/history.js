@@ -108,6 +108,10 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
   };
 
   let allFights = [];
+  const PAGE_SIZE = 30;
+  let renderedCount = 0;
+  let lastVisible = [];
+  let loadingMore = false;
 
   const populateDropdowns = (fights) => {
     if (!filterBossEl || !filterPlayerEl || !filterDateEl) return;
@@ -181,120 +185,137 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     });
   };
 
-  const renderList = (fights) => {
-    if (!listEl) return;
-    listEl.innerHTML = "";
+  const buildRow = (fight) => {
+    const row = document.createElement("div");
+    row.className = "historyRow";
+    row.dataset.fightId = fight.id;
 
-    const visible = applyFilters(fights);
+    const infoEl = document.createElement("div");
+    infoEl.className = "historyRowInfo";
 
-    if (!visible || visible.length === 0) {
-      if (emptyEl) emptyEl.style.display = "";
-      return;
-    }
-    if (emptyEl) emptyEl.style.display = "none";
-
-    visible.forEach((fight) => {
-      const row = document.createElement("div");
-      row.className = "historyRow";
-      row.dataset.fightId = fight.id;
-
-      const infoEl = document.createElement("div");
-      infoEl.className = "historyRowInfo";
-
-      const nameEl = document.createElement("div");
-      nameEl.className = "historyRowName";
-      nameEl.textContent = fight.bossName || `Boss #${fight.targetId}`;
-      if (fight.isLive) {
+    const nameEl = document.createElement("div");
+    nameEl.className = "historyRowName";
+    nameEl.textContent = fight.bossName || `Boss #${fight.targetId}`;
+    if (fight.isLive) {
+      const lastActivityMs = Number(fight.startTimeMs) + Number(fight.durationMs);
+      if (Date.now() - lastActivityMs < 60_000) {
         const badge = document.createElement("span");
         badge.className = "historyLiveBadge";
         badge.textContent = t("history.liveBadge", "Live");
         nameEl.appendChild(badge);
       }
-      if (fight.isTrain) {
-        const badge = document.createElement("span");
-        badge.className = "historyTrainBadge";
-        badge.textContent = t("history.trainBadge", "Training");
-        nameEl.appendChild(badge);
-      }
+    }
+    if (fight.isTrain) {
+      const badge = document.createElement("span");
+      badge.className = "historyTrainBadge";
+      badge.textContent = t("history.trainBadge", "Training");
+      nameEl.appendChild(badge);
+    }
 
-      const metaEl = document.createElement("div");
-      metaEl.className = "historyRowMeta";
+    const metaEl = document.createElement("div");
+    metaEl.className = "historyRowMeta";
 
-      const timeEl = document.createElement("span");
-      timeEl.className = "historyRowTime";
-      timeEl.textContent = formatDate(fight.startTimeMs);
+    const timeEl = document.createElement("span");
+    timeEl.className = "historyRowTime";
+    timeEl.textContent = formatDate(fight.startTimeMs);
 
-      const durEl = document.createElement("span");
-      durEl.className = "historyRowDuration";
-      durEl.textContent = formatTime(fight.durationMs);
+    const durEl = document.createElement("span");
+    durEl.className = "historyRowDuration";
+    durEl.textContent = formatTime(fight.durationMs);
 
-      const dmgEl = document.createElement("span");
-      dmgEl.className = "historyRowDamage";
-      dmgEl.textContent = formatDamage(fight.totalDamage);
+    const dmgEl = document.createElement("span");
+    dmgEl.className = "historyRowDamage";
+    dmgEl.textContent = formatDamage(fight.totalDamage);
 
-      metaEl.appendChild(timeEl);
-      metaEl.appendChild(durEl);
-      metaEl.appendChild(dmgEl);
+    metaEl.appendChild(timeEl);
+    metaEl.appendChild(durEl);
+    metaEl.appendChild(dmgEl);
 
-      const iconsEl = document.createElement("div");
-      iconsEl.className = "historyRowIcons";
-      const allJobs = (Array.isArray(fight.jobs) ? fight.jobs : []).slice(0, 12);
-      allJobs.forEach((job) => {
-        if (!job) return;
-        const wrap = document.createElement("span");
-        wrap.className = "historyIconWrap";
-        wrap.setAttribute("data-tip", getJobLabel(job));
-        const img = document.createElement("img");
-        img.src = `./assets/${job}.png`;
-        img.alt = job;
-        img.className = "historyRowClassIcon";
-        img.onerror = () => { wrap.style.display = "none"; };
-        wrap.appendChild(img);
-        iconsEl.appendChild(wrap);
-      });
-
-      infoEl.appendChild(nameEl);
-      infoEl.appendChild(metaEl);
-
-      const actionsEl = document.createElement("div");
-      actionsEl.className = "historyRowActions";
-
-      if (!fight.isLive) {
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "historyDeleteBtn";
-        deleteBtn.type = "button";
-        deleteBtn.setAttribute("aria-label", t("history.delete", "Delete"));
-        deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-        deleteBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (window.javaBridge?.deleteFight?.(fight.id)) {
-            row.remove();
-            if (!listEl.querySelector(".historyRow")) {
-              if (emptyEl) emptyEl.style.display = "";
-            }
-          }
-        });
-        actionsEl.appendChild(deleteBtn);
-      }
-
-      row.appendChild(infoEl);
-      row.appendChild(iconsEl);
-      row.appendChild(actionsEl);
-
-      row.addEventListener("click", () => {
-        const rawRecord = window.javaBridge?.getFightDetails?.(fight.id);
-        if (!rawRecord) return;
-        let record;
-        try {
-          record = typeof rawRecord === "string" ? JSON.parse(rawRecord) : rawRecord;
-        } catch {
-          return;
-        }
-        onOpenFight?.(record);
-      });
-
-      listEl.appendChild(row);
+    const iconsEl = document.createElement("div");
+    iconsEl.className = "historyRowIcons";
+    const allJobs = (Array.isArray(fight.jobs) ? fight.jobs : []).slice(0, 12);
+    allJobs.forEach((job) => {
+      if (!job) return;
+      const wrap = document.createElement("span");
+      wrap.className = "historyIconWrap";
+      wrap.setAttribute("data-tip", getJobLabel(job));
+      const img = document.createElement("img");
+      img.src = `./assets/${job}.png`;
+      img.alt = job;
+      img.className = "historyRowClassIcon";
+      img.onerror = () => { wrap.style.display = "none"; };
+      wrap.appendChild(img);
+      iconsEl.appendChild(wrap);
     });
+
+    infoEl.appendChild(nameEl);
+    infoEl.appendChild(metaEl);
+
+    const actionsEl = document.createElement("div");
+    actionsEl.className = "historyRowActions";
+
+    if (!fight.isLive) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "historyDeleteBtn";
+      deleteBtn.type = "button";
+      deleteBtn.setAttribute("aria-label", t("history.delete", "Delete"));
+      deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (window.javaBridge?.deleteFight?.(fight.id)) {
+          row.remove();
+          if (!listEl.querySelector(".historyRow")) {
+            if (emptyEl) emptyEl.style.display = "";
+          }
+        }
+      });
+      actionsEl.appendChild(deleteBtn);
+    }
+
+    row.appendChild(infoEl);
+    row.appendChild(iconsEl);
+    row.appendChild(actionsEl);
+
+    row.addEventListener("click", () => {
+      const rawRecord = window.javaBridge?.getFightDetails?.(fight.id);
+      if (!rawRecord) return;
+      let record;
+      try {
+        record = typeof rawRecord === "string" ? JSON.parse(rawRecord) : rawRecord;
+      } catch {
+        return;
+      }
+      onOpenFight?.(record);
+    });
+
+    return row;
+  };
+
+  const appendPage = () => {
+    if (!listEl || renderedCount >= lastVisible.length) return;
+    const end = Math.min(renderedCount + PAGE_SIZE, lastVisible.length);
+    const frag = document.createDocumentFragment();
+    for (let i = renderedCount; i < end; i++) {
+      frag.appendChild(buildRow(lastVisible[i]));
+    }
+    listEl.appendChild(frag);
+    renderedCount = end;
+  };
+
+  const renderList = (fights) => {
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    renderedCount = 0;
+
+    lastVisible = applyFilters(fights);
+
+    if (!lastVisible || lastVisible.length === 0) {
+      if (emptyEl) emptyEl.style.display = "";
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = "none";
+
+    appendPage();
   };
 
   const open = () => {
@@ -309,6 +330,17 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     populateDropdowns(allFights);
     renderList(allFights);
   };
+
+  // Load more rows when scrolled near the bottom
+  listEl?.addEventListener("scroll", () => {
+    if (loadingMore || renderedCount >= lastVisible.length) return;
+    const threshold = 80;
+    if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - threshold) {
+      loadingMore = true;
+      appendPage();
+      loadingMore = false;
+    }
+  });
 
   filterBossEl?.addEventListener("change", () => {
     filterBoss = filterBossEl.value;

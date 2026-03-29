@@ -34,8 +34,16 @@ class StreamProcessor(private val dataStorage: DataStorage) {
      * The game server re-sends recent damage records inside multiple consecutive context-update
      * packets, so the same sub-packet bytes can appear many times.  Tracking seen raw bytes
      * prevents triplication / quadruplication without losing legitimate distinct hits.
+     * Bounded to 16 384 entries (LRU eviction) to prevent unbounded growth during long sessions.
      */
-    private val seenEmbeddedHexes = mutableSetOf<String>()
+    private val seenEmbeddedHexes = object : LinkedHashSet<String>() {
+        private val maxSize = 16_384
+        override fun add(element: String): Boolean {
+            if (contains(element)) return false
+            if (size >= maxSize) iterator().let { it.next(); it.remove() }
+            return super.add(element)
+        }
+    }
 
     /**
      * Set of skill IDs that apply actual DOT damage, derived from game data:

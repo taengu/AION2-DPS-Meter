@@ -3747,8 +3747,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 
 
-.windowDragFreeze,
-.windowDragFreeze * {
+.windowDragFreeze {
   -webkit-user-select: none !important;
   user-select: none !important;
   pointer-events: none !important;

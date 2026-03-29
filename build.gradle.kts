@@ -203,7 +203,7 @@ compose.desktop {
             "--add-opens=jdk.jsobject/netscape.javascript=ALL-UNNAMED",
             "--enable-native-access=ALL-UNNAMED",
             "-Djavafx.verbose=false",
-            "-Dprism.order=sw",
+            "-Dprism.order=d3d,sw",
             "-DdpsMeter.memProfileEnabled=true",
             "-DdpsMeter.memProfileInterval=30",
             "-DdpsMeter.memProfileTop=50",

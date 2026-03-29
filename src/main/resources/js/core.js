@@ -746,6 +746,12 @@ class DpsApp {
 
 
 
+  _isAnyPanelOpen() {
+    return this.settingsPanel?.classList.contains("isOpen")
+      || this.historyUI?.isOpen?.()
+      || this.detailsUI?.isOpen?.();
+  }
+
   fetchDps() {
     if (this.isCollapse || this._windowHidden) return;
     if (this.isWindowDragging) {
@@ -757,6 +763,13 @@ class DpsApp {
       return;
     }
     const now = this.nowMs();
+    // Throttle meter DOM updates while a panel is open (1s instead of 100ms)
+    if (this._isAnyPanelOpen()) {
+      if (this._lastPanelRenderAt && now - this._lastPanelRenderAt < 1000) return;
+      this._lastPanelRenderAt = now;
+    } else {
+      this._lastPanelRenderAt = 0;
+    }
     const raw = window.dpsData?.getDpsData?.();
     // globalThis.uiDebug?.log?.("getBattleDetail", raw);
 
@@ -3667,11 +3680,22 @@ class DpsApp {
       if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDragMoved = true;
         this.setWindowDragFreeze(true);
-        if (this.pinnedDetailsRowId === null) {
-          this.hoveredDetailsRowId = null;
-          this.detailsUI?.close?.({ keepPinned: false });
-        }
         this.elList?.classList?.add?.("dragInteracting");
+        // Hide heavy panels during drag to reduce per-frame repaint cost;
+        // place a lightweight ghost outline so the user sees where they are.
+        for (const sel of [".settingsPanel", ".detailsPanel", ".historyPanel"]) {
+          const el = document.querySelector(sel);
+          if (el && el.offsetParent !== null) {
+            const r = el.getBoundingClientRect();
+            const ghost = document.createElement("div");
+            ghost.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`
+              + "background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:8px;pointer-events:none;z-index:9999;";
+            document.body.appendChild(ghost);
+            el.style.visibility = "hidden";
+            el._dragHidden = true;
+            el._dragGhost = ghost;
+          }
+        }
       }
       pendingStageX = initialStageX + deltaX;
       pendingStageY = initialStageY + deltaY;
@@ -3688,6 +3712,16 @@ class DpsApp {
       if (hasDragMoved) {
         this.elList?.classList?.remove?.("dragInteracting");
         this.suppressRowInteractionUntilMs = this.nowMs() + 120;
+        // Restore panels hidden during drag
+        for (const sel of [".settingsPanel", ".detailsPanel", ".historyPanel"]) {
+          const el = document.querySelector(sel);
+          if (el?._dragHidden) {
+              el.style.visibility = "";
+              el._dragGhost?.remove();
+              delete el._dragHidden;
+              delete el._dragGhost;
+            }
+        }
       }
       if (dragRafId !== null) {
         cancelAnimationFrame(dragRafId);

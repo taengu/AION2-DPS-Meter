@@ -132,6 +132,8 @@ class PcapCapturer(
             }
 
             handle.use { h -> h.loop(-1, listener) }
+        } catch (_: InterruptedException) {
+            logger.info("Packet capture stopped on {}", nif.description ?: nif.name)
         } catch (e: Exception) {
             logger.error("Packet capture failed on {}", nif.description ?: nif.name, e)
             UnifiedLogger.crash("Packet capture failed on ${nif.description ?: nif.name}", e)

@@ -1,6 +1,8 @@
 (() => {
-  const API = "https://api.github.com/repos/taengu/AION2-DPS-Meter/releases?per_page=10";
+  const GITHUB_API = "https://api.github.com/repos/taengu/AION2-DPS-Meter/releases?per_page=10";
+  const R2_MANIFEST = "https://pub-cab14a472a79408cad24a89801c89db1.r2.dev/latest.json";
   const RELEASES_URL = "https://github.com/taengu/AION2-DPS-Meter/releases";
+  const FETCH_TIMEOUT = 6000;
   const START_DELAY = 800,
     RETRY = 500,
     LIMIT = 5;
@@ -129,25 +131,61 @@
       const rawCurrent = String(window.dpsData.getVersion() || "").trim();
       const current = rawCurrent.startsWith("v") ? rawCurrent : "v" + rawCurrent;
 
-      let res;
-      try {
-        res = await fetch(API, {
+      const fetchWithTimeout = (url, opts = {}) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
+        return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+      };
+
+      const fetchGitHub = async () => {
+        const res = await fetchWithTimeout(GITHUB_API, {
           headers: { Accept: "application/vnd.github+json" },
           cache: "no-store",
         });
-      } catch { return; }
-      if (!res.ok) return;
+        if (!res.ok) throw new Error("GitHub " + res.status);
+        const releases = await res.json();
+        const release = releases.find((r) => {
+          const tag = String(r?.tag_name || "").trim().toLowerCase();
+          if (tag.startsWith("pre")) return false;
+          return !r?.draft && !r?.prerelease;
+        });
+        if (!release) throw new Error("no release");
+        const msiAsset = (release.assets || []).find(
+          (a) => a.name && a.name.toLowerCase().endsWith(".msi")
+        );
+        return {
+          latest: release.tag_name,
+          msi: msiAsset?.browser_download_url || null,
+          notes: release.html_url || RELEASES_URL,
+        };
+      };
 
-      const releases = await res.json();
-      const release = releases.find((r) => {
-        const tag = String(r?.tag_name || "").trim().toLowerCase();
-        if (tag.startsWith("pre")) return false;
-        return !r?.draft && !r?.prerelease;
-      });
-      if (!release) return;
+      const fetchR2 = async () => {
+        const res = await fetchWithTimeout(R2_MANIFEST, { cache: "no-store" });
+        if (!res.ok) throw new Error("R2 " + res.status);
+        const m = await res.json();
+        const v = m.version?.startsWith("v") ? m.version : "v" + m.version;
+        return {
+          latest: v,
+          msi: m.msiUrl || null,
+          notes: m.releaseNotesUrl || RELEASES_URL,
+        };
+      };
 
-      const latest = release.tag_name;
+      // Try GitHub first, fall back to R2 mirror
+      const [primary, fallback] = [fetchGitHub, fetchR2];
+      let result;
+      try {
+        result = await primary();
+      } catch {
+        try { result = await fallback(); } catch { return; }
+      }
+
+      const latest = result.latest;
       const latestInfo = parseVersion(latest);
+      msiUrl = result.msi;
+      releaseUrl = result.notes;
+
       const currentInfo = parseVersion(current);
       const hasUpdate =
         latestInfo.value > currentInfo.value ||
@@ -155,13 +193,6 @@
           currentInfo.prerelease &&
           !latestInfo.prerelease);
       if (!hasUpdate) return;
-
-      // Find MSI asset for direct download
-      const msiAsset = (release.assets || []).find(
-        (a) => a.name && a.name.toLowerCase().endsWith(".msi")
-      );
-      msiUrl = msiAsset?.browser_download_url || null;
-      releaseUrl = release.html_url || RELEASES_URL;
 
       // Show/hide install button based on whether MSI is available
       const installBtn = $(".updateInstallBtn");

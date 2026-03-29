@@ -181,7 +181,9 @@ class DpsCalculator(val dataStorage: DataStorage) {
     @Volatile private var lastKnownLocalPlayerId: Long? = null
     @Volatile private var allTargetsWindowMs = 120_000L
     @Volatile private var trainSelectionMode: TrainSelectionMode = TrainSelectionMode.ALL
-    private val nicknameJobCache = mutableMapOf<String, String>()
+    private val nicknameJobCache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 1024
+    }
     private val loggedInferFailures = mutableSetOf<Int>()
     private val maxLoggedInferFailures = 2_048
 

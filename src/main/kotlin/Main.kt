@@ -55,7 +55,7 @@ class AionMeterApp : Application() {
             }
         }
 
-        val channel = Channel<CapturedPayload>(Channel.UNLIMITED)
+        val channel = Channel<CapturedPayload>(4096)
         val config = PcapCapturerConfig.loadFromProperties()
         val dataStorage = DataStorage()
 
