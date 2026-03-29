@@ -8,7 +8,8 @@ Our goal is to make a community tool that doesn't rely on methods that might int
 
 If you'd like to get involved, you can reach us on Discord from the link below!
 
-🔗 **GitHub Repository:** https://github.com/taengu/Aion2-Dps-Meter  
+🔗 **GitHub Repository:** https://github.com/taengu/Aion2-Dps-Meter
+🔗 **Gitee Repository:** https://gitee.com/taengu/AION2-DPS-Meter/
 💬 **Discord (Support & Community): https://discord.gg/Aion2Global**
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
