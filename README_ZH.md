@@ -9,6 +9,7 @@
 如果您想参与贡献，可以通过下方链接加入我们的 Discord！
 
 🔗 **GitHub 仓库：** https://github.com/taengu/Aion2-Dps-Meter
+🔗 **Gitee 仓库：** https://gitee.com/taengu/AION2-DPS-Meter
 💬 **Discord（技术支持与社区）：https://discord.gg/Aion2Global**
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
