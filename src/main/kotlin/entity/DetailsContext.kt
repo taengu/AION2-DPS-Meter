@@ -47,7 +47,8 @@ data class DetailSkillEntry(
     val heal: Int,
     val job: String = "",
     val isDot: Boolean = false,
-    val hitTimestamps: List<Long> = emptyList()
+    val hitTimestamps: List<Long> = emptyList(),
+    val specs: List<Boolean> = listOf(false, false, false, false, false)
 )
 
 @Serializable

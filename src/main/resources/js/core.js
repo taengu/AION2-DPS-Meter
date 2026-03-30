@@ -1325,6 +1325,7 @@ class DpsApp {
       actorId = null,
       isDot = false,
       hitTimestamps = null,
+      specs = null,
     }) => {
       const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
       if (dmgInt <= 0) {
@@ -1366,6 +1367,7 @@ class DpsApp {
         actorId,
         isDot,
         hitTimestamps: Array.isArray(hitTimestamps) ? hitTimestamps : [],
+        specs: Array.isArray(specs) ? specs : null,
       });
     };
 
@@ -1383,7 +1385,7 @@ class DpsApp {
         }
         const code = String(value.code ?? "");
         const nameRaw = typeof value.name === "string" ? value.name.trim() : "";
-        const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
+        const translatedName = (this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw).replace(/^Theostone:/, "Theo:");
         const baseName =
           translatedName ||
           this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||
@@ -1415,6 +1417,7 @@ class DpsApp {
           actorId: Number.isFinite(actorId) ? actorId : null,
           isDot,
           hitTimestamps: Array.isArray(value.hitTimestamps) ? value.hitTimestamps : [],
+          specs: Array.isArray(value.specs) ? value.specs : null,
         });
       }
     } else {
@@ -1422,7 +1425,7 @@ class DpsApp {
         if (!value || typeof value !== "object") continue;
 
         const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
-        const translatedName = this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw;
+        const translatedName = (this.i18n?.getSkillName?.(code, nameRaw) ?? nameRaw).replace(/^Theostone:/, "Theo:");
         const baseName =
           translatedName ||
           this.i18n?.format?.("skills.fallback", { code }, `Skill ${code}`) ||

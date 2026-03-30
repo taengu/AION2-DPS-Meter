@@ -1559,6 +1559,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                     multiHitDamage > 0 &&
                     secondValue > multiHitDamage
 
+            val rawForSpec = if (aggregatedCompactSkill) pendingCompactContext.skillRaw else exactSkillCode.toInt()
+            val specFlags = decodeSpecFlags(rawForSpec)
             val resolvedSkillCode = if (aggregatedCompactSkill) {
                 pendingCompactContext.skillRaw
             } else {
@@ -1601,6 +1603,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.setTargetId(targetInfo)
             pdp.setActorId(actorInfo)
             pdp.setSkillCode(resolvedSkillCode)
+            pdp.setSpecFlags(specFlags)
             val typeInfo = VarIntOutput(dummyType, 1)
             pdp.setType(typeInfo)
             pdp.setSpecials(specials)
@@ -1777,6 +1780,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         // Some switch=54 packets encode the displayed per-hit damage in the repeated hit list,
         // while the "damage" field is just that value scaled by 10 with a trailing counter nibble.
         return encodedDamage / 10 == repeatedDamage
+    }
+
+    private fun decodeSpecFlags(raw: Int): BooleanArray {
+        val result = BooleanArray(5)
+        if (raw in 30_000_000..30_999_999) return result
+        var suffix = (raw % 10000) / 10
+        if (suffix <= 0) return result
+        while (suffix > 0) {
+            val slot = suffix % 10
+            if (slot < 1 || slot > 5) return BooleanArray(5)
+            result[slot - 1] = true
+            suffix /= 10
+        }
+        return result
     }
 
     private fun normalizeSkillId(raw: Int): Int {

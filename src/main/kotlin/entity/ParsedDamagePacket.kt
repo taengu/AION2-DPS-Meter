@@ -21,6 +21,7 @@ class ParsedDamagePacket {
         private var multiHitDamage = 0
         private var healAmount = 0
         private var hexPayload: String = ""
+        private var specFlags: BooleanArray = BooleanArray(5)
 
         fun setSpecials(specials: List<SpecialDamage>) {
                 this.specials = specials
@@ -52,6 +53,9 @@ class ParsedDamagePacket {
         fun setHexPayload(hexPayload: String) {
                 this.hexPayload = hexPayload
         }
+        fun setSpecFlags(flags: BooleanArray) {
+                this.specFlags = flags
+        }
 
         fun getActorId(): Int {
                 return this.actorId
@@ -79,6 +83,9 @@ class ParsedDamagePacket {
         }
         fun getHexPayload(): String {
                 return this.hexPayload
+        }
+        fun getSpecFlags(): BooleanArray {
+                return this.specFlags
         }
         fun getTimeStamp(): Long {
                 return this.timestamp

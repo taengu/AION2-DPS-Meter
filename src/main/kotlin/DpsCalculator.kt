@@ -744,6 +744,9 @@ class DpsCalculator(val dataStorage: DataStorage) {
                 existing
             }
 
+            val pdpSpecs = pdp.getSpecFlags()
+            val mergedSpecs = next.specs.mapIndexed { i, v -> v || pdpSpecs[i] }
+
             var updated = next.copy(
                 time = next.time + 1,
                 dmg = next.dmg + damage,
@@ -752,7 +755,8 @@ class DpsCalculator(val dataStorage: DataStorage) {
                 multiHitDamage = next.multiHitDamage + pdp.getMultiHitDamage(),
                 multiHitHits = next.multiHitHits + if (pdp.getMultiHitCount() > 0) 1 else 0,
                 minDmg = minOf(next.minDmg, damage),
-                maxDmg = maxOf(next.maxDmg, damage)
+                maxDmg = maxOf(next.maxDmg, damage),
+                specs = mergedSpecs
             )
 
             if (!isDot) {
