@@ -1,6 +1,7 @@
 [English](README.md) | [中文](README_ZH.md) | [한국어](README_KO.md)
 
 # AION2 DPS Meter
+> https://a2tools.app
 
 一款适用于 **AION 2**（永恒之塔2）台服或韩服的战斗分析（DPS 统计）工具。
 
