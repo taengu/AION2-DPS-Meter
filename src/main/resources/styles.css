@@ -1809,7 +1809,7 @@ body.mainPlayerDpsBold .meter .item .content .dps {
       overflow-y: auto;
       overflow-x: hidden;
       scrollbar-gutter: stable;
-      contain: layout paint;
+      contain: layout;
 
       &::-webkit-scrollbar {
         width: 10px;
@@ -3187,6 +3187,39 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   padding-left: 3px;
   text-shadow: var(--player-name-shadow, var(--text-shadow));
 }
+.detailsPanel .detailsSkills .cell.name .dotToggle {
+  flex: 0 0 10px;
+  width: 10px;
+  text-align: center;
+  font-size: 0.85em;
+  opacity: 0.6;
+  margin: 0 2px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.detailsPanel .detailsSkills .skills .skillRow.isDotChild {
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.03);
+}
+.detailsPanel .detailsSkills .skills .skillRow.isDotChild .cell.name .skillNameText {
+  font-style: italic;
+}
+.detailsPanel .detailsSkills .cell.name .skillSpecIndicator {
+  display: none;
+  flex: 0 0 auto;
+  gap: 1.5px;
+  margin-left: 4px;
+  align-items: center;
+}
+.detailsPanel .detailsSkills .cell.name .skillSpecIndicator .specDot {
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.detailsPanel .detailsSkills .cell.name .skillSpecIndicator .specDot.isActive {
+  background: #6af;
+}
 .detailsPanel .detailsSkills .cell.center {
   justify-content: center;
   text-overflow: ellipsis;
@@ -3256,7 +3289,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   min-width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  contain: layout paint;
+  contain: layout;
 }
 .detailsPanel .detailsSkills::-webkit-scrollbar {
   height: 10px;

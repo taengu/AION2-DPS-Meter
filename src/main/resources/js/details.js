@@ -35,6 +35,7 @@ const createDetailsUI = ({
   let lastUnfilteredDetails = null;
   const detailsCacheByRowId = new Map();
   const COMPACT_MAX_SKILLS = 5;
+  const expandedDotParents = new Set();
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
 
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -532,6 +533,10 @@ const createDetailsUI = ({
     const nameEl = document.createElement("div");
     nameEl.className = "cell name";
 
+    const dotToggleEl = document.createElement("span");
+    dotToggleEl.className = "dotToggle";
+    dotToggleEl.textContent = "\u25B6"; // ▶
+
     const iconEl = document.createElement("img");
     iconEl.className = "skillIcon";
     iconEl.alt = "";
@@ -543,8 +548,18 @@ const createDetailsUI = ({
     const nameTextEl = document.createElement("span");
     nameTextEl.className = "skillNameText";
 
+    const specEl = document.createElement("span");
+    specEl.className = "skillSpecIndicator";
+    for (let s = 0; s < 5; s++) {
+      const dot = document.createElement("span");
+      dot.className = "specDot";
+      specEl.appendChild(dot);
+    }
+
     nameEl.appendChild(iconEl);
+    nameEl.appendChild(dotToggleEl);
     nameEl.appendChild(nameTextEl);
+    nameEl.appendChild(specEl);
 
     const hitEl = document.createElement("div");
     hitEl.className = "cell center hit";
@@ -604,8 +619,10 @@ const createDetailsUI = ({
       rowEl,
       rowFillEl,
       nameEl,
+      dotToggleEl,
       iconEl,
       nameTextEl,
+      specEl,
       hitEl,
       dmgEl,
       dmgPctEl,
@@ -633,7 +650,7 @@ const createDetailsUI = ({
 
   const getSkillSortValue = (skill, key) => {
     const hits = Number(skill?.time) || 0;
-    const dmg = Number(skill?.dmg) || 0;
+    const dmg = Number(skill?._combinedDmg) || Number(skill?.dmg) || 0;
     switch (key) {
       case "name":
         return String(skill?.name || "").toLowerCase();
@@ -807,16 +824,57 @@ const createDetailsUI = ({
         multiHitHits: (Number(existing.multiHitHits) || 0) + (Number(skill.multiHitHits) || 0),
         minDmg: mergedMin,
         maxDmg: Math.max((Number(existing.maxDmg) || 0), (Number(skill.maxDmg) || 0)),
+        specs: (existing.specs || [false,false,false,false,false]).map((v, i) => v || !!(skill.specs && skill.specs[i])),
       });
     });
-    const sortedSkills = [...groupedSkills.values()].sort(compareSkillSort);
-    const topSkills = compact ? sortedSkills.slice(0, COMPACT_MAX_SKILLS) : sortedSkills;
+    // Pair DOTs with parent skills
+    // DOT names follow pattern: "BaseName - DOT" (or i18n equivalent)
+    const DOT_SUFFIX = / - DOT$/;
+    const hitSkills = new Map();  // name → skill
+    const dotSkills = [];         // { baseName, skill }
+    for (const skill of groupedSkills.values()) {
+      const name = String(skill.name ?? "");
+      if (skill.isDot) {
+        const baseName = name.replace(DOT_SUFFIX, "");
+        dotSkills.push({ baseName, skill });
+      } else {
+        hitSkills.set(name, skill);
+      }
+    }
+
+    // Build display list: attach DOTs to parents, or keep standalone
+    const displaySkills = [];
+    const attachedDotKeys = new Set();
+    for (const [name, hit] of hitSkills) {
+      // Find DOT whose baseName matches this parent's name
+      const dotEntry = dotSkills.find((d) => d.baseName === name);
+      if (dotEntry) {
+        hit._dotChild = dotEntry.skill;
+        hit._combinedDmg = (Number(hit.dmg) || 0) + (Number(dotEntry.skill.dmg) || 0);
+        attachedDotKeys.add(dotEntry.baseName);
+      } else {
+        hit._dotChild = null;
+        hit._combinedDmg = Number(hit.dmg) || 0;
+      }
+      displaySkills.push(hit);
+    }
+    // Add orphan DOTs (no parent hit skill)
+    for (const { baseName, skill: dot } of dotSkills) {
+      if (!attachedDotKeys.has(baseName)) {
+        dot._dotChild = null;
+        dot._combinedDmg = Number(dot.dmg) || 0;
+        displaySkills.push(dot);
+      }
+    }
+
+    displaySkills.sort(compareSkillSort);
+    const topDisplay = compact ? displaySkills.slice(0, COMPACT_MAX_SKILLS) : displaySkills;
 
     const totalDamage = Number(details?.totalDmg);
-    const aggregatedDamage = topSkills.reduce((sum, skill) => sum + (Number(skill?.dmg) || 0), 0);
+    const aggregatedDamage = topDisplay.reduce((sum, s) => sum + (s._combinedDmg || 0), 0);
     const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
 
-    ensureSkillSlots(topSkills.length);
+    ensureSkillSlots(topDisplay.length);
 
     // Measure longest skill name and set name column width
     const iconSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--details-skill-icon-size") || "36", 10);
@@ -826,27 +884,142 @@ const createDetailsUI = ({
     const fontSize = parseFloat(getComputedStyle(skillsListEl).fontSize) * 0.88;
     measureCanvas.font = `700 ${fontSize}px ${getComputedStyle(skillsListEl).fontFamily}`;
     let maxNameWidth = 0;
-    topSkills.forEach((skill) => {
+    topDisplay.forEach((skill) => {
       const w = measureCanvas.measureText(skill?.name ?? "").width;
       if (w > maxNameWidth) maxNameWidth = w;
     });
-    lastMeasuredNameWidth = Math.ceil(iconSize + iconMargin + maxNameWidth + namePad);
+    const arrowSpace = 14; // dotToggle: 10px width + 2px margin each side
+    lastMeasuredNameWidth = Math.ceil(iconSize + iconMargin + arrowSpace + maxNameWidth + namePad);
     updateGridColumns();
 
     for (let i = 0; i < skillSlots.length; i++) {
       const view = skillSlots[i];
-      const skill = topSkills[i];
+      const skill = topDisplay[i];
 
       if (!skill) {
         view.rowEl.style.display = "none";
         view.rowFillEl.style.transform = "scaleX(0)";
         if (view.iconEl) view.iconEl.style.display = "none";
+        if (view.dotSubRow) view.dotSubRow.style.display = "none";
         continue;
       }
 
-      view.rowEl.style.display = "";
+      const hasDotChild = !!skill._dotChild;
+      const skillName = String(skill.name ?? "");
+      const isExpanded = hasDotChild && expandedDotParents.has(skillName);
 
-      const damage = skill.dmg || 0;
+      view.rowEl.style.display = "";
+      view.rowEl.classList.toggle("hasDotChild", hasDotChild);
+      view.rowEl.classList.toggle("isDotExpanded", isExpanded);
+
+      // Toggle expand on click for parent rows with DOT children
+      if (hasDotChild) {
+        if (!view._dotToggleHandler) {
+          view._dotToggleHandler = () => {
+            const name = view._dotParentName;
+            if (!name) return;
+            if (expandedDotParents.has(name)) {
+              expandedDotParents.delete(name);
+            } else {
+              expandedDotParents.add(name);
+            }
+            if (lastDetails) renderSkills(lastDetails, { compact: activeCompactMode });
+          };
+          view.rowEl.addEventListener("click", view._dotToggleHandler);
+        }
+        view._dotParentName = skillName;
+        view.rowEl.style.cursor = "pointer";
+      } else {
+        view._dotParentName = null;
+        view.rowEl.style.cursor = "";
+      }
+
+      // Render DOT sub-row inside the parent row element
+      if (hasDotChild) {
+        if (!view.dotSubRow) {
+          view.dotSubRow = document.createElement("div");
+          view.dotSubRow.className = "skillRow isDotChild";
+          view.rowEl.parentNode.insertBefore(view.dotSubRow, view.rowEl.nextSibling);
+        }
+        const dot = skill._dotChild;
+        const dotDmg = Number(dot.dmg) || 0;
+        const dotHits = Number(dot.time) || 0;
+        const dotCrit = Number(dot.crit) || 0;
+        const dotDmgRate = percentBaseTotal > 0 ? (dotDmg / percentBaseTotal) * 100 : 0;
+        const dotCritRate = dotHits > 0 ? Math.round((dotCrit / dotHits) * 100) : 0;
+        const dotMhHits = Number(dot.multiHitHits) || 0;
+        const dotMhDmg = Number(dot.multiHitDamage) || 0;
+        const dotMhRate = dotHits > 0 ? Math.round((dotMhHits / dotHits) * 100) : 0;
+        const dotParry = dotHits > 0 ? Math.round(((Number(dot.parry) || 0) / dotHits) * 100) : 0;
+        const dotPerfect = dotHits > 0 ? Math.round(((Number(dot.perfect) || 0) / dotHits) * 100) : 0;
+        const dotDouble = dotHits > 0 ? Math.round(((Number(dot.double) || 0) / dotHits) * 100) : 0;
+        const dotBack = dotHits > 0 ? Math.round(((Number(dot.back) || 0) / dotHits) * 100) : 0;
+        const dotRawMin = Number(dot.minDmg) || 0;
+        const dotMin = dotRawMin >= 2147483647 ? 0 : dotRawMin;
+        const dotMax = Number(dot.maxDmg) || 0;
+        const dotAvg = dotHits > 0 ? Math.round(dotDmg / dotHits) : 0;
+
+        view.dotSubRow.style.display = isExpanded ? "" : "none";
+        if (isExpanded) {
+          view.dotSubRow.innerHTML = "";
+
+          // Name cell: icon + spacer + name text (same structure as parent)
+          const nameCell = document.createElement("div");
+          nameCell.className = "cell name";
+          const dotIcon = document.createElement("img");
+          dotIcon.className = "skillIcon";
+          dotIcon.alt = "";
+          dotIcon.loading = "lazy";
+          dotIcon.decoding = "async";
+          dotIcon.referrerPolicy = "no-referrer";
+          dotIcon.addEventListener("error", () => window.skillIcons?.handleImgError?.(dotIcon));
+          const resolvedDotJob = dot.job || getActorJob(dot.actorId);
+          window.skillIcons?.applyIconToImage?.(dotIcon, { ...dot, job: resolvedDotJob });
+          const dotSpacer = document.createElement("span");
+          dotSpacer.className = "dotToggle";
+          const dotNameText = document.createElement("span");
+          dotNameText.className = "skillNameText";
+          dotNameText.textContent = `\u2022 ${dot.name ?? ""}`;
+          dotNameText.style.fontStyle = "italic";
+          const dotTheostoneColor = window.skillIcons?.getTheostoneNameColor?.(dot) || "";
+          const dotSkillColor = dotTheostoneColor || (resolvedDotJob ? getJobColor(resolvedDotJob) : "");
+          if (dotSkillColor) dotNameText.style.color = dotSkillColor;
+          nameCell.appendChild(dotIcon);
+          nameCell.appendChild(dotSpacer);
+          nameCell.appendChild(dotNameText);
+
+          // Data cells
+          const dataCells = [
+            { cls: "cell center hit", text: `${dotHits}` },
+            { cls: "cell center dmg", text: `${formatDamageCompact(dotDmg)}` },
+            { cls: "cell center dmgpct", text: `${dotDmgRate.toFixed(1)}%` },
+            { cls: "cell center mhit", text: `${dotMhRate}%` },
+            { cls: "cell center mdmg", text: `${formatDamageCompact(dotMhDmg)}` },
+            { cls: "cell center crit", text: `${dotCritRate}%` },
+            { cls: "cell center parry", text: `${dotParry}%` },
+            { cls: "cell center perfect", text: `${dotPerfect}%` },
+            { cls: "cell center double", text: `${dotDouble}%` },
+            { cls: "cell center back", text: `${dotBack}%` },
+            { cls: "cell center mindmg", text: `${formatDamageCompact(dotMin)}` },
+            { cls: "cell center avgdmg", text: `${formatDamageCompact(dotAvg)}` },
+            { cls: "cell center maxdmg", text: `${formatDamageCompact(dotMax)}` },
+          ];
+          view.dotSubRow.appendChild(nameCell);
+          dataCells.forEach(({ cls, text }) => {
+            const el = document.createElement("div");
+            el.className = cls;
+            el.textContent = text;
+            view.dotSubRow.appendChild(el);
+          });
+        }
+      } else if (view.dotSubRow) {
+        view.dotSubRow.style.display = "none";
+      }
+
+      // When collapsed with a DOT child, combine Dmg, D%, Min/Avg/Max only
+      const dotChild = skill._dotChild;
+      const showCombined = hasDotChild && !isExpanded;
+      const damage = (skill.dmg || 0) + (showCombined ? (Number(dotChild?.dmg) || 0) : 0);
       const barFillRatio = clamp01(damage / percentBaseTotal);
       const hits = skill.time || 0;
       const crits = skill.crit || 0;
@@ -857,9 +1030,13 @@ const createDetailsUI = ({
       const multiHitHits = skill.multiHitHits || 0;
       const multiHitDamage = skill.multiHitDamage || 0;
       const rawMinDmg = Number(skill.minDmg) || 0;
-      const minDmg = rawMinDmg >= 2147483647 ? 0 : rawMinDmg;
-      const maxDmg = skill.maxDmg || 0;
-      const avgDmg = hits > 0 ? Math.round(damage / hits) : 0;
+      const dotRawMinDmg = showCombined ? (Number(dotChild?.minDmg) || 0) : 0;
+      const minDmgA = rawMinDmg >= 2147483647 ? 0 : rawMinDmg;
+      const minDmgB = dotRawMinDmg >= 2147483647 ? 0 : dotRawMinDmg;
+      const minDmg = showCombined && minDmgA > 0 && minDmgB > 0 ? Math.min(minDmgA, minDmgB) : (minDmgA || minDmgB);
+      const maxDmg = Math.max(skill.maxDmg || 0, showCombined ? (Number(dotChild?.maxDmg) || 0) : 0);
+      const combinedHits = hits + (showCombined ? (Number(dotChild?.time) || 0) : 0);
+      const avgDmg = combinedHits > 0 ? Math.round(damage / combinedHits) : 0;
 
       const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
 
@@ -872,7 +1049,20 @@ const createDetailsUI = ({
       const doubleRate = pct(double, hits);
       const multiHitRate = pct(multiHitHits, hits);
 
+      // Show/hide DOT toggle arrow
+      view.dotToggleEl.textContent = hasDotChild ? "\u25BC" : "";
+      view.dotToggleEl.style.transform = hasDotChild && !isExpanded ? "rotate(-90deg)" : "";
+
       view.nameTextEl.textContent = skill.name ?? "";
+      const specs = skill.specs || [];
+      const hasAnySpec = specs.some(Boolean);
+      view.specEl.style.display = hasAnySpec ? "inline-flex" : "none";
+      if (hasAnySpec) {
+        const dots = view.specEl.children;
+        for (let s = 0; s < 5; s++) {
+          dots[s].classList.toggle("isActive", !!specs[s]);
+        }
+      }
       const resolvedJob = skill.job || getActorJob(skill.actorId);
       window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
       const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
@@ -894,6 +1084,7 @@ const createDetailsUI = ({
 
       view.rowFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
+
   };
 
   // ── Collapsible section toggle ──
