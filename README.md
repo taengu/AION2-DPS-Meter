@@ -1,7 +1,7 @@
 [English](README.md) | [中文](README_ZH.md) | [한국어](README_KO.md)
 
 # AION2 DPS Meter by [A2tools.app](https://a2tools.app)
-> We're migrating to a new rewrite - see https://github.com/taengu/AION2-DPS-Meter
+> We're migrating to a new rewrite - see https://github.com/taengu/A2Tools-DPS-Meter
 
 A combat analysis (DPS meter) tool for **AION 2**, Taiwan or Korea servers.
 
